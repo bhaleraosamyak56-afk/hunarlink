@@ -2936,9 +2936,13 @@ function updateAuthUI() {
   const buyerName = (buyerProfile && (buyerProfile.fullName || [buyerProfile.firstName, buyerProfile.lastName].filter(Boolean).join(' ')))
     || (user && user.name)
     || '';
-  const initialsFromName = buyerName.trim()
-    ? buyerName.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
-    : '';
+  const nameWords = buyerName.trim().split(/\s+/).filter(Boolean);
+  let initialsFromName = nameWords.map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  /* A single-word name produced a lone initial ("P"), which read as a broken
+     avatar in the 36px disc. Fall back to the first two letters instead. */
+  if (initialsFromName.length === 1) {
+    initialsFromName = nameWords[0].slice(0, 2).toUpperCase();
+  }
   const buyerBadge = initialsFromName
     || (buyerProfile && buyerProfile.badge)
     || (user && user.badge)
@@ -2965,11 +2969,15 @@ function updateAuthUI() {
         if (sellerText) {
           sellerText.textContent = 'Studio Active';
         } else {
-          sellerBtn.innerHTML = '<span>✦</span> Studio Active';
+          const secIcon = document.getElementById('seller-login-icon');
+          if (secIcon) { secIcon.textContent = '✦'; }
+          sellerBtn.append(' Studio Active');
         }
         sellerBtn.classList.add('logged-in');
-        sellerBtn.style.backgroundColor = 'var(--btn-orange)';
-        sellerBtn.style.color = '#FFFFFF';
+        /* colour now comes from .btn-seller-login.logged-in in CSS; the inline
+           overrides would fight the new text-action styling. */
+        sellerBtn.style.backgroundColor = '';
+        sellerBtn.style.color = '';
         sellerBtn.title = `Logged in as ${user.name} (Artisan). Click to open Seller Portal`;
       }
 
@@ -2977,7 +2985,7 @@ function updateAuthUI() {
         if (userText) {
           userText.textContent = buyerFirst;
         } else {
-          userBtn.innerHTML = `<span>👤</span> ${buyerFirst}`;
+          userBtn.textContent = buyerFirst;
         }
         userBtn.classList.add('logged-in');
         userBtn.style.backgroundColor = '';
@@ -2991,7 +2999,7 @@ function updateAuthUI() {
         if (userText) {
           userText.textContent = buyerFirst;
         } else {
-          userBtn.innerHTML = `<span>👤</span> ${buyerFirst}`;
+          userBtn.textContent = buyerFirst;
         }
         userBtn.classList.add('logged-in');
         userBtn.style.backgroundColor = '';
@@ -3004,7 +3012,7 @@ function updateAuthUI() {
         if (sellerText) {
           sellerText.textContent = 'Artisan Login';
         } else {
-          sellerBtn.innerHTML = '<span>🔑</span> Artisan Login';
+          sellerBtn.textContent = 'Artisan Login';
         }
         sellerBtn.classList.remove('logged-in');
         sellerBtn.style.backgroundColor = '';
@@ -3024,7 +3032,7 @@ function updateAuthUI() {
       if (userText) {
         userText.textContent = label;
       } else {
-        userBtn.innerHTML = `<span>👤</span> ${label}`;
+        userBtn.textContent = label;
       }
       userBtn.classList.toggle('logged-in', !(buyerProfile && buyerProfile.isLoggedIn === false));
       userBtn.style.backgroundColor = '';
@@ -3681,6 +3689,24 @@ document.addEventListener("DOMContentLoaded", () => {
     sortSelect.addEventListener("change", () => {
       AppState.filters.sortBy = sortSelect.value;
       withProductsLoader(() => renderMarketplace(), { delay: 220, reason: "Sorting GI-certified treasures…" });
+    });
+  }
+
+  /* "/" jumps to the header search — the kbd hint in the rail promises this */
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (typing) return;
+    if (e.key === '/') {
+      const si = document.getElementById('global-search-input');
+      if (si) { e.preventDefault(); si.focus(); }
+    }
+  });
+
+  const headerSearch = document.getElementById('global-search-input');
+  if (headerSearch) {
+    headerSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { headerSearch.value = ''; headerSearch.blur(); }
     });
   }
 

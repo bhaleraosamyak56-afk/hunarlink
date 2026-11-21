@@ -727,56 +727,65 @@
   <!-- Sticky Main Header (Compulsory - Matches Reference Image) -->
   <header class="site-header" id="site-header">
     <div class="container header-inner">
-      <a href="index.html" class="brand-logo"
-        id="brand-home-trigger" style="text-decoration: none;">
-        <span class="brand-emblem">H</span>
+      <a href="index.html" class="brand-logo" id="brand-home-trigger"
+        aria-label="HunarLink — back to the store" style="text-decoration: none;">
+        <span class="brand-emblem"><svg class="brand-seal" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+            <rect x="0.5" y="0.5" width="43" height="43" rx="9" fill="#112A20" stroke="rgba(212,175,55,.30)"/>
+            <rect x="4" y="4" width="36" height="36" rx="6.5" fill="none" stroke="#D4AF37" stroke-opacity=".40" stroke-width=".9"/>
+            <path d="M8 32.5c4-6 9-9.5 14-9.5s10 3.5 14 9.5" fill="none" stroke="#E5C453" stroke-opacity=".48" stroke-width=".9" stroke-linecap="round"/>
+            <path d="M8 27.5c4-6 9-9.5 14-9.5s10 3.5 14 9.5" fill="none" stroke="#E5C453" stroke-opacity=".24" stroke-width=".9" stroke-linecap="round"/>
+          </svg>
+          <span class="brand-glyph">H</span></span>
         <span class="brand-text-wrap">
           <span class="brand-title">HunarLink</span>
-          <span class="brand-subtitle">J&amp;K ARTISANS NETWORK</span>
+          <span class="brand-subtitle"><i class="brand-sub-rule" aria-hidden="true"></i>J&amp;K Artisans Network</span>
         </span>
       </a>
+
+      <span class="header-divider" aria-hidden="true"></span>
 
       <!-- Live Search Bar -->
       <div class="header-search-wrap">
         <div class="header-search-box">
-          <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <svg class="search-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7.5"></circle>
+            <line x1="21" y1="21" x2="16.3" y2="16.3"></line>
           </svg>
           <input type="text" id="global-search-input" class="header-search-input"
             placeholder="Search craft, artisan, GI ID..."
+            aria-label="Search craft, artisan or GI ID"
             onkeydown="if(event.key==='Enter')location.href='index.html?q='+encodeURIComponent(this.value)">
           <button type="button" id="search-clear-btn" class="search-clear-btn" aria-label="Clear Search"
-            onclick="this.previousElementSibling.value=''; this.classList.remove('visible');">✕</button>
+            onclick="this.previousElementSibling.previousElementSibling.value=''; this.classList.remove('visible');">✕</button>
         </div>
       </div>
 
-      <!-- Right Controls: Wishlist, Cart, User, Seller, Studio, Profile -->
+      <!-- Right Controls: Wishlist, Bag, Artisan Login, Artisan Studio, Collector -->
       <div class="header-controls">
         <button type="button" class="icon-badge-btn" id="wishlist-btn" onclick="toggleDrawer('wishlist-drawer', true)"
           aria-label="Open Wishlist">
-          <span>♡</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           <span class="badge-counter" id="wishlist-count">3</span>
         </button>
 
         <button type="button" class="icon-badge-btn" id="cart-btn" onclick="toggleDrawer('cart-drawer', true)"
           aria-label="Open Shopping Bag">
-          <span>🛍️</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l1.5 13.5a1 1 0 0 1-1 1.1H5.5a1 1 0 0 1-1-1.1L6 7z"/><path d="M9 10V5.5a3 3 0 0 1 6 0V10"/></svg>
           <span class="badge-counter gold" id="cart-count">0</span>
         </button>
 
         <button type="button" class="btn-user-login logged-in" id="user-login-btn" onclick="handleUserLoginClick()"
           title="User &amp; Collector Profile">
-          <span>👤</span> <span id="user-login-text">Priya</span>
+          <span id="user-login-text">Priya</span>
         </button>
 
         <button type="button" class="btn-seller-login" id="seller-login-btn" onclick="handleSellerLoginClick()"
           title="Artisan Login — Artisan &amp; Seller Portal">
-          <span>🔑</span> <span id="seller-login-text">Artisan Login</span>
+          <span id="seller-login-text">Artisan Login</span>
         </button>
 
         <button type="button" class="btn-artisan-studio" id="artisan-studio-btn" aria-label="Open Artisan Studio" onclick="openArtisanStudioModal()">
-          <span>✦</span> <span class="btn-label">ARTISAN STUDIO</span>
+          <span class="btn-spark" aria-hidden="true">✦</span> <span class="btn-label">ARTISAN STUDIO</span>
         </button>
 
         <div class="profile-dropdown-wrap">
@@ -837,6 +846,7 @@
       </div>
     </div>
   </header>
+  
 
   <!-- Secondary Section Navigation Bar (Centered - Matches Reference Image) -->
   <nav class="section-nav-bar" id="section-nav-bar" aria-label="Section Navigation">
