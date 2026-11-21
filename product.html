@@ -1537,19 +1537,36 @@
           { label: "Full Spread", img: "assets/products/kani_05.jpg" }
         ];
       } else if (p.guild === "papier-mache") {
+        /* Pull from the piece's own guild so the gallery shows different
+           objects rather than the same four vessels on all twenty listings.
+           Never repeat the hero shot, and never reuse a tile twice. */
+        const picked = [];
+        for (const cand of getAllProducts()) {
+          if (picked.length >= 3) break;
+          if (cand.guild !== p.guild || cand.id === p.id) continue;
+          if (cand.image === p.image || picked.includes(cand.image)) continue;
+          picked.push(cand.image);
+        }
         thumbs = [
           { label: "Craft View", img: p.image },
-          { label: "Naqash Urn", img: p.image === "assets/products/papier_01.jpg" ? "assets/products/papier_02.jpg" : "assets/products/papier_01.jpg" },
-          { label: "Chinar Box", img: "assets/products/papier_03.jpg" },
-          { label: "Gold Leaf Art", img: "assets/products/papier_05.jpg" },
+          { label: "Guild Study I", img: picked[0] || p.image },
+          { label: "Guild Study II", img: picked[1] || p.image },
+          { label: "Gold Leaf Art", img: picked[2] || "assets/products/papier_05.jpg" },
           { label: "GI Certificate", img: "assets/products/thumb_cert.jpg" }
         ];
       } else {
+        /* The fallback gallery used to fill two of its five tiles with the hero
+           image repeated, which read as a rendering fault. Borrow from the
+           same guild instead. */
+        const pool = getAllProducts()
+          .filter(x => x.guild === p.guild && x.id !== p.id && x.image !== p.image)
+          .map(x => x.image);
         thumbs = [
           { label: p.guild === "walnut" ? "Editorial View" : "Full View", img: p.image },
-          { label: p.guild === "walnut" ? "Carving Detail" : (p.guild === "silk-rugs" ? "Knot Detail" : "Craft Detail"), img: p.image },
-          { label: "Styling View", img: "assets/image_1.jpg" },
-          { label: "Heritage Look", img: "assets/image_6.jpg" },
+          { label: p.guild === "walnut" ? "Carving Detail" : (p.guild === "silk-rugs" ? "Knot Detail" : "Craft Detail"),
+            img: pool[0] || p.image },
+          { label: "Styling View", img: pool[1] || "assets/image_1.jpg" },
+          { label: "Heritage Look", img: pool[2] || "assets/image_6.jpg" },
           { label: "GI Certificate", img: "assets/products/thumb_cert.jpg" }
         ];
       }
