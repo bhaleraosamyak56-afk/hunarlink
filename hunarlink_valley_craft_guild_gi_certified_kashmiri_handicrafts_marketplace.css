@@ -3749,3 +3749,91 @@ h1, h2, h3, h4,
     transform: none;
   }
 }
+
+/* ==========================================================================
+   HERO — FILL THE COLUMN HEIGHT
+   --------------------------------------------------------------------------
+   The bento collage is ~506px tall while the text column was ~359px, so
+   `align-items: center` left ~74px of dead space above the overline and the
+   same below the proof card. The column is now a space-between flex column
+   anchored by a credential ribbon, so it matches the bento exactly and the
+   surplus height goes into the ribbon + a slightly larger display size —
+   content, not padding.
+   ========================================================================== */
+
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+/* stop the flex parent from stretching children to the full column width */
+.hero-left > * {
+  flex: 0 0 auto;
+}
+
+.hero-location-pill {
+  align-self: flex-start;
+}
+
+.hero-left .hero-title {
+  line-height: 1.06;
+  margin-bottom: 14px;
+}
+
+/* the ribbon itself */
+.cred-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 15px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 9px;
+  background: linear-gradient(180deg, #FFFFFE, #FBF8F1);
+  box-shadow: 0 1px 2px rgba(28, 16, 11, 0.04);
+}
+
+.cred-ribbon .cr-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1B7A4E;
+  box-shadow: 0 0 0 3px rgba(27, 122, 78, 0.14);
+  flex: none;
+}
+
+.cred-ribbon b {
+  font-size: 0.615rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4C6357;
+  white-space: nowrap;
+}
+
+.cred-ribbon .cr-sep {
+  color: var(--border-mid);
+  font-size: 0.55rem;
+}
+
+/* the freed height lets the display type take one step up at desktop widths */
+@media (min-width: 1025px) {
+  .hero-left .hero-title {
+    font-size: clamp(2.5rem, 4.05vw, 3.42rem);
+  }
+}
+
+/* once the grid collapses, the column no longer needs to match anything */
+@media (max-width: 1024px) {
+  .hero-left {
+    height: auto;
+    justify-content: flex-start;
+  }
+
+  .hero-left .hero-title {
+    margin-bottom: 12px;
+  }
+}
