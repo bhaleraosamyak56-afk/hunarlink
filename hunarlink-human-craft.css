@@ -272,3 +272,372 @@ textarea {
   width: 1.35em;
   height: 1.35em;
 }
+
+/* ==========================================================================
+   WISHLIST DRAWER — editorial rework
+   --------------------------------------------------------------------------
+   Replaces the flat inline-styled list with a proper catalogue sheet:
+   a ledger header that states the collection, cards that behave as one
+   tappable unit (image + title both open the piece), a quiet meta line
+   in the guild's own voice, and controls that only appear where they
+   belong. Same palette tokens, same data, no new copy claims.
+   ========================================================================== */
+
+/* --- Scrim: closes on outside tap; never touches the chat launcher ------- */
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 30, 22, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+  z-index: 240;
+}
+
+.drawer-scrim.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* The launcher sits at z-index 950; while a drawer is open it steps back
+   so a tap anywhere outside the panel resolves to the scrim. */
+body.drawer-open .hunarsathi-launcher {
+  z-index: 200;
+  pointer-events: none;
+}
+
+body.drawer-open {
+  overflow: hidden;
+}
+
+/* --- Ledger header ------------------------------------------------------ */
+.drawer-ledger {
+  padding: 22px 22px 16px;
+}
+
+.drawer-ledger-kicker {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--heading-on-dark);
+  margin-bottom: 7px;
+}
+
+.drawer-ledger-title {
+  font-family: var(--font-serif);
+  font-size: 1.52rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
+}
+
+.drawer-ledger-meta {
+  margin-top: 10px;
+  font-size: 0.73rem;
+  line-height: 1.5;
+  letter-spacing: 0.012em;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.drawer-ledger-meta b {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+/* hairline that reads as a ledger rule rather than a border */
+#wishlist-drawer .drawer-header {
+  position: relative;
+  padding: 22px 22px 18px;
+  background-color: var(--forest-900);
+}
+
+#wishlist-drawer .drawer-header::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    rgba(229, 196, 83, 0.5),
+    rgba(229, 196, 83, 0.12) 40%,
+    transparent 78%);
+}
+
+#wishlist-drawer .drawer-close-btn {
+  align-self: flex-start;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+#wishlist-drawer .drawer-close-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: rotate(90deg);
+}
+
+#wishlist-drawer .drawer-body {
+  padding: 0 22px 26px;
+  background-color: #FFFFFF;
+}
+
+/* --- Empty state -------------------------------------------------------- */
+.wl-empty {
+  padding: 52px 6px 40px;
+  text-align: center;
+}
+
+.wl-empty-rule {
+  width: 34px;
+  height: 1px;
+  margin: 0 auto 20px;
+  background-color: var(--border-mid);
+}
+
+.wl-empty-title {
+  font-family: var(--font-serif);
+  font-size: 1.24rem;
+  font-weight: 700;
+  color: var(--forest-900);
+  margin-bottom: 8px;
+}
+
+.wl-empty-note {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-500);
+  max-width: 26ch;
+  margin: 0 auto;
+}
+
+/* --- Item --------------------------------------------------------------- */
+.wl-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.wl-item:last-of-type {
+  border-bottom: 0;
+}
+
+.wl-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 17px 0 16px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: opacity 0.18s ease;
+}
+
+.wl-main:hover .wl-title {
+  color: var(--heading-color);
+}
+
+.wl-main:hover .wl-thumb {
+  border-color: var(--border-mid);
+  box-shadow: 0 6px 16px rgba(17, 42, 32, 0.11);
+}
+
+.wl-main:focus-visible {
+  outline: 2px solid var(--btn-orange);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* thumb: matted like a mounted specimen, not a rounded avatar */
+.wl-thumb {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-ivory-alt);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.wl-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.wl-guild {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  margin-bottom: 5px;
+}
+
+.wl-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 1.03rem;
+  font-weight: 700;
+  line-height: 1.24;
+  color: var(--forest-950);
+  margin-bottom: 5px;
+  transition: color 0.18s ease;
+}
+
+.wl-meta {
+  display: block;
+  font-size: 0.73rem;
+  line-height: 1.45;
+  color: var(--text-500);
+}
+
+.wl-meta .wl-sep {
+  color: var(--border-mid);
+  padding: 0 3px;
+}
+
+.wl-price {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--forest-900);
+  letter-spacing: 0.01em;
+}
+
+.wl-price s {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-400);
+  margin-left: 8px;
+}
+
+/* --- Controls: right rail ----------------------------------------------- */
+.wl-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding-top: 20px;
+  min-width: 106px;
+}
+
+.wl-move {
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 13px;
+  border-radius: 3px;
+  color: #FFFFFF;
+  background-image: linear-gradient(135deg, var(--btn-orange), var(--btn-orange-hover));
+  box-shadow: 0 2px 6px rgba(224, 90, 23, 0.24);
+  transition: box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.wl-move:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 5px 14px rgba(224, 90, 23, 0.32);
+}
+
+.wl-remove {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-400);
+  background: none;
+  border: 0;
+  padding: 2px 1px;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.wl-remove:hover,
+.wl-remove:focus-visible {
+  color: var(--danger-600);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --- Drawer foot: quiet assurance line ---------------------------------- */
+.wl-foot {
+  margin-top: 20px;
+  padding-top: 15px;
+  padding-right: 8px;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--text-400);
+  letter-spacing: 0.01em;
+}
+
+/* --- Phones: inset the sheet so the scrim stays tappable ---------------
+   A full-bleed drawer leaves nothing outside it, so "tap anywhere to close"
+   becomes impossible. Keeping ~12% of the screen as scrim gives a real
+   target and reads as a deliberate sheet rather than a cut-off page.      */
+@media (max-width: 500px) {
+  .slide-drawer {
+    width: min(88vw, 440px);
+    border-radius: 16px 0 0 16px;
+    box-shadow: -18px 0 44px rgba(11, 30, 22, 0.28);
+  }
+  #wishlist-drawer .drawer-header,
+  #wishlist-drawer .drawer-body {
+    border-top-left-radius: 16px;
+  }
+  #wishlist-drawer .drawer-body {
+    border-bottom-left-radius: 16px;
+  }
+}
+
+/* --- Narrow phones: stack the controls under the copy ------------------- */
+@media (max-width: 430px) {
+  .wl-item {
+    flex-direction: column;
+    gap: 0;
+    padding-bottom: 15px;
+  }
+  .wl-thumb {
+    width: 64px;
+    height: 78px;
+  }
+  .wl-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    padding-top: 0;
+    margin-left: 78px;
+    min-width: 0;
+  }
+}
+
+/* ==========================================================================
+   COMPARE BAR — steps down while a drawer is open.
+   It floats bottom-left and was sitting on top of the last wishlist row.
+   ========================================================================== */
+body.drawer-open .compare-floating-bar {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}

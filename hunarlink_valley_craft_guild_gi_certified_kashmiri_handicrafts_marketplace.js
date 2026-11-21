@@ -1773,26 +1773,64 @@ function toggleWishlist(productId) {
 function renderWishlistDrawer() {
   const body = document.getElementById("wishlist-drawer-body");
   if (!body) return;
-  if (AppState.wishlist.length === 0) {
-    body.innerHTML = `<p style="text-align: center; padding: 36px 12px; color: var(--text-500); font-size: 0.85rem;">No heirloom pieces saved in your Wishlist yet.</p>`;
+
+  const ids = AppState.wishlist.filter(id => getProductById(id));
+  const heading = document.getElementById("wishlist-drawer-heading");
+  const meta = document.getElementById("wishlist-drawer-meta");
+
+  if (heading) {
+    heading.textContent = ids.length ? "Saved Heirlooms" : "Nothing Saved Yet";
+  }
+  if (meta) {
+    if (ids.length === 1) {
+      meta.textContent = "1 piece under consideration";
+    } else if (ids.length > 1) {
+      const total = ids.reduce((sum, id) => sum + getProductById(id).price, 0);
+      meta.innerHTML = `<b>${ids.length} pieces</b> under consideration <span style="opacity:.45;padding:0 4px;">·</span> ${formatINR(total)} at listed price`;
+    } else {
+      meta.textContent = "Your saved pieces will be kept here";
+    }
+  }
+
+  if (ids.length === 0) {
+    body.innerHTML = `
+      <div class="wl-empty">
+        <div class="wl-empty-rule"></div>
+        <p class="wl-empty-title">Your collection is empty</p>
+        <p class="wl-empty-note">Tap the heart on any piece in the J&amp;K Heritage Store to keep it here for later.</p>
+      </div>`;
     return;
   }
-  body.innerHTML = AppState.wishlist.map(id => {
+
+  body.innerHTML = ids.map(id => {
     const p = getProductById(id);
+    const hours = p.loomHours ? `${p.loomHours} loom hours` : "";
+    const metaBits = [p.district, hours].filter(Boolean).join('<span class="wl-sep">·</span>');
     return `
-      <div style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-light); align-items: center;">
-        <img loading="lazy" decoding="async" src="${p.image}" alt="${p.title}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
-        <div style="flex: 1;">
-          <div style="font-weight: 700; font-size: 0.86rem;">${p.title}</div>
-          <div style="font-size: 0.72rem; color: var(--text-500);">${p.artisan} • ${formatINR(p.price)}</div>
+      <article class="wl-item">
+        <button type="button" class="wl-main" onclick="openProductPage('${p.id}')"
+                aria-label="Open ${p.title}">
+          <img loading="lazy" decoding="async" class="wl-thumb" src="${p.image}" alt="">
+          <span class="wl-copy">
+            <span class="wl-guild">${p.guildLabel}</span>
+            <span class="wl-title">${p.title}</span>
+            <span class="wl-meta">${p.artisan}</span>
+            <span class="wl-meta">${metaBits}</span>
+            <span class="wl-price">${formatINR(p.price)}<s>${formatINR(p.mrp)}</s></span>
+          </span>
+        </button>
+        <div class="wl-actions">
+          <button type="button" class="wl-move" onclick="moveWishlistToBag('${p.id}')">Move to Bag</button>
+          <button type="button" class="wl-remove" onclick="toggleWishlist('${p.id}')">Remove</button>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 5px;">
-          <button type="button" class="btn-acquire" style="font-size: 0.7rem; padding: 5px 10px;" onclick="addToCart('${p.id}', 1); toggleWishlist('${p.id}')">Move to Bag</button>
-          <button type="button" style="font-size: 0.68rem; color: var(--danger-600);" onclick="toggleWishlist('${p.id}')">Remove</button>
-        </div>
-      </div>
-    `;
-  }).join("");
+      </article>`;
+  }).join("") + `<p class="wl-foot">Prices are the artisan's listed price. Every piece is GI-verified and shipped direct from the workshop.</p>`;
+}
+
+function moveWishlistToBag(productId) {
+  addToCart(productId, 1);
+  toggleWishlist(productId);
+  renderWishlistDrawer();
 }
 
 function toggleDrawer(drawerId, open) {
@@ -1800,7 +1838,25 @@ function toggleDrawer(drawerId, open) {
   if (!drawer) return;
   if (drawerId === "cart-drawer") renderCartDrawer();
   if (drawerId === "wishlist-drawer") renderWishlistDrawer();
-  drawer.classList.toggle("open", open);
+  drawer.classList.toggle("open", !!open);
+  drawer.setAttribute("aria-hidden", open ? "false" : "true");
+
+  const scrim = document.getElementById("drawer-scrim");
+  const anyOpen = document.querySelector(".slide-drawer.open") !== null;
+  if (scrim) scrim.classList.toggle("visible", anyOpen);
+  document.body.classList.toggle("drawer-open", anyOpen);
+}
+
+/* Tap anywhere outside the panel — including the scrim, the page beneath it,
+   and the floating chat launcher — and the drawer closes. */
+function closeAllDrawers() {
+  document.querySelectorAll(".slide-drawer.open").forEach(d => {
+    d.classList.remove("open");
+    d.setAttribute("aria-hidden", "true");
+  });
+  const scrim = document.getElementById("drawer-scrim");
+  if (scrim) scrim.classList.remove("visible");
+  document.body.classList.remove("drawer-open");
 }
 
 /* ==========================================================================
@@ -3744,7 +3800,7 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   document.querySelectorAll(".backdrop-overlay.open").forEach(m => m.classList.remove("open"));
-  document.querySelectorAll(".slide-drawer.open").forEach(d => d.classList.remove("open"));
+  closeAllDrawers();
   const profileMenu = document.getElementById("profile-menu");
   if (profileMenu) profileMenu.classList.remove("open");
 });
@@ -3755,6 +3811,31 @@ document.addEventListener("click", (e) => {
     e.target.classList.remove("open");
   }
 });
+
+/* --------------------------------------------------------------------------
+   Outside-tap dismissal for the slide-out drawers.
+   Any pointer landing outside an open drawer closes it — the scrim, the page
+   behind it, and the floating chat launcher included. Taps inside the panel
+   are left completely alone, so the close button still works as expected.
+   -------------------------------------------------------------------------- */
+document.addEventListener("pointerdown", (e) => {
+  const openDrawer = document.querySelector(".slide-drawer.open");
+  if (!openDrawer) return;
+  if (openDrawer.contains(e.target)) return;   /* inside the panel: ignore */
+  closeAllDrawers();
+}, true);
+
+/* Same gesture on the launcher, which sheds pointer-events while a drawer is
+   open — capture on window so the tap is still seen before it is swallowed. */
+window.addEventListener("click", (e) => {
+  const t = e.target;
+  if (!t || !t.closest) return;
+  if (!t.closest(".hunarsathi-launcher")) return;
+  if (!document.querySelector(".slide-drawer.open")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  closeAllDrawers();
+}, true);
 
 /* ==========================================================================
    Hero Location Pill — rotate the place / craft wordmark

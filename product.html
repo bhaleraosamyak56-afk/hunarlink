@@ -1218,10 +1218,17 @@
   </aside>
 
   <!-- Slide-Out Wishlist Drawer -->
-  <aside class="slide-drawer" id="wishlist-drawer" aria-label="Saved Heirlooms">
+  <div class="drawer-scrim" id="drawer-scrim" aria-hidden="true"></div>
+  <aside class="slide-drawer" id="wishlist-drawer" aria-label="Saved Heirlooms" aria-hidden="true">
     <div class="drawer-header">
-      <div class="drawer-title">Saved Heirloom Wishlist (<span id="drawer-wishlist-count">0</span>)</div>
-      <button type="button" class="drawer-close-btn" onclick="toggleDrawer('wishlist-drawer', false)">✕</button>
+      <div class="drawer-ledger">
+        <span class="drawer-ledger-kicker">Your Private Collection</span>
+        <h2 class="drawer-ledger-title" id="wishlist-drawer-heading">Saved Heirlooms</h2>
+        <p class="drawer-ledger-meta" id="wishlist-drawer-meta">Pieces you are considering</p>
+      </div>
+      <button type="button" class="drawer-close-btn" aria-label="Close Wishlist" onclick="toggleDrawer('wishlist-drawer', false)">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
     <div class="drawer-body" id="wishlist-drawer-body"></div>
   </aside>
