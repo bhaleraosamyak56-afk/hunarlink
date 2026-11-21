@@ -6,6 +6,8 @@ import { StoreProvider } from './state/StoreContext.jsx';
 
 import './styles/base.css';
 import './styles/craft.css';
+import './styles/pdp.css';
+import './styles/auth.css';
 import './styles/react-overrides.css';
 
 // The legacy controller attaches a large set of globals (addToCart, toggleDrawer,
