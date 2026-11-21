@@ -1890,7 +1890,16 @@ function clearRecentlyViewed() {
 
 function openProductPage(productId) {
   addToRecentlyViewed(productId);
-  window.open(`product.html?id=${productId}`, "_blank");
+  /* Navigate in the same tab. window.open is kept only as a last-resort
+     fallback: it returns null when a popup blocker intervenes, and that used
+     to make the click a silent no-op. */
+  const target = `product.html?id=${encodeURIComponent(productId)}`;
+  try {
+    window.location.assign(target);
+  } catch (err) {
+    const win = window.open(target, "_self");
+    if (!win) window.location.href = target;
+  }
 }
 
 function renderHomeRecentViewed() {
