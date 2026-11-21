@@ -907,3 +907,60 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   Mobile overflow fixes
+   --------------------------------------------------------------------------
+   CSS grid items default to min-width:auto, so a 1fr column refuses to shrink
+   below its content's intrinsic width. At 390px that pushed .wp-card to 385px
+   inside a 362px content box and created horizontal scroll on the page.
+   ========================================================================== */
+.wp-grid-2,
+.wp-hero-inner,
+.wp-tracker-grid,
+.wp-form-grid,
+.wp-calc-grid,
+.wp-receipt-grid,
+.wp-req-details {
+  min-width: 0;
+}
+
+.wp-grid-2 > *,
+.wp-hero-inner > *,
+.wp-tracker-grid > * {
+  min-width: 0;
+}
+
+.wp-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Long identifiers (GSTIN, email, order ids) must wrap rather than stretch */
+.wp-card input,
+.wp-card select,
+.wp-card textarea,
+.wp-card p,
+.wp-card td {
+  max-width: 100%;
+}
+
+@media (max-width: 980px) {
+  .wp-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .wp-main {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  /* keep wide tables scrolling inside their card, not the whole page */
+  .wp-card table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

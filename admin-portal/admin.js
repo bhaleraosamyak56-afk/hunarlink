@@ -21,6 +21,33 @@ const AdminApp = {
   },
 
   bindEvents() {
+    // Mobile sidebar drawer (<=900px)
+    const navToggle = document.getElementById("admin-nav-toggle");
+    const sidebar = document.getElementById("admin-sidebar");
+    const backdrop = document.getElementById("admin-sidebar-backdrop");
+
+    const closeDrawer = () => {
+      if (!sidebar) return;
+      sidebar.classList.remove("is-open");
+      backdrop?.classList.remove("is-open");
+      navToggle?.setAttribute("aria-expanded", "false");
+    };
+
+    navToggle?.addEventListener("click", () => {
+      if (!sidebar) return;
+      const open = sidebar.classList.toggle("is-open");
+      backdrop?.classList.toggle("is-open", open);
+      navToggle.setAttribute("aria-expanded", String(open));
+    });
+
+    backdrop?.addEventListener("click", closeDrawer);
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closeDrawer();
+    });
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 900) closeDrawer();
+    });
+
     // Navigation Tabs
     document.querySelectorAll(".sidebar-nav .nav-item").forEach(link => {
       link.addEventListener("click", e => {
@@ -72,6 +99,13 @@ const AdminApp = {
   },
 
   switchTab(tabId, linkElement) {
+    // on mobile the sidebar is a drawer — close it once a tab is chosen
+    if (window.innerWidth <= 900) {
+      document.getElementById("admin-sidebar")?.classList.remove("is-open");
+      document.getElementById("admin-sidebar-backdrop")?.classList.remove("is-open");
+      document.getElementById("admin-nav-toggle")?.setAttribute("aria-expanded", "false");
+    }
+
     document.querySelectorAll(".sidebar-nav .nav-item").forEach(item => item.classList.remove("active"));
     document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
 

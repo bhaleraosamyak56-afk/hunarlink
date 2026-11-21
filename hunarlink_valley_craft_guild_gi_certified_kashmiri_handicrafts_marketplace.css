@@ -3323,3 +3323,93 @@ h1, h2, h3, h4,
   color: #FFFFFF;
   border-color: #FFBE86;
 }
+
+/* ==========================================================================
+   Mobile Header — compact icon-only actions
+   --------------------------------------------------------------------------
+   At <=420px the full header controls (wishlist, cart, two named buttons and
+   the Artisan Studio pill) would need ~380px of width, which overflowed the
+   row and squeezed the brand. On phones we keep the controls icon-only and
+   pull the two long CTAs into a full-width row below the search bar, so the
+   header reads as: brand | icons  /  search  /  actions.
+   Accessible names are preserved via aria-label, which the JS never touches.
+   ========================================================================== */
+@media (max-width: 640px) {
+  .site-header .header-inner {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  /* brand keeps its natural size, icons hug the right edge */
+  .site-header .brand-logo {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .site-header .header-controls {
+    flex: 0 0 auto;
+    gap: 7px;
+  }
+
+  /* the search field becomes its own full-width row */
+  .site-header .header-search-wrap {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  /* icon-only: hide the visible labels but keep the buttons reachable */
+  .site-header #user-login-text,
+  .site-header #seller-login-text,
+  .site-header .btn-artisan-studio .btn-label {
+    display: none;
+  }
+
+  .site-header .btn-user-login,
+  .site-header .btn-seller-login {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0.95rem;
+  }
+
+  .site-header .btn-artisan-studio {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0.95rem;
+    letter-spacing: 0;
+  }
+}
+
+/* Below 380px, drop the Artisan Studio shortcut from the header row entirely —
+   it is still reachable from the profile menu and the storefront body. */
+@media (max-width: 380px) {
+  .site-header .btn-artisan-studio {
+    display: none;
+  }
+}
+
+/* Allow the secondary nav to scroll horizontally with a hint of the next item
+   instead of clipping the last tab flush against the edge. */
+@media (max-width: 760px) {
+  .section-nav-inner {
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+  }
+}
+
+/* Comfortable tap targets on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .verify-sample-chip,
+  .btn-reset-filters,
+  .footer-link-btn {
+    min-height: 32px;
+  }
+
+  .product-title-btn {
+    padding-block: 4px;
+  }
+}

@@ -37,7 +37,7 @@
   <div class="admin-shell" id="admin-shell">
     
     <!-- SIDEBAR -->
-    <aside class="admin-sidebar">
+    <aside class="admin-sidebar" id="admin-sidebar">
       <div class="sidebar-brand">
         <div class="brand-crest">H</div>
         <div class="brand-titles">
@@ -82,12 +82,16 @@
       </div>
     </aside>
 
+    <div class="admin-sidebar-backdrop" id="admin-sidebar-backdrop"></div>
+
     <!-- MAIN VIEWPORT -->
     <main class="admin-main">
       
       <!-- TOP STATUS BAR -->
       <header class="admin-header">
         <div class="header-breadcrumb">
+          <button type="button" class="admin-nav-toggle" id="admin-nav-toggle"
+            aria-label="Open navigation" aria-expanded="false" aria-controls="admin-sidebar">☰</button>
           <span id="breadcrumb-channel">Retail + Wholesale + Supplier Procurement</span>
           <h1 id="breadcrumb-title">Platform Dashboard</h1>
         </div>
