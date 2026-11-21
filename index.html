@@ -24,7 +24,7 @@
           Marketplace</span>
       </div>
       <div class="utility-actions">
-        <button type="button" class="utility-link-btn" onclick="openSellerLoginModal('artisan')">🔑 Seller
+        <button type="button" class="utility-link-btn" onclick="openSellerLoginModal('artisan')">🔑 Artisan
           Login</button>
         <button type="button" class="utility-link-btn" onclick="openGiVerifyModal('GI-JK-PASH-8821')">🛡️ Verify GI
           Tag</button>
@@ -81,8 +81,8 @@
         </button>
 
         <button type="button" class="btn-seller-login" id="seller-login-btn" onclick="handleSellerLoginClick()"
-          title="Seller &amp; Artisan Portal Sign In">
-          <span>🔑</span> <span id="seller-login-text">Seller Login</span>
+          title="Artisan Portal Sign In">
+          <span>🔑</span> <span id="seller-login-text">Artisan Login</span>
         </button>
 
         <button type="button" class="btn-artisan-studio" id="artisan-studio-btn" onclick="openArtisanStudioModal()">
@@ -143,19 +143,19 @@
   <!-- Secondary Section Navigation Bar -->
   <nav class="section-nav-bar" id="section-nav-bar" aria-label="Section Navigation">
     <div class="container section-nav-inner">
-      <button type="button" class="snav-item active" id="snav-home"
-        onclick="snav_setActive('snav-home'); window.scrollTo({top:0, behavior:'smooth'})">Home</button>
-      <button type="button" class="snav-item" id="snav-artisans"
-        onclick="snav_setActive('snav-artisans'); document.getElementById('craft-guilds-section').scrollIntoView({behavior:'smooth'})">Our
-        Artisans</button>
-      <button type="button" class="snav-item" id="snav-verify"
-        onclick="snav_setActive('snav-verify'); document.getElementById('verification-section').scrollIntoView({behavior:'smooth'})">Valley
+      <button type="button" class="snav-item active" id="snav-home" data-section="hero-section"
+        data-target="hero-section" onclick="snav_scrollTo('snav-home')">Home</button>
+      <button type="button" class="snav-item" id="snav-verify" data-target="verification-section"
+        onclick="snav_scrollTo('snav-verify')">Valley
         Verification Flow</button>
-      <button type="button" class="snav-item" id="snav-store"
-        onclick="snav_setActive('snav-store'); document.getElementById('marketplace-section').scrollIntoView({behavior:'smooth'})">J&amp;K
+      <button type="button" class="snav-item" id="snav-artisans" data-target="craft-guilds-section"
+        onclick="snav_scrollTo('snav-artisans')">Our
+        Artisans</button>
+      <button type="button" class="snav-item" id="snav-store" data-target="marketplace-section"
+        onclick="snav_scrollTo('snav-store')">J&amp;K
         Heritage Store</button>
-      <button type="button" class="snav-item" id="snav-wholesale"
-        onclick="snav_setActive('snav-wholesale'); document.getElementById('b2b-wholesale-section').scrollIntoView({behavior:'smooth'})">Wholesale</button>
+      <button type="button" class="snav-item" id="snav-wholesale" data-target="b2b-wholesale-section"
+        onclick="snav_scrollTo('snav-wholesale')">Wholesale</button>
     </div>
   </nav>
 

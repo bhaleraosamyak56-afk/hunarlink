@@ -2819,9 +2819,9 @@ function updateAuthUI() {
 
       if (sellerBtn) {
         if (sellerText) {
-          sellerText.textContent = 'Seller Login';
+          sellerText.textContent = 'Artisan Login';
         } else {
-          sellerBtn.innerHTML = '<span>🔑</span> Seller Login';
+          sellerBtn.innerHTML = '<span>🔑</span> Artisan Login';
         }
         sellerBtn.classList.remove('logged-in');
         sellerBtn.style.backgroundColor = '';
@@ -2852,15 +2852,15 @@ function updateAuthUI() {
 
     if (sellerBtn) {
       if (sellerText) {
-        sellerText.textContent = 'Seller Login';
+        sellerText.textContent = 'Artisan Login';
       } else {
-        sellerBtn.innerHTML = '<span>🔑</span> Seller Login';
+        sellerBtn.innerHTML = '<span>🔑</span> Artisan Login';
       }
       sellerBtn.classList.remove('logged-in');
       sellerBtn.style.backgroundColor = '';
       sellerBtn.style.color = '';
       sellerBtn.style.borderColor = '';
-      sellerBtn.title = 'Artisan & Seller Portal Sign In';
+      sellerBtn.title = 'Artisan Portal Sign In';
     }
   }
 }
@@ -2937,13 +2937,139 @@ function resetDemoStorage() {
 
 /* ==========================================================================
    Secondary Section Nav — Active State Controller
+   --------------------------------------------------------------------------
+   Rules:
+   1. Exactly ONE nav item is highlighted at any time.
+   2. The item the visitor clicked is highlighted immediately, and stays
+      highlighted while that section is on screen.
+   3. The highlight only follows page scroll once the visitor actually scrolls,
+      so a click never gets overridden by a stale scroll-spy value.
    ========================================================================== */
+
+/* Nav order → section order on the page (Home → Valley Verification Flow →
+   Our Artisans → J&K Heritage Store → Wholesale). Keep this list in sync with
+   the DOM order of .snav-item so "next/previous section" logic stays correct. */
+const SNAV_SECTIONS = [
+  { navId: 'snav-home',      sectionId: 'hero-section' },
+  { navId: 'snav-verify',    sectionId: 'verification-section' },
+  { navId: 'snav-artisans',  sectionId: 'craft-guilds-section' },
+  { navId: 'snav-store',     sectionId: 'marketplace-section' },
+  { navId: 'snav-wholesale', sectionId: 'b2b-wholesale-section' }
+];
+
+/* Set the single active nav item. This is the ONLY function that may add or
+   remove the .active class, so two items can never be highlighted together. */
 function snav_setActive(activeId) {
   document.querySelectorAll('.snav-item').forEach(el => {
-    el.classList.toggle('active', el.id === activeId);
+    const isActive = el.id === activeId;
+    el.classList.toggle('active', isActive);
+    if (isActive) {
+      el.setAttribute('aria-current', 'true');
+    } else {
+      el.removeAttribute('aria-current');
+    }
   });
 }
+
+/* Height of the two sticky bars (main header + section nav) so a section
+   heading never lands underneath them. */
+function snav_stickyOffset() {
+  const header = document.getElementById('site-header');
+  const navBar = document.getElementById('section-nav-bar');
+  const isNavStatic = navBar && getComputedStyle(navBar).position !== 'sticky';
+  const headerH = header ? header.offsetHeight : 0;
+  const navH = navBar && !isNavStatic ? navBar.offsetHeight : 0;
+  return headerH + navH + 8;
+}
+
+/* Scroll a section into view and highlight the clicked nav item right away. */
+function snav_scrollTo(navId) {
+  const entry = SNAV_SECTIONS.find(s => s.navId === navId);
+  if (!entry) return;
+
+  snav_setActive(navId);
+  snav_lockUntilUserScroll(navId);
+
+  if (navId === 'snav-home' || entry.sectionId === 'hero-section') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
+  const target = document.getElementById(entry.sectionId);
+  if (!target) return;
+  const top = Math.max(target.getBoundingClientRect().top + window.pageYOffset - snav_stickyOffset(), 0);
+  window.scrollTo({ top, behavior: 'smooth' });
+}
+
+/* While a click-initiated smooth scroll is running (and briefly after it ends)
+   ignore scroll-spy updates, otherwise the nav flickers through every section
+   it passes. The lock is released by a real user gesture (wheel, touch, key). */
+let snavLockedNavId = null;
+let snavLockTimer = null;
+
+function snav_lockUntilUserScroll(navId) {
+  snavLockedNavId = navId;
+  clearTimeout(snavLockTimer);
+  snavLockTimer = setTimeout(() => { snavLockedNavId = null; }, 1200);
+}
+
+function snav_releaseLock() {
+  snavLockedNavId = null;
+  clearTimeout(snavLockTimer);
+}
+
+/* Distance (in px) the page actually scrolled — split to catch bottom overshoot. */
+function snav_getScrollY() {
+  return window.pageYOffset ||
+    document.documentElement.scrollTop ||
+    document.body.scrollTop || 0;
+}
+
+/* Work out which section currently occupies the reading area of the viewport. */
+function snav_currentSectionNavId() {
+  const offset = snav_stickyOffset();
+  const line = snav_getScrollY() + offset + 12;
+  let current = SNAV_SECTIONS[0].navId;
+
+  SNAV_SECTIONS.forEach(entry => {
+    const el = document.getElementById(entry.sectionId);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + snav_getScrollY();
+    if (top <= line) current = entry.navId;
+  });
+
+  /* Bottom of the page: the last section may be too short to ever reach the
+     reading line, so treat "scrolled to the end" as the last nav item. */
+  const maxScroll = Math.max(
+    document.documentElement.scrollHeight,
+    document.body.scrollHeight
+  ) - window.innerHeight;
+  if (maxScroll > 0 && snav_getScrollY() >= maxScroll - 4) {
+    current = SNAV_SECTIONS[SNAV_SECTIONS.length - 1].navId;
+  }
+  return current;
+}
+
+/* Single source of truth for the highlight — used by the scroll listener and
+   exposed for other pages/components that need to resync. */
+function snav_syncToScroll() {
+  if (snavLockedNavId) return;
+  snav_setActive(snav_currentSectionNavId());
+}
+
+/* Keep the bar honest while smooth-scrolling from a click too: if the browser
+   reports a position we can trust, re-derive the highlight from it. */
+function snav_syncIfDrifted() {
+  if (!snavLockedNavId) return;
+  const landId = snav_currentSectionNavId();
+  if (landId !== snavLockedNavId) return;
+  /* Locked item and the derived item agree → keep the lock, it is still valid. */
+  snav_setActive(landId);
+}
+
 window.snav_setActive = snav_setActive;
+window.snav_scrollTo = snav_scrollTo;
+window.snav_syncToScroll = snav_syncToScroll;
 
 /* ==========================================================================
    DOM Initialization & Event Listeners
@@ -2984,25 +3110,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ── Scroll-spy: keep secondary nav active state in sync with page scroll ── */
   (function () {
-    const spySections = [
-      { id: 'hero-section',         navId: 'snav-home'      },
-      { id: 'craft-guilds-section', navId: 'snav-artisans'  },
-      { id: 'verification-section', navId: 'snav-verify'    },
-      { id: 'marketplace-section',  navId: 'snav-store'     },
-      { id: 'b2b-wholesale-section',navId: 'snav-wholesale' }
-    ];
-    window.addEventListener('scroll', () => {
-      let current = 'snav-home';
-      spySections.forEach(s => {
-        const el = document.getElementById(s.id);
-        if (el && window.scrollY >= el.offsetTop - 160) {
-          current = s.navId;
+    let ticking = false;
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        if (snavLockedNavId) {
+          snav_syncIfDrifted();
+        } else {
+          snav_syncToScroll();
         }
+        ticking = false;
       });
-      document.querySelectorAll('.snav-item').forEach(el => {
-        el.classList.toggle('active', el.id === current);
-      });
-    }, { passive: true });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+
+    /* A real user gesture always wins over a click-initiated scroll lock. */
+    ['wheel', 'touchstart', 'keydown'].forEach(evt => {
+      window.addEventListener(evt, () => {
+        snav_releaseLock();
+        onScroll();
+      }, { passive: true });
+    });
+
+    /* Honour a #hash deep-link (e.g. index.html#verification-section). */
+    const hashSection = window.location.hash ? window.location.hash.replace('#', '') : '';
+    if (hashSection) {
+      const match = SNAV_SECTIONS.find(s => s.sectionId === hashSection);
+      if (match) snav_scrollTo(match.navId);
+    }
+
+    /* Initial paint: highlight the section that is actually on screen. */
+    snav_syncToScroll();
   })();
 
   /* Live Search Autocomplete */
