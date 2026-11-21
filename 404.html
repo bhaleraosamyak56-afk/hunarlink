@@ -1,9 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>404 — Page Not Found | HunarLink Valley Craft Guild</title>
+  <title>HunarLink — Valley Craft Guild</title>
+  <link rel="stylesheet" href="/hunarlink/hunarlink-human-craft.css">
+  <link rel="stylesheet" href="/hunarlink/hunarlink_valley_craft_guild_gi_certified_kashmiri_handicrafts_marketplace.css">
+  <script>
+    /* GitHub Pages serves THIS file for any path it cannot resolve, at any
+       depth. The React app lives under /hunarlink/react/ and routes on the
+       client, so a deep link such as /react/product?id=... arrives here.
+
+       Strategy:
+         1. If the requested path belongs to the React app, hand it back to the
+            app and let the router restore the route.
+         2. Otherwise keep the original branded 404 page.               */
+    (function () {
+      var APP = '/hunarlink/react/';
+      var path = window.location.pathname;
+
+      if (path.indexOf(APP) === 0) {
+        var rest = path.slice(APP.length);
+        try {
+          window.sessionStorage.setItem('hunar_spa_redirect',
+            rest + window.location.search + window.location.hash);
+        } catch (e) {}
+        window.location.replace(APP);
+        return;
+      }
+
+      var css = document.getElementById('legacy-404-styles');
+      if (css) css.disabled = false;
+      document.documentElement.setAttribute('data-legacy-404', 'true');
+    })();
+  </script>
   <style>
     body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
            font-family: Georgia, 'Times New Roman', serif; background: #0B2B1D; color: #F7F3E8; text-align: center; }
@@ -16,16 +46,15 @@
     a.btn:hover { filter: brightness(1.08); }
     .kicker { font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase; color: #9AB2A4; margin-bottom: 18px; }
   </style>
-  <link rel="stylesheet" href="hunarlink-human-craft.css">
 </head>
 <body>
   <div class="wrap">
-    <div class="kicker">HunarLink • Valley Craft Guild</div>
+    <div class="kicker">HunarLink &bull; Valley Craft Guild</div>
     <div class="code">404</div>
     <h1>This heirloom page isn't in our registry</h1>
     <p>The page you're looking for was moved or never existed. Explore our GI-certified
-       Kashmiri Pashmina, Walnut Woodcarving, Papier-Mâché and Silk Rug collections instead.</p>
-    <a class="btn" href="./index.html">← Back to the Marketplace</a>
+       Kashmiri Pashmina, Walnut Woodcarving, Papier-M&acirc;ch&eacute; and Silk Rug collections instead.</p>
+    <a class="btn" href="/hunarlink/index.html">&larr; Back to the Marketplace</a>
   </div>
 </body>
 </html>
