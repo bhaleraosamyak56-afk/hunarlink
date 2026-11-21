@@ -153,12 +153,12 @@
     <div class="container section-nav-inner">
       <button type="button" class="snav-item active" id="snav-home" data-section="hero-section"
         data-target="hero-section" onclick="snav_scrollTo('snav-home')">Home</button>
-      <button type="button" class="snav-item" id="snav-artisans" data-target="craft-guilds-section"
-        onclick="snav_scrollTo('snav-artisans')">Our
-        Artisans</button>
       <button type="button" class="snav-item" id="snav-verify" data-target="verification-section"
         onclick="snav_scrollTo('snav-verify')">Valley
         Verification Flow</button>
+      <button type="button" class="snav-item" id="snav-artisans" data-target="craft-guilds-section"
+        onclick="snav_scrollTo('snav-artisans')">Our
+        Artisans</button>
       <button type="button" class="snav-item" id="snav-store" data-target="marketplace-section"
         onclick="snav_scrollTo('snav-store')">J&amp;K
         Heritage Store</button>
@@ -296,95 +296,7 @@
     </div>
   </section>
 
-  <!-- 3. Curated Craft Guilds (5-Card Bento Grid) -->
-  <section class="guilds-section" id="craft-guilds-section">
-    <div class="container">
-      <div class="section-header-split">
-        <div>
-          <div class="section-kicker">HERITAGE CRAFT CLUSTERS</div>
-          <h2 class="section-title">Master Craft </h2>
-        </div>
-        <p class="section-desc" style="margin-top: 0;">
-
-        </p>
-      </div>
-
-      <div class="guilds-bento-grid">
-        <button type="button" class="guild-bento-card span-2" data-guild="pashmina"
-          onclick="setCategoryFilter('pashmina', true)">
-          <img loading="lazy" decoding="async" src="assets/image_1.jpg" alt="Pashmina and Kani Shawls Guild">
-          <div class="guild-bento-overlay">
-            <span class="guild-top-tag">GI Registry #46 &amp; #51 • 840+ Looms</span>
-            <div class="guild-bottom-row">
-              <div>
-                <div class="guild-card-kicker">Ladakhi Changthangi Fleece</div>
-                <div class="guild-card-title">Pashmina &amp; Kani Shawls</div>
-                <p class="guild-card-desc">Hand-spun sub-16-micron mountain cashmere woven on wooden foot looms with
-                  traditional Talim notation.</p>
-              </div>
-              <span class="guild-cta-pill">Explore Guild →</span>
-            </div>
-          </div>
-        </button>
-
-        <button type="button" class="guild-bento-card" data-guild="silk-rugs"
-          onclick="setCategoryFilter('silk-rugs', true)">
-          <img loading="lazy" decoding="async" src="assets/image_5.jpg" alt="Silk-on-Silk Rugs Guild">
-          <div class="guild-bento-overlay">
-            <span class="guild-top-tag">Up to 900 Knots / Sq.In</span>
-            <div>
-              <div class="guild-card-kicker">Talim-Coded Medallion Carpets</div>
-              <div class="guild-card-title">Silk-on-Silk Rugs</div>
-              <p class="guild-card-desc">Hand-knotted mulberry silk carpets from Srinagar &amp; Budgam looms. Discover
-                Looms →</p>
-            </div>
-          </div>
-        </button>
-
-        <button type="button" class="guild-bento-card" data-guild="walnut" onclick="setCategoryFilter('walnut', true)">
-          <img loading="lazy" decoding="async" src="assets/image_3.jpg" alt="Walnut Woodcarving Guild">
-          <div class="guild-bento-overlay">
-            <span class="guild-top-tag">GI Registered Craft</span>
-            <div>
-              <div class="guild-card-kicker">Anantnag &amp; Srinagar Tarkhans</div>
-              <div class="guild-card-title">Walnut Woodcarving</div>
-              <p class="guild-card-desc">Seasoned 300-year-old walnut timber hand-chiseled with deep Chinar and
-                Pinjrakari lattice relief.</p>
-            </div>
-          </div>
-        </button>
-
-        <button type="button" class="guild-bento-card" data-guild="papier-mache"
-          onclick="setCategoryFilter('papier-mache', true)">
-          <img loading="lazy" decoding="async" src="assets/image_4.jpg" alt="Papier-Mache Art Guild">
-          <div class="guild-bento-overlay">
-            <span class="guild-top-tag">24K Gold Leaf Naqash</span>
-            <div>
-              <div class="guild-card-kicker">Zadibal &amp; Budgam Workshops</div>
-              <div class="guild-card-title">Papier-Mâché Art</div>
-              <p class="guild-card-desc">Hand-molded Sakhta pulp vessels illuminated with fine Hazara floral and Persian
-                Guldan motifs.</p>
-            </div>
-          </div>
-        </button>
-
-        <button type="button" class="guild-bento-card" data-guild="sozni" onclick="setCategoryFilter('sozni', true)">
-          <img loading="lazy" decoding="async" src="assets/image_2.jpg" alt="Kani Jamawar and Sozni Guild">
-          <div class="guild-bento-overlay">
-            <span class="guild-top-tag">Heirloom Needle &amp; Bobbin</span>
-            <div>
-              <div class="guild-card-kicker">Kanihama &amp; Old Srinagar</div>
-              <div class="guild-card-title">Kani Jamawar &amp; Sozni</div>
-              <p class="guild-card-desc">Intricate wooden-bobbin Jamawar weaves and single-thread Sozni embroidery where
-                reverse mirrors front.</p>
-            </div>
-          </div>
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- 4. The Valley Verification Flow -->
+  <!-- 3. The Valley Verification Flow -->
   <section class="verification-section" id="verification-section">
     <div class="container">
       <div class="section-header-split">
@@ -545,6 +457,94 @@
             placeholder="Enter GI ID (e.g. GI-JK-PASH-8821)" aria-label="Enter GI Tag ID">
           <button type="submit" class="verify-quick-btn">Verify Tag →</button>
         </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Curated Craft Guilds (5-Card Bento Grid) -->
+  <section class="guilds-section" id="craft-guilds-section">
+    <div class="container">
+      <div class="section-header-split">
+        <div>
+          <div class="section-kicker">HERITAGE CRAFT CLUSTERS</div>
+          <h2 class="section-title">Master Craft </h2>
+        </div>
+        <p class="section-desc" style="margin-top: 0;">
+
+        </p>
+      </div>
+
+      <div class="guilds-bento-grid">
+        <button type="button" class="guild-bento-card span-2" data-guild="pashmina"
+          onclick="setCategoryFilter('pashmina', true)">
+          <img loading="lazy" decoding="async" src="assets/image_1.jpg" alt="Pashmina and Kani Shawls Guild">
+          <div class="guild-bento-overlay">
+            <span class="guild-top-tag">GI Registry #46 &amp; #51 • 840+ Looms</span>
+            <div class="guild-bottom-row">
+              <div>
+                <div class="guild-card-kicker">Ladakhi Changthangi Fleece</div>
+                <div class="guild-card-title">Pashmina &amp; Kani Shawls</div>
+                <p class="guild-card-desc">Hand-spun sub-16-micron mountain cashmere woven on wooden foot looms with
+                  traditional Talim notation.</p>
+              </div>
+              <span class="guild-cta-pill">Explore Guild →</span>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="guild-bento-card" data-guild="silk-rugs"
+          onclick="setCategoryFilter('silk-rugs', true)">
+          <img loading="lazy" decoding="async" src="assets/image_5.jpg" alt="Silk-on-Silk Rugs Guild">
+          <div class="guild-bento-overlay">
+            <span class="guild-top-tag">Up to 900 Knots / Sq.In</span>
+            <div>
+              <div class="guild-card-kicker">Talim-Coded Medallion Carpets</div>
+              <div class="guild-card-title">Silk-on-Silk Rugs</div>
+              <p class="guild-card-desc">Hand-knotted mulberry silk carpets from Srinagar &amp; Budgam looms. Discover
+                Looms →</p>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="guild-bento-card" data-guild="walnut" onclick="setCategoryFilter('walnut', true)">
+          <img loading="lazy" decoding="async" src="assets/image_3.jpg" alt="Walnut Woodcarving Guild">
+          <div class="guild-bento-overlay">
+            <span class="guild-top-tag">GI Registered Craft</span>
+            <div>
+              <div class="guild-card-kicker">Anantnag &amp; Srinagar Tarkhans</div>
+              <div class="guild-card-title">Walnut Woodcarving</div>
+              <p class="guild-card-desc">Seasoned 300-year-old walnut timber hand-chiseled with deep Chinar and
+                Pinjrakari lattice relief.</p>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="guild-bento-card" data-guild="papier-mache"
+          onclick="setCategoryFilter('papier-mache', true)">
+          <img loading="lazy" decoding="async" src="assets/image_4.jpg" alt="Papier-Mache Art Guild">
+          <div class="guild-bento-overlay">
+            <span class="guild-top-tag">24K Gold Leaf Naqash</span>
+            <div>
+              <div class="guild-card-kicker">Zadibal &amp; Budgam Workshops</div>
+              <div class="guild-card-title">Papier-Mâché Art</div>
+              <p class="guild-card-desc">Hand-molded Sakhta pulp vessels illuminated with fine Hazara floral and Persian
+                Guldan motifs.</p>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" class="guild-bento-card" data-guild="sozni" onclick="setCategoryFilter('sozni', true)">
+          <img loading="lazy" decoding="async" src="assets/image_2.jpg" alt="Kani Jamawar and Sozni Guild">
+          <div class="guild-bento-overlay">
+            <span class="guild-top-tag">Heirloom Needle &amp; Bobbin</span>
+            <div>
+              <div class="guild-card-kicker">Kanihama &amp; Old Srinagar</div>
+              <div class="guild-card-title">Kani Jamawar &amp; Sozni</div>
+              <p class="guild-card-desc">Intricate wooden-bobbin Jamawar weaves and single-thread Sozni embroidery where
+                reverse mirrors front.</p>
+            </div>
+          </div>
+        </button>
       </div>
     </div>
   </section>

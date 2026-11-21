@@ -3218,14 +3218,14 @@ window.HL_getOrders = function () {
       so a click never gets overridden by a stale scroll-spy value.
    ========================================================================== */
 
-/* Nav order → section order on the page (Home → Our Artisans → Valley
-   Verification Flow → J&K Heritage Store → Wholesale). This array must match
+/* Nav order → section order on the page (Home → Valley Verification Flow →
+   Our Artisans → J&K Heritage Store → Wholesale). This array must match
    BOTH the DOM order of .snav-item and the DOM order of the <section> elements,
    otherwise the scroll-spy highlights the wrong item. */
 const SNAV_SECTIONS = [
   { navId: 'snav-home',      sectionId: 'hero-section' },
-  { navId: 'snav-artisans',  sectionId: 'craft-guilds-section' },
   { navId: 'snav-verify',    sectionId: 'verification-section' },
+  { navId: 'snav-artisans',  sectionId: 'craft-guilds-section' },
   { navId: 'snav-store',     sectionId: 'marketplace-section' },
   { navId: 'snav-wholesale', sectionId: 'b2b-wholesale-section' }
 ];
@@ -3319,6 +3319,26 @@ function snav_currentSectionNavId() {
   ) - window.innerHeight;
   if (maxScroll > 0 && snav_getScrollY() >= maxScroll - 4) {
     current = SNAV_SECTIONS[SNAV_SECTIONS.length - 1].navId;
+    return current;
+  }
+
+  /* A short trailing section (Wholesale) can already be fully on screen while
+     its top edge sits just below the reading line, which left the highlight
+     stuck on the section before it. If a section's top is within the viewport
+     and nothing below it has started yet, it is the one being read. */
+  const viewportBottom = snav_getScrollY() + window.innerHeight;
+  for (let i = SNAV_SECTIONS.length - 1; i > 0; i--) {
+    const el = document.getElementById(SNAV_SECTIONS[i].sectionId);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    const top = rect.top + snav_getScrollY();
+    const visibleShare = (Math.min(top + rect.height, viewportBottom) - Math.max(top, line))
+      / Math.max(rect.height, 1);
+    /* more than half of it is in the reading area → it owns the highlight */
+    if (top > line && visibleShare >= 0.5) {
+      current = SNAV_SECTIONS[i].navId;
+      break;
+    }
   }
   return current;
 }
