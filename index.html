@@ -637,7 +637,22 @@
       </div>
 
       <!-- Dynamic Product Cards Grid -->
-      <div class="product-grid" id="product-grid"></div>
+      <!-- Products area: the filter loading state is scoped to THIS box only,
+           so the filter bar, pills and the rest of the page stay interactive. -->
+      <div class="products-stage" id="products-stage" aria-busy="false">
+        <div class="product-grid" id="product-grid"></div>
+
+        <div class="products-loader" id="products-loader" role="status" aria-live="polite" hidden>
+          <div class="pl-inner">
+            <div class="pl-loom" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="pl-title">Curating your selection</div>
+            <div class="pl-sub" id="products-loader-sub">Filtering 96 GI-certified treasures…</div>
+            <div class="pl-bar" aria-hidden="true"><i></i></div>
+          </div>
+        </div>
+      </div>
 
       <!-- Recently Viewed Section (Home Page) -->
       <div id="home-recent-wrapper"

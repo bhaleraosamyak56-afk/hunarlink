@@ -3973,3 +3973,141 @@ h1, h2, h3, h4,
   outline-offset: 3px;
   border-radius: 4px;
 }
+
+/* ==========================================================================
+   PRODUCTS STAGE — section-scoped loading state
+   --------------------------------------------------------------------------
+   The overlay covers ONLY the product area. The filter bar, category pills and
+   everything else on the page stay interactive while a filter is applied, so the
+   page never freezes. Height is clamped so switching filters does not make the
+   page jump, and reduced-motion gets a static version.
+   ========================================================================== */
+
+.products-stage {
+  position: relative;
+  min-height: 320px;
+}
+
+/* Positioned by JS to the intersection of the products area and the viewport.
+   An absolute inset:0 veil would be 12,000px tall with 96 cards and park the
+   spinner in the middle of the page, off screen. */
+.products-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* a light veil, not a blackout — you can still see the grid behind it */
+  background: linear-gradient(180deg,
+      rgba(250, 249, 245, 0.86) 0%,
+      rgba(250, 249, 245, 0.94) 40%,
+      rgba(250, 249, 245, 0.86) 100%);
+  backdrop-filter: blur(2px);
+  border-radius: 14px;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.products-loader[hidden] {
+  display: none;
+}
+
+.products-loader.is-visible {
+  opacity: 1;
+}
+
+.pl-inner {
+  text-align: center;
+  padding: 26px 30px;
+  max-width: 340px;
+}
+
+/* three weaving bars — thematically a loom, not a generic spinner */
+.pl-loom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  margin-bottom: 14px;
+}
+
+.pl-loom span {
+  width: 5px;
+  border-radius: 3px;
+  background: var(--btn-ink, #B4471F);
+  height: 12px;
+  opacity: 0.55;
+  animation: plWeave 1.05s ease-in-out infinite;
+}
+
+.pl-loom span:nth-child(2) {
+  animation-delay: 0.15s;
+  opacity: 0.75;
+}
+
+.pl-loom span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes plWeave {
+  0%, 100% { height: 12px; opacity: 0.45; }
+  50%      { height: 30px; opacity: 1; }
+}
+
+.pl-title {
+  font-family: var(--font-serif);
+  font-size: 1.22rem;
+  font-weight: 700;
+  color: var(--heading-color);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.pl-sub {
+  font-size: 0.78rem;
+  color: var(--text-500);
+  letter-spacing: 0.01em;
+}
+
+.pl-bar {
+  margin: 14px auto 0;
+  width: 168px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(27, 42, 34, 0.10);
+  overflow: hidden;
+}
+
+.pl-bar i {
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #C04E22, #B4471F, #8E3616);
+  animation: plSlide 1.15s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes plSlide {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(320%); }
+}
+
+/* keep the grid from flashing while it is being replaced */
+.products-stage[aria-busy="true"] .product-grid {
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-loom span,
+  .pl-bar i {
+    animation: none;
+  }
+  .pl-loom span { height: 22px; opacity: 0.7; }
+  .pl-bar i { width: 100%; }
+}

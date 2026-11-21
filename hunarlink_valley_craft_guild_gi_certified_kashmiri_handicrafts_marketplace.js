@@ -1233,6 +1233,109 @@ function getFilteredProducts() {
   return list;
 }
 
+/* ==========================================================================
+   Products-stage loading state
+   --------------------------------------------------------------------------
+   Covers only the product area, never the whole page. The overlay is shown
+   while a filter is being applied and hidden once the new grid is painted, so a
+   slow re-render never looks like a frozen page. Debounced so dragging the
+   price slider does not thrash it.
+   ========================================================================== */
+let productLoadTimer = null;
+let productRevealTimer = null;
+
+/* Clip the veil to the part of the products area that is actually on screen.
+   With 96 cards the stage is ~12,000px tall, so covering "the whole section"
+   literally would put the spinner far below the fold. */
+function positionProductsLoader() {
+  const stage = document.getElementById("products-stage");
+  const loader = document.getElementById("products-loader");
+  if (!stage || !loader) return;
+
+  const r = stage.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const MIN_VEIL = 220;
+
+  let top = Math.max(r.top, 0);
+  let bottom = Math.min(r.bottom, vh);
+
+  /* On a phone the product grid can start below the fold (the section heading
+     and filter bar fill the first screen). In that case there is no visible
+     slice to cover, so park the veil at the bottom of the viewport — still
+     inside the products x-range — otherwise it would render off screen. */
+  if (bottom - top < MIN_VEIL) {
+    top = Math.min(top, Math.max(vh - MIN_VEIL - 40, 0));
+    bottom = Math.min(vh, top + Math.max(MIN_VEIL, vh - top));
+  }
+
+  loader.style.top = Math.round(top) + "px";
+  loader.style.left = Math.round(Math.max(r.left, 0)) + "px";
+  loader.style.width = Math.round(Math.min(r.width, window.innerWidth)) + "px";
+  loader.style.height = Math.round(Math.max(bottom - top, MIN_VEIL)) + "px";
+}
+
+function showProductsLoader() {
+  const stage = document.getElementById("products-stage");
+  const loader = document.getElementById("products-loader");
+  const grid = document.getElementById("product-grid");
+  if (!stage || !loader) return;
+
+  window.clearTimeout(productRevealTimer);
+  positionProductsLoader();
+  loader.hidden = false;
+  /* let the browser paint the loader before the grid is dimmed */
+  requestAnimationFrame(() => loader.classList.add("is-visible"));
+
+  const count = (grid ? grid.querySelectorAll(".product-card").length : 0);
+  const sub = document.getElementById("products-loader-sub");
+  if (sub) {
+    sub.textContent = AppState.filters.maxPrice < 220000
+      ? `Filtering ${getAllProducts().length} GI-certified treasures…`
+      : `Sorting ${count || getAllProducts().length} GI-certified treasures…`;
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("scroll", () => {
+    const loader = document.getElementById("products-loader");
+    if (loader && !loader.hidden) positionProductsLoader();
+  }, { passive: true });
+  window.addEventListener("resize", () => {
+    const loader = document.getElementById("products-loader");
+    if (loader && !loader.hidden) positionProductsLoader();
+  });
+}
+
+function hideProductsLoader() {
+  const loader = document.getElementById("products-loader");
+  const stage = document.getElementById("products-stage");
+  if (!loader || !stage) return;
+  loader.classList.remove("is-visible");
+  stage.setAttribute("aria-busy", "false");
+  productRevealTimer = window.setTimeout(() => { loader.hidden = true; }, 230);
+}
+
+/* Wrap any filter change: paint the loader, apply, then reveal. */
+function withProductsLoader(mutate, opts) {
+  const stage = document.getElementById("products-stage");
+  const delay = (opts && typeof opts.delay === "number") ? opts.delay : 260;
+  if (stage) stage.setAttribute("aria-busy", "true");
+  showProductsLoader();
+
+  window.clearTimeout(productLoadTimer);
+  productLoadTimer = window.setTimeout(() => {
+    try {
+      mutate();
+    } finally {
+      /* two frames so the new cards are laid out before the veil lifts */
+      requestAnimationFrame(() => requestAnimationFrame(hideProductsLoader));
+    }
+  }, delay);
+}
+
+window.withProductsLoader = withProductsLoader;
+window.showProductsLoader = showProductsLoader;
+
 function renderMarketplace() {
   const grid = document.getElementById("product-grid");
   const summary = document.getElementById("results-summary");
@@ -1349,11 +1452,11 @@ function renderMarketplace() {
 function setCategoryFilter(guildKey, scrollToGrid = false) {
   AppState.filters.guild = guildKey;
   AppState.filters.artisan = "";
-  renderMarketplace();
   if (scrollToGrid) {
     const el = document.getElementById("marketplace-section");
     if (el) el.scrollIntoView({ behavior: "smooth" });
   }
+  withProductsLoader(() => renderMarketplace(), { delay: 200 });
 }
 
 function resetAllFilters() {
@@ -1387,7 +1490,7 @@ function resetAllFilters() {
   const sortSel = document.getElementById("sort-select");
   if (sortSel) sortSel.value = "featured";
 
-  renderMarketplace();
+  withProductsLoader(() => renderMarketplace(), { delay: 200 });
   showToast("All marketplace filters reset");
 }
 
@@ -2624,7 +2727,7 @@ function toggleCategoryFilter(guildKey) {
     AppState.filters.guild = guildKey;
   }
   AppState.filters.artisan = "";
-  renderMarketplace();
+  withProductsLoader(() => renderMarketplace(), { delay: 200 });
 }
 window.toggleCategoryFilter = toggleCategoryFilter;
 
@@ -3483,7 +3586,7 @@ document.addEventListener("DOMContentLoaded", () => {
       clearBtn.classList.remove("visible");
       if (dropdown) dropdown.classList.remove("open");
       AppState.filters.search = "";
-      renderMarketplace();
+      withProductsLoader(() => renderMarketplace(), { delay: 200 });
     });
   }
 
@@ -3494,8 +3597,17 @@ document.addEventListener("DOMContentLoaded", () => {
     priceSlider.addEventListener("input", () => {
       const v = parseInt(priceSlider.value, 10);
       AppState.filters.maxPrice = v;
-      if (priceVal) priceVal.textContent = "Up to " + formatINR(v);
-      renderMarketplace();
+      if (priceVal) {
+        priceVal.textContent = v >= 220000 ? "Any price" : "Up to " + formatINR(v);
+      }
+      /* live count updates immediately; only the grid waits for the loader */
+      const matchEl = document.getElementById("price-match-count");
+      if (matchEl) {
+        const n = getAllProducts().filter(p => p.price <= v).length;
+        matchEl.textContent = n === 1 ? "1 craft within budget" : `${n} crafts within budget`;
+        matchEl.classList.toggle("is-empty", n === 0);
+      }
+      withProductsLoader(() => renderMarketplace(), { delay: 300 });
     });
   }
 
@@ -3503,7 +3615,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (ratingFilter) {
     ratingFilter.addEventListener("change", () => {
       AppState.filters.minRating = parseFloat(ratingFilter.value) || 0;
-      renderMarketplace();
+      withProductsLoader(() => renderMarketplace(), { delay: 220 });
     });
   }
 
@@ -3511,7 +3623,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (giFilter) {
     giFilter.addEventListener("change", () => {
       AppState.filters.giTier = parseInt(giFilter.value, 10) || 0;
-      renderMarketplace();
+      withProductsLoader(() => renderMarketplace(), { delay: 220 });
     });
   }
 
@@ -3519,7 +3631,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (distFilter) {
     distFilter.addEventListener("change", () => {
       AppState.filters.district = distFilter.value;
-      renderMarketplace();
+      withProductsLoader(() => renderMarketplace(), { delay: 220 });
     });
   }
 
@@ -3527,7 +3639,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (sortSelect) {
     sortSelect.addEventListener("change", () => {
       AppState.filters.sortBy = sortSelect.value;
-      renderMarketplace();
+      withProductsLoader(() => renderMarketplace(), { delay: 220 });
     });
   }
 
