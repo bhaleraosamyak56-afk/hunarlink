@@ -4009,7 +4009,8 @@ h1, h2, h3, h4,
   backdrop-filter: blur(2px);
   border-radius: 14px;
   opacity: 0;
-  transition: opacity 0.22s ease;
+  transition: opacity 0.14s ease;
+  will-change: opacity;
 }
 
 .products-loader[hidden] {

@@ -1274,7 +1274,14 @@ function positionProductsLoader() {
   loader.style.height = Math.round(Math.max(bottom - top, MIN_VEIL)) + "px";
 }
 
-function showProductsLoader() {
+/* The loader must stay on screen long enough to actually be seen. A 200ms
+   debounce plus a 220ms fade meant the whole thing was over in well under half a
+   second, which reads as "nothing happened". It now holds for a guaranteed
+   minimum before it fades out. */
+const PRODUCTS_LOADER_MIN_VISIBLE_MS = 700;
+let productsLoaderShownAt = 0;
+
+function showProductsLoader(reason) {
   const stage = document.getElementById("products-stage");
   const loader = document.getElementById("products-loader");
   const grid = document.getElementById("product-grid");
@@ -1283,16 +1290,33 @@ function showProductsLoader() {
   window.clearTimeout(productRevealTimer);
   positionProductsLoader();
   loader.hidden = false;
-  /* let the browser paint the loader before the grid is dimmed */
+  if (!loader.classList.contains("is-visible")) {
+    productsLoaderShownAt = Date.now();
+  }
+  /* paint first, then flip the class so the fade actually runs */
   requestAnimationFrame(() => loader.classList.add("is-visible"));
 
-  const count = (grid ? grid.querySelectorAll(".product-card").length : 0);
-  const sub = document.getElementById("products-loader-sub");
-  if (sub) {
-    sub.textContent = AppState.filters.maxPrice < 220000
-      ? `Filtering ${getAllProducts().length} GI-certified treasures…`
-      : `Sorting ${count || getAllProducts().length} GI-certified treasures…`;
+  /* Describe the control the visitor just used. Deriving the message from the
+     overall filter state was wrong: once a guild was selected every later message
+     said "Filtering by Walnut", even when you moved the price slider. */
+  const total = getAllProducts().length;
+  const f = AppState.filters;
+  let verb = reason;
+
+  if (!verb) {
+    if (f.maxPrice < 220000) verb = `Filtering under ${formatINR(f.maxPrice)}…`;
+    else if (f.minRating > 0) verb = `Filtering ${f.minRating}★ and above…`;
+    else if (f.district !== "all") verb = `Filtering ${f.district} workshops…`;
+    else if (f.guild !== "all") {
+      const label = f.guild.charAt(0).toUpperCase() + f.guild.slice(1).replace("-", " ");
+      verb = `Filtering by ${label}…`;
+    } else if (f.search) verb = `Searching for “${f.search}”…`;
+    else if (f.sortBy !== "featured") verb = `Sorting ${total} GI-certified treasures…`;
+    else verb = `Curating ${total} GI-certified treasures…`;
   }
+
+  const sub = document.getElementById("products-loader-sub");
+  if (sub) sub.textContent = verb;
 }
 
 if (typeof window !== "undefined") {
@@ -1310,17 +1334,26 @@ function hideProductsLoader() {
   const loader = document.getElementById("products-loader");
   const stage = document.getElementById("products-stage");
   if (!loader || !stage) return;
-  loader.classList.remove("is-visible");
-  stage.setAttribute("aria-busy", "false");
-  productRevealTimer = window.setTimeout(() => { loader.hidden = true; }, 230);
+
+  /* guarantee a minimum on-screen time, so a fast filter still shows feedback */
+  const elapsed = Date.now() - productsLoaderShownAt;
+  const wait = Math.max(0, PRODUCTS_LOADER_MIN_VISIBLE_MS - elapsed);
+
+  window.clearTimeout(productRevealTimer);
+  productRevealTimer = window.setTimeout(() => {
+    loader.classList.remove("is-visible");
+    stage.setAttribute("aria-busy", "false");
+    productRevealTimer = window.setTimeout(() => { loader.hidden = true; }, 200);
+  }, wait);
 }
 
-/* Wrap any filter change: paint the loader, apply, then reveal. */
+/* Wrap any filter change: paint the loader, apply, then reveal.
+   opts.reason is the sentence shown under the spinner. */
 function withProductsLoader(mutate, opts) {
   const stage = document.getElementById("products-stage");
   const delay = (opts && typeof opts.delay === "number") ? opts.delay : 260;
   if (stage) stage.setAttribute("aria-busy", "true");
-  showProductsLoader();
+  showProductsLoader(opts && opts.reason);
 
   window.clearTimeout(productLoadTimer);
   productLoadTimer = window.setTimeout(() => {
@@ -1456,7 +1489,10 @@ function setCategoryFilter(guildKey, scrollToGrid = false) {
     const el = document.getElementById("marketplace-section");
     if (el) el.scrollIntoView({ behavior: "smooth" });
   }
-  withProductsLoader(() => renderMarketplace(), { delay: 200 });
+  withProductsLoader(() => renderMarketplace(), { delay: 200,
+    reason: guildKey === "all"
+      ? "Showing every craft guild…"
+      : `Filtering by ${guildKey.charAt(0).toUpperCase() + guildKey.slice(1).replace("-", " ")}…` });
 }
 
 function resetAllFilters() {
@@ -1490,7 +1526,7 @@ function resetAllFilters() {
   const sortSel = document.getElementById("sort-select");
   if (sortSel) sortSel.value = "featured";
 
-  withProductsLoader(() => renderMarketplace(), { delay: 200 });
+  withProductsLoader(() => renderMarketplace(), { delay: 200, reason: "Restoring the full catalogue…" });
   showToast("All marketplace filters reset");
 }
 
@@ -2727,7 +2763,10 @@ function toggleCategoryFilter(guildKey) {
     AppState.filters.guild = guildKey;
   }
   AppState.filters.artisan = "";
-  withProductsLoader(() => renderMarketplace(), { delay: 200 });
+  withProductsLoader(() => renderMarketplace(), { delay: 200,
+    reason: AppState.filters.guild === "all"
+      ? "Showing every craft guild…"
+      : `Filtering by ${AppState.filters.guild.charAt(0).toUpperCase() + AppState.filters.guild.slice(1).replace("-", " ")}…` });
 }
 window.toggleCategoryFilter = toggleCategoryFilter;
 
@@ -3586,7 +3625,7 @@ document.addEventListener("DOMContentLoaded", () => {
       clearBtn.classList.remove("visible");
       if (dropdown) dropdown.classList.remove("open");
       AppState.filters.search = "";
-      withProductsLoader(() => renderMarketplace(), { delay: 200 });
+      withProductsLoader(() => renderMarketplace(), { delay: 200, reason: "Clearing your search…" });
     });
   }
 
@@ -3607,7 +3646,7 @@ document.addEventListener("DOMContentLoaded", () => {
         matchEl.textContent = n === 1 ? "1 craft within budget" : `${n} crafts within budget`;
         matchEl.classList.toggle("is-empty", n === 0);
       }
-      withProductsLoader(() => renderMarketplace(), { delay: 300 });
+      withProductsLoader(() => renderMarketplace(), { delay: 300, reason: v >= 220000 ? "Showing every price range…" : `Filtering under ${formatINR(v)}…` });
     });
   }
 
@@ -3615,7 +3654,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (ratingFilter) {
     ratingFilter.addEventListener("change", () => {
       AppState.filters.minRating = parseFloat(ratingFilter.value) || 0;
-      withProductsLoader(() => renderMarketplace(), { delay: 220 });
+      withProductsLoader(() => renderMarketplace(), { delay: 220, reason: AppState.filters.minRating > 0 ? `Filtering ${AppState.filters.minRating}★ and above…` : "Showing all verified ratings…" });
     });
   }
 
@@ -3623,7 +3662,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (giFilter) {
     giFilter.addEventListener("change", () => {
       AppState.filters.giTier = parseInt(giFilter.value, 10) || 0;
-      withProductsLoader(() => renderMarketplace(), { delay: 220 });
+      withProductsLoader(() => renderMarketplace(), { delay: 220,
+        reason: AppState.filters.giTier > 0 ? `Filtering ${AppState.filters.giTier}-layer GI seals…` : "Showing all GI tiers…" });
     });
   }
 
@@ -3631,7 +3671,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (distFilter) {
     distFilter.addEventListener("change", () => {
       AppState.filters.district = distFilter.value;
-      withProductsLoader(() => renderMarketplace(), { delay: 220 });
+      withProductsLoader(() => renderMarketplace(), { delay: 220,
+        reason: AppState.filters.district === "all" ? "Showing all J&K clusters…" : `Filtering ${AppState.filters.district} workshops…` });
     });
   }
 
@@ -3639,7 +3680,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (sortSelect) {
     sortSelect.addEventListener("change", () => {
       AppState.filters.sortBy = sortSelect.value;
-      withProductsLoader(() => renderMarketplace(), { delay: 220 });
+      withProductsLoader(() => renderMarketplace(), { delay: 220, reason: "Sorting GI-certified treasures…" });
     });
   }
 
