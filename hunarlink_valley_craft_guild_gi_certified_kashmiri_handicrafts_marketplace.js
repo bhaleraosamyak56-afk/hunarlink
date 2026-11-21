@@ -2687,8 +2687,11 @@ function openSellerLoginModal() {
   if (modal) modal.classList.add('open');
 }
 
-function setAuthRole() {
-  currentAuthRole = 'artisan';
+function setAuthRole(role) {
+  /* Only an artisan seller portal exists today; guard the argument so a future
+     buyer/collector tab can't silently get overwritten back to 'artisan'. */
+  const nextRole = (role === 'artisan' || role === 'seller') ? 'artisan' : 'artisan';
+  currentAuthRole = nextRole;
   const artisanTab = document.getElementById('auth-role-artisan');
   const submitBtnText = document.getElementById('auth-submit-btn-text');
 
@@ -2866,17 +2869,156 @@ function updateAuthUI() {
 }
 
 function handleUserLoginClick() {
+  /* user-portal/*.html was never committed, so this used to hard-404.
+     Route to the in-page Collector Profile drawer/modals that already exist. */
   const buyerProfile = loadStorage('hunarlink_buyer_profile', null);
   if (buyerProfile && buyerProfile.isLoggedIn === false) {
-    window.location.href = 'user-portal/login.html';
+    window.location.href = 'auth.html?mode=login';
   } else {
-    window.location.href = 'user-portal/profile.html';
+    openCollectorProfileModal();
   }
 }
+
+/* Collector profile — replaces the missing user-portal/profile.html */
+function openCollectorProfileModal() {
+  const profile = loadStorage('hunarlink_buyer_profile', null) || {
+    name: 'Priya Sharma',
+    email: 'priya.sharma@collector.in',
+    role: 'Verified Valley Collector • J&K',
+    isLoggedIn: true
+  };
+  const orders = loadStorage('hunarlink_orders', []) || [];
+  const wishlist = loadStorage('hunarlink_wishlist', []) || [];
+  const recent = loadStorage('hunarlink_recent', []) || [];
+
+  let modal = document.getElementById('collector-profile-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'backdrop-overlay';
+    modal.id = 'collector-profile-modal';
+    modal.onclick = (e) => { if (e.target === modal) closeModal('collector-profile-modal'); };
+    document.body.appendChild(modal);
+  }
+
+  const spend = orders.reduce((t, o) => t + (o.total || 0), 0);
+  const initials = (profile.name || 'PS').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <div class="drawer-title">👤 Collector Profile &amp; Discovery Trail</div>
+        <button type="button" class="drawer-close-btn" onclick="closeModal('collector-profile-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; gap:14px; align-items:center; background:var(--forest-50); border:1px solid var(--border-mid); border-radius:12px; padding:16px; margin-bottom:18px;">
+          <div style="width:52px; height:52px; border-radius:50%; background:var(--forest-900); color:#FFF; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.05rem;">${initials}</div>
+          <div>
+            <div style="font-weight:700; color:var(--forest-950); font-size:1rem;">${profile.name || 'Collector'}</div>
+            <div style="font-size:0.78rem; color:var(--text-500);">${profile.email || 'collector@hunarlink.jk'}</div>
+            <div style="font-size:0.7rem; color:var(--btn-orange-dark); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">${profile.role || 'Verified Valley Collector • J&K'}</div>
+          </div>
+        </div>
+
+        <div class="form-grid" style="margin-bottom:18px;">
+          <div style="background:var(--bg-ivory); border:1px solid var(--border-light); border-radius:10px; padding:12px 14px;">
+            <div style="font-size:1.25rem; font-weight:700; color:var(--heading-color);">${orders.length}</div>
+            <div style="font-size:0.72rem; color:var(--text-500); text-transform:uppercase; letter-spacing:0.06em;">Orders Placed</div>
+          </div>
+          <div style="background:var(--bg-ivory); border:1px solid var(--border-light); border-radius:10px; padding:12px 14px;">
+            <div style="font-size:1.25rem; font-weight:700; color:var(--heading-color);">${formatINR(spend)}</div>
+            <div style="font-size:0.72rem; color:var(--text-500); text-transform:uppercase; letter-spacing:0.06em;">Patronage Total</div>
+          </div>
+          <div style="background:var(--bg-ivory); border:1px solid var(--border-light); border-radius:10px; padding:12px 14px;">
+            <div style="font-size:1.25rem; font-weight:700; color:var(--heading-color);">${wishlist.length}</div>
+            <div style="font-size:0.72rem; color:var(--text-500); text-transform:uppercase; letter-spacing:0.06em;">Wishlist Heirlooms</div>
+          </div>
+          <div style="background:var(--bg-ivory); border:1px solid var(--border-light); border-radius:10px; padding:12px 14px;">
+            <div style="font-size:1.25rem; font-weight:700; color:var(--heading-color);">${recent.length}</div>
+            <div style="font-size:0.72rem; color:var(--text-500); text-transform:uppercase; letter-spacing:0.06em;">Recently Viewed</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn-primary-forest" onclick="closeModal('collector-profile-modal'); openOrdersModal();">📦 My Orders &amp; Live Tracking</button>
+          <button type="button" class="btn-outline-ivory" onclick="closeModal('collector-profile-modal'); toggleDrawer('wishlist-drawer', true);">♡ Saved Wishlist</button>
+          <button type="button" class="btn-outline-ivory" onclick="closeModal('collector-profile-modal'); openGiVerifyModal('GI-JK-PASH-8821');">🛡️ GI Registry Verifier</button>
+        </div>
+      </div>
+    </div>`;
+  modal.classList.add('open');
+}
+
+/* Collector sign-in / switch account — replaces the missing user-portal/login.html */
+function openCollectorLoginModal() {
+  const profile = loadStorage('hunarlink_buyer_profile', null) || { name: 'Priya Sharma', email: 'priya.sharma@collector.in', isLoggedIn: true };
+  let modal = document.getElementById('collector-login-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.className = 'backdrop-overlay';
+    modal.id = 'collector-login-modal';
+    modal.onclick = (e) => { if (e.target === modal) closeModal('collector-login-modal'); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="drawer-title">🔐 Collector Sign In</div>
+        <button type="button" class="drawer-close-btn" onclick="closeModal('collector-login-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.82rem; color:var(--text-700); margin-bottom:14px;">
+          Signed in as <strong>${profile.name}</strong>. Switch collector account below — this is a demo
+          prototype, so any valid-looking email is accepted.
+        </p>
+        <form onsubmit="event.preventDefault(); saveCollectorLogin(this);">
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Collector Name</label>
+              <input type="text" id="collector-name" value="${profile.name || ''}" required>
+            </div>
+            <div class="form-field">
+              <label>Email Address</label>
+              <input type="email" id="collector-email" value="${profile.email || ''}" required>
+            </div>
+          </div>
+          <div style="margin-top:14px; display:flex; gap:8px; justify-content:flex-end;">
+            <button type="button" class="btn-outline-ivory" onclick="logoutCollector()">Sign Out</button>
+            <button type="submit" class="btn-primary-forest">Save &amp; Continue →</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+  modal.classList.add('open');
+}
+
+function saveCollectorLogin(form) {
+  const name = (document.getElementById('collector-name') || {}).value || 'Collector';
+  const email = (document.getElementById('collector-email') || {}).value || '';
+  saveStorage('hunarlink_buyer_profile', {
+    name: name.trim(), email: email.trim(),
+    role: 'Verified Valley Collector • J&K', isLoggedIn: true
+  });
+  closeModal('collector-login-modal');
+  updateAuthUI();
+  showToast(`Signed in as ${name.trim()}`);
+}
+
+function logoutCollector() {
+  saveStorage('hunarlink_buyer_profile', { name: 'Guest Collector', email: '', role: 'Guest', isLoggedIn: false });
+  closeModal('collector-login-modal');
+  updateAuthUI();
+  showToast('Signed out of collector session.');
+}
+
+window.openCollectorProfileModal = openCollectorProfileModal;
+window.openCollectorLoginModal = openCollectorLoginModal;
+window.saveCollectorLogin = saveCollectorLogin;
+window.logoutCollector = logoutCollector;
 
 function handleSellerLoginClick() {
   const user = AppState.currentUser || loadStorage('hunarlink_auth_user', null);
   if (user && user.isLoggedIn && user.role === 'artisan') {
+    /* dashboard now really exists (seller-portal/dashboard.html) */
     window.location.href = 'seller-portal/dashboard.html';
   } else {
     window.location.href = 'auth.html?mode=login&role=artisan';
@@ -2934,6 +3076,82 @@ function resetDemoStorage() {
   resetAllFilters();
   showToast("Demo data restored to initial HunarLink catalog state");
 }
+
+/* ==========================================================================
+   Graceful image fallback
+   --------------------------------------------------------------------------
+   The catalogue references many craft photographs. If any single file is
+   missing (or the host blocks it), swap in a branded woven-motif tile instead
+   of the browser's broken-image icon + overflowing alt text.
+   ========================================================================== */
+const HL_FALLBACK_TILE =
+  "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">' +
+    '<rect width="600" height="600" fill="#F7F2E9"/>' +
+    '<g stroke="#C9A75B" stroke-width="2" fill="none" opacity="0.55">' +
+    '<path d="M0 300 Q150 240 300 300 T600 300"/>' +
+    '<path d="M0 360 Q150 300 300 360 T600 360"/>' +
+    '<circle cx="300" cy="270" r="46"/>' +
+    '<circle cx="300" cy="270" r="26"/>' +
+    '</g>' +
+    '<circle cx="300" cy="270" r="7" fill="#B9884B"/>' +
+    '<text x="300" y="430" text-anchor="middle" font-family="Georgia,serif" font-size="22" ' +
+    'fill="#8E7042" letter-spacing="4">HUNARLINK</text></svg>'
+  );
+
+/* Applies the fallback to <img> elements, including ones rendered later. */
+function installImageFallbacks() {
+  if (window.__hlImgFallbackInstalled) {
+    document.querySelectorAll('img').forEach(hl_applyImgFallback);
+    return;
+  }
+  window.__hlImgFallbackInstalled = true;
+
+  document.querySelectorAll('img').forEach(hl_applyImgFallback);
+
+  /* catch images injected by renderMarketplace()/renderPdpThumbnails() etc. */
+  const mo = new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (n.tagName === 'IMG') hl_applyImgFallback(n);
+      if (n.querySelectorAll) n.querySelectorAll('img').forEach(hl_applyImgFallback);
+    }));
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+}
+
+function hl_applyImgFallback(img) {
+  if (!img || img.dataset.hlFallbackBound === '1') return;
+  img.dataset.hlFallbackBound = '1';
+  img.addEventListener('error', () => {
+    if (img.dataset.hlFallbackApplied === '1') return;
+    img.dataset.hlFallbackApplied = '1';
+    img.src = HL_FALLBACK_TILE;
+    img.style.objectFit = 'cover';
+    img.classList.add('hl-img-fallback');
+  });
+  /* already failed before the listener attached */
+  if (img.complete && img.naturalWidth === 0) {
+    img.dataset.hlFallbackApplied = '0';
+    img.dispatchEvent(new Event('error'));
+  }
+}
+
+window.installImageFallbacks = installImageFallbacks;
+
+/* Public, read-only catalogue accessor for widgets (e.g. the HunarSathi bot).
+   The storefront keeps its state in a module-scoped const, so expose a getter. */
+window.HL_getCatalog = function () {
+  try {
+    /* getAllProducts() = custom listings + seed catalogue + collector overrides */
+    return typeof getAllProducts === 'function' ? getAllProducts() : [];
+  } catch (e) {
+    return [];
+  }
+};
+window.HL_getOrders = function () {
+  try { return AppState.orders || []; } catch (e) { return []; }
+};
 
 /* ==========================================================================
    Secondary Section Nav — Active State Controller
@@ -3091,6 +3309,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   } catch (e) {}
 
+  installImageFallbacks();
   updateHeaderBadges();
   updateAuthUI();
   renderMarketplace();

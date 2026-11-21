@@ -12,3 +12,6 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Generated craft imagery is produced by tools/generate_assets.py.
+# Remove the line below once real product photography is added.

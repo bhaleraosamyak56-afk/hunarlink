@@ -1,0 +1,424 @@
+/* ==========================================================================
+   HunarSathi — Valley Craft Assistant
+   Floating chat widget. Pure vanilla JS, no dependencies, works offline.
+   Instantiated by hunarsathi-chatbot/widget.js
+   ========================================================================== */
+
+:root {
+  --hs-forest: #112A20;
+  --hs-forest-soft: #F2F7F4;
+  --hs-ivory: #F7F5EE;
+  --hs-gold: #D9A441;
+  --hs-orange: #E05A17;
+  --hs-text: #13201A;
+  --hs-muted: #63736A;
+  --hs-border: #E3DFD2;
+}
+
+/* ── launcher ─────────────────────────────────────────────────────────── */
+.hs-launcher {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 940;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 18px 12px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--hs-forest);
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(17, 42, 32, 0.28);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hs-launcher:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(17, 42, 32, 0.34);
+}
+
+.hs-launcher:focus-visible {
+  outline: 3px solid var(--hs-gold);
+  outline-offset: 3px;
+}
+
+.hs-launcher-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(217, 164, 65, 0.22);
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+}
+
+.hs-launcher-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ADE80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.25);
+}
+
+/* ── panel ────────────────────────────────────────────────────────────── */
+.hs-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 88px;
+  z-index: 941;
+  width: min(372px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 130px));
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--hs-border);
+  border-radius: 16px;
+  box-shadow: 0 22px 60px rgba(17, 42, 32, 0.24);
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.hs-panel.hs-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.hs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 15px;
+  background: var(--hs-forest);
+  color: #fff;
+}
+
+.hs-header-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hs-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(217, 164, 65, 0.2);
+  border: 1px solid rgba(217, 164, 65, 0.5);
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.hs-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.hs-sub {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.62);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+}
+
+.hs-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.hs-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── transcript ───────────────────────────────────────────────────────── */
+.hs-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 14px 6px;
+  background: var(--hs-ivory);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
+}
+
+.hs-log::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hs-log::-webkit-scrollbar-thumb {
+  background: var(--hs-border);
+  border-radius: 3px;
+}
+
+.hs-msg {
+  max-width: 87%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  animation: hs-in 0.22s ease both;
+}
+
+@keyframes hs-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hs-bot {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--hs-border);
+  color: var(--hs-text);
+  border-bottom-left-radius: 4px;
+}
+
+.hs-user {
+  align-self: flex-end;
+  background: var(--hs-forest);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.hs-msg b {
+  font-weight: 700;
+}
+
+.hs-msg code {
+  background: rgba(17, 42, 32, 0.07);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.92em;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.hs-msg ul {
+  margin: 6px 0 0;
+  padding-left: 17px;
+}
+
+.hs-msg li {
+  margin-bottom: 3px;
+}
+
+/* product result cards inside a bot message */
+.hs-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.hs-card {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  padding: 7px;
+  background: var(--hs-forest-soft);
+  border: 1px solid #DCE8E1;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.hs-card:hover {
+  border-color: var(--hs-forest);
+  background: #E8F1EC;
+}
+
+.hs-card img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.hs-card-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.hs-card-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--hs-forest);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hs-card-sub {
+  font-size: 0.66rem;
+  color: var(--hs-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hs-card-price {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--hs-orange);
+  flex-shrink: 0;
+}
+
+/* typing indicator */
+.hs-typing {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 11px 13px;
+}
+
+.hs-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #B6C4BC;
+  animation: hs-bounce 1.1s infinite;
+}
+
+.hs-typing span:nth-child(2) { animation-delay: 0.15s; }
+.hs-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes hs-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── quick replies ────────────────────────────────────────────────────── */
+.hs-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 9px 14px 0;
+  background: var(--hs-ivory);
+}
+
+.hs-chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hs-border);
+  background: #fff;
+  color: var(--hs-forest);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.hs-chip:hover {
+  border-color: var(--hs-forest);
+  background: var(--hs-forest);
+  color: #fff;
+}
+
+/* ── composer ─────────────────────────────────────────────────────────── */
+.hs-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  background: var(--hs-ivory);
+  border-top: 1px solid var(--hs-border);
+}
+
+.hs-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--hs-border);
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.79rem;
+  color: var(--hs-text);
+  background: #fff;
+}
+
+.hs-input:focus {
+  outline: none;
+  border-color: var(--hs-forest);
+  box-shadow: 0 0 0 3px rgba(17, 42, 32, 0.08);
+}
+
+.hs-send {
+  width: 38px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 9px;
+  background: var(--hs-orange);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease;
+}
+
+.hs-send:hover {
+  background: #C2480C;
+}
+
+.hs-send:focus-visible {
+  outline: 3px solid var(--hs-gold);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .hs-panel {
+    right: 10px;
+    left: 10px;
+    bottom: 80px;
+    width: auto;
+    max-height: calc(100vh - 110px);
+  }
+
+  .hs-launcher {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .hs-launcher-label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-panel,
+  .hs-launcher,
+  .hs-msg {
+    transition: none;
+    animation: none;
+  }
+}
