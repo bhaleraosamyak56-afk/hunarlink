@@ -18,3 +18,6 @@ frontend/node_modules/
 __pycache__/
 *.pyc
 .env
+
+# local git credentials (never commit)
+.git-credentials
