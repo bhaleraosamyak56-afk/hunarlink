@@ -635,9 +635,408 @@ body.drawer-open {
    COMPARE BAR — steps down while a drawer is open.
    It floats bottom-left and was sitting on top of the last wishlist row.
    ========================================================================== */
+/* Toasts fire the moment something is added; if the panel is already open
+   they were stacking over the summary and the checkout button. While a
+   drawer is open the confirmation is redundant — the panel itself is the
+   confirmation — so the stack steps behind the scrim. */
+body.drawer-open .toast-stack {
+  z-index: 235;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
 body.drawer-open .compare-floating-bar {
   opacity: 0;
   transform: translateY(12px);
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* ==========================================================================
+   ACQUISITION BAG — brought onto the same sheet as the wishlist
+   --------------------------------------------------------------------------
+   The bag keeps its logic exactly as it was; only the furniture changes.
+   Line items reuse .wl-item / .wl-main / .wl-thumb / .wl-copy so a piece
+   reads identically whether it is saved or reserved. What is new here is
+   the quantity stepper, the privilege note, and the summary ledger.
+   ========================================================================== */
+
+/* --- Quantity stepper: hairline box, no fills -------------------------- */
+.bag-qty {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border-mid);
+  border-radius: 3px;
+  overflow: hidden;
+  background-color: #FFFFFF;
+  align-self: stretch;
+  justify-content: space-between;
+}
+
+.bag-qty-btn {
+  width: 26px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--forest-800);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.bag-qty-btn:hover {
+  background-color: var(--forest-50);
+  color: var(--forest-950);
+}
+
+.bag-qty-btn:active {
+  background-color: var(--forest-100);
+}
+
+.bag-qty-val {
+  min-width: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--forest-950);
+  border-left: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the third action in the rail reads quieter than Remove */
+.bag-save {
+  color: var(--forest-700) !important;
+  font-weight: 600 !important;
+}
+
+.bag-save:hover {
+  color: var(--forest-900) !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* the cart rail carries three controls, so give it a little more air */
+#cart-drawer .wl-actions {
+  gap: 8px;
+  min-width: 124px;
+}
+
+#cart-drawer .wl-remove {
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+}
+
+#cart-drawer .wl-meta + .wl-meta {
+  margin-top: 1px;
+  font-size: 0.7rem;
+  color: var(--text-400);
+  letter-spacing: 0.02em;
+}
+
+/* --- Privilege note ---------------------------------------------------- */
+.bag-reassure {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 18px;
+  padding: 13px 14px;
+  border-left: 2px solid var(--gold-400);
+  background-color: var(--bg-ivory);
+  font-size: 0.72rem;
+  line-height: 1.62;
+  color: var(--text-700);
+}
+
+.bag-reassure svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--gold-600);
+}
+
+.bag-reassure strong {
+  color: var(--forest-900);
+  font-weight: 700;
+}
+
+/* --- Coupon: a field, not a card --------------------------------------- */
+.bag-coupon {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-light);
+}
+
+.bag-coupon-label {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  margin-bottom: 9px;
+}
+
+.bag-coupon-row {
+  display: flex;
+  gap: 8px;
+}
+
+.bag-coupon-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 11px;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--forest-950);
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-mid);
+  border-radius: 3px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.bag-coupon-row input::placeholder {
+  color: var(--text-400);
+  letter-spacing: 0.01em;
+}
+
+.bag-coupon-row input:focus {
+  outline: none;
+  border-color: var(--forest-600);
+  box-shadow: 0 0 0 3px rgba(41, 102, 78, 0.1);
+}
+
+.bag-coupon-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.bag-chip {
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 5px 9px;
+  color: var(--forest-800);
+  background-color: #FFFFFF;
+  border: 1px dashed var(--border-mid);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.bag-chip span {
+  color: var(--text-400);
+  font-weight: 500;
+  margin-left: 3px;
+  letter-spacing: 0.01em;
+}
+
+.bag-chip:hover {
+  border-style: solid;
+  border-color: var(--forest-600);
+  background-color: var(--forest-50);
+}
+
+.bag-chip-remove {
+  color: var(--danger-600);
+  border-style: solid;
+  border-color: rgba(201, 59, 43, 0.28);
+}
+
+.bag-chip-remove:hover {
+  background-color: rgba(201, 59, 43, 0.06);
+  border-color: var(--danger-600);
+}
+
+/* --- Saved for later ---------------------------------------------------- */
+.bag-saved {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--border-mid);
+}
+
+.bag-saved-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  margin-bottom: 4px;
+}
+
+.bag-saved-head span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background-color: var(--bg-ivory-alt);
+  color: var(--text-700);
+  font-size: 0.58rem;
+  letter-spacing: 0;
+}
+
+.bag-saved-item .wl-main {
+  padding: 13px 0 12px;
+}
+
+.bag-thumb-sm {
+  width: 52px;
+  height: 63px;
+}
+
+.bag-title-sm {
+  font-size: 0.92rem;
+  margin-bottom: 4px;
+}
+
+.bag-price-sm {
+  margin-top: 5px;
+  font-size: 0.82rem;
+}
+
+.bag-saved-item .wl-actions {
+  padding-top: 15px;
+}
+
+/* --- Summary ledger ---------------------------------------------------- */
+.bag-summary {
+  margin-bottom: 14px;
+}
+
+.bag-sum-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  padding: 3px 0;
+  color: var(--text-700);
+}
+
+.bag-sum-line em {
+  font-style: normal;
+  color: var(--text-400);
+  font-size: 0.72rem;
+}
+
+.bag-sum-line > span:last-child {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--forest-950);
+}
+
+.bag-sum-credit,
+.bag-sum-credit > span:last-child {
+  color: var(--success-600);
+}
+
+.bag-sum-strong {
+  font-weight: 600;
+}
+
+.bag-sum-free {
+  color: var(--success-600);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+
+.bag-sum-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 9px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-mid);
+  font-family: var(--font-serif);
+  font-size: 1.16rem;
+  font-weight: 700;
+  color: var(--forest-950);
+}
+
+.bag-sum-total > span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Checkout: the one filled action in the panel ---------------------- */
+.wl-checkout {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px 18px;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  background-image: linear-gradient(135deg, var(--btn-orange), var(--btn-orange-dark));
+  box-shadow: 0 3px 12px rgba(224, 90, 23, 0.26);
+  transition: box-shadow 0.2s ease, filter 0.2s ease, transform 0.12s ease;
+}
+
+.wl-checkout:hover:not(:disabled) {
+  filter: brightness(1.07);
+  box-shadow: 0 7px 20px rgba(224, 90, 23, 0.34);
+}
+
+.wl-checkout:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.wl-checkout:disabled {
+  background-image: none;
+  background-color: var(--bg-ivory-alt);
+  color: var(--text-400);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.wl-checkout svg {
+  transition: transform 0.2s ease;
+}
+
+.wl-checkout:hover:not(:disabled) svg {
+  transform: translateX(3px);
+}
+
+#cart-drawer .drawer-footer {
+  padding: 16px 22px 20px;
+  background-color: var(--bg-ivory);
+  border-top: 1px solid var(--border-light);
+}
+
+/* --- Narrow phones ----------------------------------------------------- */
+@media (max-width: 430px) {
+  #cart-drawer .wl-actions {
+    min-width: 0;
+    margin-left: 78px;
+  }
+  .bag-coupon-row {
+    flex-direction: column;
+  }
+  .bag-coupon-row .wl-move {
+    padding: 10px 14px;
+  }
 }

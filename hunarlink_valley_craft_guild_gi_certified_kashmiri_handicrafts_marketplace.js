@@ -1654,102 +1654,136 @@ function renderCartDrawer() {
 
   const totals = calculateCartTotals();
 
+  /* --- Ledger header: same voice as the wishlist sheet ------------------- */
+  const heading = document.getElementById("cart-drawer-heading");
+  const meta = document.getElementById("cart-drawer-meta");
+  const count = AppState.cart.reduce((n, e) => n + e.qty, 0);
+  if (heading) heading.textContent = "Valley Acquisition Bag";
+  if (meta) {
+    if (count === 0) {
+      meta.textContent = "Nothing reserved yet";
+    } else {
+      meta.innerHTML = `<b>${count} ${count === 1 ? "piece" : "pieces"}</b> reserved` +
+        (totals.netPayable ? ` <span style="opacity:.45;padding:0 4px;">·</span> ${formatINR(totals.netPayable)} net payable` : "");
+    }
+  }
+
+  /* --- Line items ------------------------------------------------------- */
   const itemsHtml = AppState.cart.length === 0
-    ? `<div style="text-align: center; padding: 32px 12px; color: var(--text-500);">
-         <p style="font-family: var(--font-serif); font-size: 1.25rem; color: var(--forest-900); margin-bottom: 6px;">Your Acquisition Bag is Empty</p>
-         <p style="font-size: 0.8rem;">Explore GI-certified Kashmiri shawls, rugs, walnut wood, and papier-mâché treasures.</p>
+    ? `<div class="wl-empty">
+         <div class="wl-empty-rule"></div>
+         <p class="wl-empty-title">Your bag is empty</p>
+         <p class="wl-empty-note">Explore GI-certified Kashmiri shawls, rugs, walnut wood and papier-m&acirc;ch&eacute; treasures.</p>
        </div>`
     : AppState.cart.map(entry => {
         const p = getProductById(entry.productId);
+        const saved = (p.mrp - p.price) * entry.qty;
         return `
-          <div style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-light);">
-            <img loading="lazy" decoding="async" src="${p.image}" alt="${p.title}" style="width: 68px; height: 68px; border-radius: 8px; object-fit: cover;">
-            <div style="flex: 1;">
-              <div style="font-weight: 700; font-size: 0.88rem; color: var(--forest-950);">${p.title}</div>
-              <div style="font-size: 0.72rem; color: var(--text-500);">${p.giId} • ${p.artisan}</div>
-              <div style="font-weight: 700; font-size: 0.86rem; color: var(--forest-900); margin-top: 4px;">
-                ${formatINR(p.price * entry.qty)}
-                <span style="font-size: 0.72rem; color: var(--text-400); text-decoration: line-through;">${formatINR(p.mrp * entry.qty)}</span>
+          <article class="wl-item">
+            <button type="button" class="wl-main" onclick="openProductPage('${p.id}')" aria-label="Open ${p.title}">
+              <img loading="lazy" decoding="async" class="wl-thumb" src="${p.image}" alt="">
+              <span class="wl-copy">
+                <span class="wl-guild">${p.guildLabel}</span>
+                <span class="wl-title">${p.title}</span>
+                <span class="wl-meta">${p.artisan}</span>
+                <span class="wl-meta">${p.giId}</span>
+                <span class="wl-price">${formatINR(p.price * entry.qty)}<s>${formatINR(p.mrp * entry.qty)}</s></span>
+              </span>
+            </button>
+            <div class="wl-actions">
+              <div class="bag-qty" role="group" aria-label="Quantity for ${p.title}">
+                <button type="button" class="bag-qty-btn" aria-label="Decrease quantity" onclick="changeCartQty('${p.id}', -1)">&minus;</button>
+                <span class="bag-qty-val">${entry.qty}</span>
+                <button type="button" class="bag-qty-btn" aria-label="Increase quantity" onclick="changeCartQty('${p.id}', 1)">+</button>
               </div>
-              <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                <div style="display: inline-flex; align-items: center; border: 1px solid var(--border-mid); border-radius: 4px;">
-                  <button type="button" style="padding: 2px 8px; font-weight: 700;" onclick="changeCartQty('${p.id}', -1)">−</button>
-                  <span style="padding: 2px 8px; font-size: 0.78rem; font-weight: 700;">${entry.qty}</span>
-                  <button type="button" style="padding: 2px 8px; font-weight: 700;" onclick="changeCartQty('${p.id}', 1)">+</button>
-                </div>
-                <button type="button" style="font-size: 0.72rem; color: var(--forest-700); font-weight: 600;" onclick="saveForLater('${p.id}')">Save for Later</button>
-                <button type="button" style="font-size: 0.72rem; color: var(--danger-600); font-weight: 600;" onclick="removeFromCart('${p.id}')">Remove</button>
-              </div>
+              <button type="button" class="wl-remove bag-save" onclick="saveForLater('${p.id}')">Save for Later</button>
+              <button type="button" class="wl-remove" onclick="removeFromCart('${p.id}')">Remove</button>
             </div>
-          </div>
-        `;
+          </article>`;
       }).join("");
 
+  /* --- Saved for later -------------------------------------------------- */
   const savedHtml = AppState.savedLater.length > 0
-    ? `<div style="margin-top: 18px; padding-top: 12px; border-top: 2px dashed var(--border-mid);">
-         <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; color: var(--text-500); margin-bottom: 8px;">Saved for Later (${AppState.savedLater.length})</div>
+    ? `<div class="bag-saved">
+         <div class="bag-saved-head">Saved for Later <span>${AppState.savedLater.length}</span></div>
          ${AppState.savedLater.map(id => {
            const p = getProductById(id);
            return `
-             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bg-ivory); font-size: 0.8rem;">
-               <div>
-                 <div style="font-weight: 600;">${p.title}</div>
-                 <div style="color: var(--text-500); font-size: 0.72rem;">${formatINR(p.price)}</div>
+             <article class="wl-item bag-saved-item">
+               <button type="button" class="wl-main" onclick="openProductPage('${p.id}')" aria-label="Open ${p.title}">
+                 <img loading="lazy" decoding="async" class="wl-thumb bag-thumb-sm" src="${p.image}" alt="">
+                 <span class="wl-copy">
+                   <span class="wl-guild">${p.guildLabel}</span>
+                   <span class="wl-title bag-title-sm">${p.title}</span>
+                   <span class="wl-price bag-price-sm">${formatINR(p.price)}</span>
+                 </span>
+               </button>
+               <div class="wl-actions">
+                 <button type="button" class="wl-move" onclick="moveSavedToCart('${p.id}')">Move to Bag</button>
                </div>
-               <button type="button" class="btn-outline-ivory" style="padding: 5px 10px; font-size: 0.7rem;" onclick="moveSavedToCart('${p.id}')">Move to Cart</button>
-             </div>
-           `;
+             </article>`;
          }).join("")}
        </div>`
     : "";
 
+  /* --- Privilege line: was a tinted box at the very top, now a quiet note
+         beneath the pieces, where reassurance actually lands. ------------- */
+  const reassureHtml = AppState.cart.length === 0 ? "" : `
+    <div class="bag-reassure">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3l7 3v6c0 4.2-2.9 7.4-7 9-4.1-1.6-7-4.8-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/>
+      </svg>
+      <span><strong>Zero Commission.</strong> 100% of net craft value goes directly to the registered Kashmiri artisan loom.</span>
+    </div>`;
+
   body.innerHTML = `
-    <div style="background: var(--forest-50); border: 1px solid var(--forest-600); padding: 9px 12px; border-radius: 8px; font-size: 0.74rem; color: var(--forest-900); margin-bottom: 12px;">
-      🤝 <strong>Zero Commission Guarantee:</strong> 100% of net craft value goes directly to the registered Kashmiri artisan loom.
-    </div>
     ${itemsHtml}
-    <div style="margin-top: 14px; background: var(--bg-ivory); padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
-      <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Apply Valley Privilege Coupon</div>
-      <div style="display: flex; gap: 6px;">
-        <input type="text" id="coupon-code-input" placeholder="e.g. VALLEY10 or FIRSTCRAFT" value="${AppState.appliedCoupon || ""}" style="flex: 1; padding: 7px 10px; border: 1px solid var(--border-mid); border-radius: 4px; font-size: 0.78rem;">
-        <button type="button" class="btn-acquire" onclick="applyCouponCode()">Apply</button>
-      </div>
-      <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
-        <button type="button" style="font-size: 0.68rem; background: #FFF; border: 1px solid var(--border-mid); padding: 3px 8px; border-radius: 4px;" onclick="applyCouponCode('VALLEY10')">VALLEY10 (10% Off)</button>
-        <button type="button" style="font-size: 0.68rem; background: #FFF; border: 1px solid var(--border-mid); padding: 3px 8px; border-radius: 4px;" onclick="applyCouponCode('FIRSTCRAFT')">FIRSTCRAFT (₹2,500 Off)</button>
-        ${AppState.appliedCoupon ? `<button type="button" style="font-size: 0.68rem; color: var(--danger-600); font-weight: 700;" onclick="removeCouponCode()">Remove Coupon</button>` : ""}
-      </div>
-    </div>
+    ${AppState.cart.length === 0 ? "" : `
+      <div class="bag-coupon">
+        <label class="bag-coupon-label" for="coupon-code-input">Valley Privilege</label>
+        <div class="bag-coupon-row">
+          <input type="text" id="coupon-code-input" placeholder="Enter a privilege code"
+                 value="${AppState.appliedCoupon || ""}" autocomplete="off">
+          <button type="button" class="wl-move" onclick="applyCouponCode()">Apply</button>
+        </div>
+        <div class="bag-coupon-chips">
+          <button type="button" class="bag-chip" onclick="applyCouponCode('VALLEY10')">VALLEY10 <span>10% off</span></button>
+          <button type="button" class="bag-chip" onclick="applyCouponCode('FIRSTCRAFT')">FIRSTCRAFT <span>₹2,500 off</span></button>
+          ${AppState.appliedCoupon ? `<button type="button" class="bag-chip bag-chip-remove" onclick="removeCouponCode()">Remove coupon</button>` : ""}
+        </div>
+      </div>`}
+    ${reassureHtml}
     ${savedHtml}
   `;
 
+  /* --- Summary ---------------------------------------------------------- */
   footer.innerHTML = `
-    <div style="font-size: 0.78rem; display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px;">
-      <div style="display: flex; justify-content: space-between;">
-        <span>Total MRP (${totals.itemCount} items)</span>
+    <div class="bag-summary">
+      <div class="bag-sum-line">
+        <span>Total MRP <em>(${totals.itemCount} ${totals.itemCount === 1 ? "item" : "items"})</em></span>
         <span>${formatINR(totals.totalMrp)}</span>
       </div>
-      <div style="display: flex; justify-content: space-between; color: var(--success-600);">
+      <div class="bag-sum-line bag-sum-credit">
         <span>Direct Artisan Loom Savings</span>
-        <span>− ${formatINR(totals.artisanDiscount)}</span>
+        <span>&minus; ${formatINR(totals.artisanDiscount)}</span>
       </div>
       ${totals.couponDiscount > 0 ? `
-        <div style="display: flex; justify-content: space-between; color: var(--success-600); font-weight: 600;">
-          <span>Coupon (${AppState.appliedCoupon})</span>
-          <span>− ${formatINR(totals.couponDiscount)}</span>
-        </div>
-      ` : ""}
-      <div style="display: flex; justify-content: space-between;">
+        <div class="bag-sum-line bag-sum-credit bag-sum-strong">
+          <span>Coupon <em>${AppState.appliedCoupon}</em></span>
+          <span>&minus; ${formatINR(totals.couponDiscount)}</span>
+        </div>` : ""}
+      <div class="bag-sum-line">
         <span>Insured GI-Sealed Transit</span>
-        <span style="color: var(--success-600); font-weight: 700;">FREE</span>
+        <span class="bag-sum-free">Free</span>
       </div>
-      <div style="display: flex; justify-content: space-between; font-size: 1rem; font-weight: 700; color: var(--forest-950); padding-top: 8px; border-top: 1px solid var(--border-mid);">
+      <div class="bag-sum-total">
         <span>Net Payable</span>
         <span>${formatINR(totals.netPayable)}</span>
       </div>
     </div>
-    <button type="button" class="btn-primary-forest" style="width: 100%; justify-content: center;" ${AppState.cart.length === 0 ? "disabled" : ""} onclick="openCheckoutWizard()">
-      Proceed to Insured Checkout →
+    <button type="button" class="wl-checkout" ${AppState.cart.length === 0 ? "disabled" : ""} onclick="openCheckoutWizard()">
+      Proceed to Insured Checkout
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
     </button>
   `;
 }
