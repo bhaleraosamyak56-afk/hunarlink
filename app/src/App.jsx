@@ -14,10 +14,12 @@ import NotFoundPage from './pages/NotFoundPage.jsx';
 
 import LegacyBootstrap from './components/LegacyBootstrap.jsx';
 import ChatWidget from './components/ChatWidget.jsx';
+import SpaRedirect from './components/SpaRedirect.jsx';
 
 export default function App() {
   return (
     <>
+      <SpaRedirect />
       <LegacyBootstrap />
       <ChatWidget />
       <Routes>

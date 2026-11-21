@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HunarLink — Valley Craft Guild</title>
+  <script>
+    /* GitHub Pages serves this file for any path it cannot resolve. The app
+       lives under /hunarlink/react/, so capture what was asked for and bounce
+       to the app root; SpaRedirect restores the route once React is running.
+       Without this a hard refresh on /react/product would 404. */
+    (function () {
+      var base = '/hunarlink/react/';
+      var path = window.location.pathname;
+      var rest = path.indexOf(base) === 0 ? path.slice(base.length) : '';
+      try {
+        window.sessionStorage.setItem('hunar_spa_redirect',
+          rest + window.location.search + window.location.hash);
+      } catch (e) {}
+      window.location.replace(base);
+    })();
+  </script>
+</head>
+<body></body>
+</html>

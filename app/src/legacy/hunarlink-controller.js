@@ -3970,3 +3970,83 @@ if (document.readyState === 'loading') {
   __hunarlinkBootstrap();
 }
 window.__hunarRebootstrap = __hunarlinkBootstrap;
+
+/* ---------------------------------------------------------------------------
+   Global surface.
+   This file was written for a plain <script> tag, where every top-level
+   declaration is global. As an ES module that is no longer true, so the
+   functions that inline handlers and the ported components call are
+   republished on window.
+   --------------------------------------------------------------------------- */
+window.COUPONS = COUPONS;
+window.DEFAULT_BUYER = DEFAULT_BUYER;
+window.HL_FALLBACK_TILE = HL_FALLBACK_TILE;
+window.IMG_MAP = IMG_MAP;
+window.PRODUCTS_LOADER_MIN_VISIBLE_MS = PRODUCTS_LOADER_MIN_VISIBLE_MS;
+window.SEED_PRODUCTS = SEED_PRODUCTS;
+window.SNAV_SECTIONS = SNAV_SECTIONS;
+window.TRACKING_STAGES = TRACKING_STAGES;
+window.VERIFICATION_STEPS = VERIFICATION_STEPS;
+window.__hunarlinkBootstrap = __hunarlinkBootstrap;
+window.addToCart = addToCart;
+window.advanceOrderStage = advanceOrderStage;
+window.applyCouponCode = applyCouponCode;
+window.calculateCartTotals = calculateCartTotals;
+window.changeCartQty = changeCartQty;
+window.checkPincodeEta = checkPincodeEta;
+window.clearCompareList = clearCompareList;
+window.closeAllDrawers = closeAllDrawers;
+window.closeModal = closeModal;
+window.completeSimulatedOrder = completeSimulatedOrder;
+window.formatINR = formatINR;
+window.getAllProducts = getAllProducts;
+window.getFilteredProducts = getFilteredProducts;
+window.getProductById = getProductById;
+window.handleZoomMove = handleZoomMove;
+window.hideProductsLoader = hideProductsLoader;
+window.hl_applyImgFallback = hl_applyImgFallback;
+window.loadStorage = loadStorage;
+window.moveSavedToCart = moveSavedToCart;
+window.moveWishlistToBag = moveWishlistToBag;
+window.openArtisanStudioModal = openArtisanStudioModal;
+window.openB2BModal = openB2BModal;
+window.openCheckoutWizard = openCheckoutWizard;
+window.openCompareModal = openCompareModal;
+window.openGiVerifyModal = openGiVerifyModal;
+window.openOrdersModal = openOrdersModal;
+window.openProductModal = openProductModal;
+window.positionProductsLoader = positionProductsLoader;
+window.removeCouponCode = removeCouponCode;
+window.removeFromCart = removeFromCart;
+window.renderCartDrawer = renderCartDrawer;
+window.renderCheckoutStep = renderCheckoutStep;
+window.renderCompareBar = renderCompareBar;
+window.renderMarketplace = renderMarketplace;
+window.renderOrdersList = renderOrdersList;
+window.renderWishlistDrawer = renderWishlistDrawer;
+window.resetAllFilters = resetAllFilters;
+window.resetDemoStorage = resetDemoStorage;
+window.resetZoomMove = resetZoomMove;
+window.runGiLookup = runGiLookup;
+window.saveForLater = saveForLater;
+window.saveNewCheckoutAddress = saveNewCheckoutAddress;
+window.saveStorage = saveStorage;
+window.setCategoryFilter = setCategoryFilter;
+window.setCheckoutStep = setCheckoutStep;
+window.showToast = showToast;
+window.simulateVoiceAutoFill = simulateVoiceAutoFill;
+window.snav_currentSectionNavId = snav_currentSectionNavId;
+window.snav_getScrollY = snav_getScrollY;
+window.snav_lockUntilUserScroll = snav_lockUntilUserScroll;
+window.snav_releaseLock = snav_releaseLock;
+window.snav_stickyOffset = snav_stickyOffset;
+window.snav_syncIfDrifted = snav_syncIfDrifted;
+window.submitB2BQuote = submitB2BQuote;
+window.submitNewArtisanCraft = submitNewArtisanCraft;
+window.submitProductReview = submitProductReview;
+window.toggleCompare = toggleCompare;
+window.toggleDrawer = toggleDrawer;
+window.toggleWishlist = toggleWishlist;
+window.updateB2BCalculator = updateB2BCalculator;
+window.updateHeaderBadges = updateHeaderBadges;
+window.AppState = AppState;

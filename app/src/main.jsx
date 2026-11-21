@@ -12,6 +12,7 @@ import './styles/react-overrides.css';
 // openProductPage ...). Load it once, after the React root exists, so every
 // ported component can call the same proven logic while the port proceeds.
 import './legacy/hunarlink-controller.js';
+import './legacy/pdp-legacy.js';
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, '');
 
