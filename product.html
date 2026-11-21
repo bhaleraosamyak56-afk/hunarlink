@@ -120,6 +120,154 @@
       transition: transform 0.25s ease-out;
     }
 
+    /* ---- Hover zoom (Amazon-style lens) ------------------------------------
+       The stage keeps its layout; a magnifier floats beside it while the
+       cursor is over the image. Two details make it feel native rather than
+       bolted on:
+         - it only opens if there is room to the right of the stage, otherwise
+           it flips to the left;
+         - the magnification is capped by the source resolution, so it never
+           renders a mushy upscale.
+       Touch devices get a tap-to-open fallback instead (no hover exists). */
+    .pdp-stage-box.zooming {
+      cursor: crosshair;
+    }
+
+    .pdp-zoom-lens {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 460px;
+      height: 460px;
+      border-radius: 12px;
+      border: 1px solid #DCD5C6;
+      background-color: #FFFFFF;
+      background-repeat: no-repeat;
+      background-size: 0 0;
+      box-shadow:
+        0 1px 2px rgba(17, 42, 32, 0.10),
+        0 12px 36px -8px rgba(17, 42, 32, 0.28);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateZ(0);
+      transition: opacity 140ms cubic-bezier(0.22, 0.61, 0.36, 1);
+      z-index: 400;
+      will-change: opacity, background-position;
+    }
+
+    .pdp-zoom-lens.is-open {
+      opacity: 1;
+    }
+
+    /* the little "glass" caption so the panel explains itself */
+    .pdp-zoom-lens::after {
+      content: "Hover to inspect";
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(17, 42, 32, 0.82);
+      color: #F7F5EE;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    /* the outline that shows WHICH patch of the photo is magnified */
+    .pdp-zoom-marker {
+      position: absolute;
+      border: 1.5px solid rgba(255, 255, 255, 0.9);
+      box-shadow:
+        0 0 0 1.5px rgba(17, 42, 32, 0.55),
+        inset 0 0 0 1px rgba(17, 42, 32, 0.25);
+      background: rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 140ms ease;
+      z-index: 3;
+      border-radius: 2px;
+    }
+
+    .pdp-stage-box.zooming .pdp-zoom-marker {
+      opacity: 1;
+    }
+
+    /* ---- in-frame mode ------------------------------------------------
+       When no genuinely clear space exists beside the stage (which is the
+       case at every normal desktop width, because the details column fills
+       the rest of the row), the photo magnifies inside its own frame instead
+       of floating a panel over the price. Nothing on the page is ever
+       occluded, which is the whole point of the interaction. */
+    .pdp-stage-box.is-inframe {
+      cursor: zoom-in;
+    }
+
+    .pdp-stage-box.is-inframe .pdp-hero-img {
+      transform: scale(var(--pdp-zoom, 1));
+      transform-origin: var(--pdp-origin-x, 50%) var(--pdp-origin-y, 50%);
+      transition: transform 160ms cubic-bezier(0.22, 0.61, 0.36, 1),
+                  object-position 0s;
+      will-change: transform;
+    }
+
+    .pdp-stage-box.is-inframe .pdp-zoom-marker {
+      opacity: 0;
+    }
+
+    /* a quiet magnification readout so the gesture explains itself */
+    .pdp-zoom-badge {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(17, 42, 32, 0.86);
+      color: #F7F5EE;
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .pdp-stage-box.is-inframe.zooming .pdp-zoom-badge {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* the bottom cluster caption would fight the badge — step it aside */
+    .pdp-stage-box.is-inframe.zooming .pdp-stage-bottom-pill {
+      opacity: 0;
+      transition: opacity 160ms ease;
+    }
+
+    /* no hover on touch — the marker and lens stay out of the way */
+    @media (hover: none), (pointer: coarse) {
+      .pdp-zoom-lens,
+      .pdp-zoom-marker {
+        display: none !important;
+      }
+      .pdp-stage-box {
+        cursor: zoom-in;
+      }
+    }
+
+    /* reduced motion: no fades, just appear */
+    @media (prefers-reduced-motion: reduce) {
+      .pdp-zoom-lens,
+      .pdp-zoom-marker {
+        transition: none !important;
+      }
+    }
+
     .pdp-stage-top-pill {
       position: absolute;
       top: 16px;
@@ -802,7 +950,7 @@
               <span>→</span>
             </a>
             <a href="user-portal/orders.html" class="profile-menu-item" style="text-decoration: none;">
-              <span>📦 My Orders &amp; Live Tracking</span>
+              <span><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> My Orders &amp; Live Tracking</span>
               <span>→</span>
             </a>
             <a href="user-portal/login.html" class="profile-menu-item" style="text-decoration: none;">
@@ -822,7 +970,7 @@
               <span>→</span>
             </a>
             <a href="admin-portal/index.html" class="profile-menu-item" style="text-decoration: none;">
-              <span>🛡️ Admin Verification Console</span>
+              <span><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> Admin Verification Console</span>
               <span>→</span>
             </a>
             <button type="button" class="profile-menu-item" onclick="toggleDrawer('wishlist-drawer', true)">
@@ -830,7 +978,7 @@
               <span>→</span>
             </button>
             <button type="button" class="profile-menu-item" onclick="openGiVerifyModal('GI-JK-WNT-1180')">
-              <span>🛡️ GI Registry Verifier</span>
+              <span><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> GI Registry Verifier</span>
               <span>→</span>
             </button>
             <button type="button" class="profile-menu-item" onclick="resetDemoStorage()">
@@ -878,8 +1026,8 @@
         <span>/</span>
         <strong class="pdp-bc-current" id="pdp-bc-title">OPENWORK CHINAR WALNUT CHEST</strong>
       </div>
-      <div class="pdp-bc-right" id="pdp-bc-cluster">
-        🛡️ VERIFIED MASTERCRAFT • ANANTNAG CLUSTER
+      <div class="pdp-bc-right" id="pdp-bc-cluster"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        <svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> VERIFIED MASTERCRAFT • ANANTNAG CLUSTER
       </div>
     </div>
   </div>
@@ -890,14 +1038,16 @@
       <!-- Left Gallery Column -->
       <div class="pdp-gallery-col">
         <div class="pdp-stage-box" id="pdp-stage-box">
-          <div class="pdp-stage-top-pill" id="pdp-stage-gi-pill">
-            🛡️ GI #JK-WNT-1180 • WALNUT REGISTRY
+          <div class="pdp-stage-top-pill" id="pdp-stage-gi-pill"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+            <svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> GI #JK-WNT-1180 • WALNUT REGISTRY
           </div>
           <button type="button" class="pdp-stage-wish-btn" id="pdp-stage-wish-btn" onclick="pdpToggleWishlist()"
             aria-label="Toggle Wishlist">
             <span id="pdp-stage-wish-icon">♡</span>
           </button>
           <img id="pdp-main-image" src="" alt="Product Showcase" class="pdp-hero-img">
+          <div class="pdp-zoom-marker" id="pdp-zoom-marker" aria-hidden="true"></div>
+          <div class="pdp-zoom-badge" id="pdp-zoom-badge" aria-hidden="true">2×</div>
           <div class="pdp-stage-bottom-pill" id="pdp-stage-cluster-pill">
             Anantnag Cluster • 5-YR CURED WALNUT
           </div>
@@ -912,7 +1062,7 @@
       <!-- Right Details Column -->
       <div class="pdp-details-col">
         <div class="pdp-pills-row">
-          <span class="pdp-badge-pill gi" id="pdp-tag-gi">🛡️ GI-CERTIFIED</span>
+          <span class="pdp-badge-pill gi" id="pdp-tag-gi"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> GI-CERTIFIED</span>
           <span class="pdp-badge-pill carved" id="pdp-tag-technique">HAND-CARVED</span>
           <span class="pdp-badge-pill valley" id="pdp-tag-cluster">KASHMIR VALLEY</span>
         </div>
@@ -925,7 +1075,7 @@
           <div class="pdp-artisan-profile">
             <img loading="lazy" decoding="async" src="assets/image_1.jpg" alt="Master Artisan" class="pdp-artisan-avatar-img" id="pdp-artisan-avatar">
             <div>
-              <div class="pdp-artisan-eyebrow">🛡️ VERIFIED MASTER ARTISAN</div>
+              <div class="pdp-artisan-eyebrow"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> VERIFIED MASTER ARTISAN</div>
               <div class="pdp-artisan-fullname" id="pdp-artisan-name">Ustad Fayaz Ahmad Wani</div>
               <div class="pdp-artisan-location" id="pdp-artisan-location">Mattan, Anantnag Cluster, Kashmir</div>
             </div>
@@ -975,14 +1125,14 @@
             <span>👜</span>BUY NOW
           </button>
           <button type="button" class="btn-pdp-add-cart" id="btn-pdp-add-cart" onclick="pdpHandleAddToCart()">
-            <span>🛍️</span> ADD TO SHOPPING BAG
+            <span><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1.5 13.5a1 1 0 0 1-1 1.1H5.5a1 1 0 0 1-1-1.1L6 7z"/><path d="M9 10V5.5a3 3 0 0 1 6 0V10"/></svg></span> ADD TO SHOPPING BAG
           </button>
         </div>
 
         <!-- 3 Trust Badges -->
         <div class="pdp-trust-grid">
           <div class="pdp-trust-tile">
-            <div class="pdp-trust-tile-icon">🛡️</div>
+            <div class="pdp-trust-tile-icon"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
             <div class="pdp-trust-tile-title">Govt GI Tagged</div>
             <div class="pdp-trust-tile-desc">Digital QR Seal</div>
           </div>
@@ -1076,7 +1226,7 @@
   <div class="backdrop-overlay" id="checkout-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="drawer-title">🛡️ HunarLink Direct Artisan Escrow Checkout</div>
+        <div class="drawer-title"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> HunarLink Direct Artisan Escrow Checkout</div>
         <button type="button" class="drawer-close-btn" onclick="closeModal('checkout-modal')">✕</button>
       </div>
       <div class="modal-body" id="checkout-modal-body"></div>
@@ -1087,7 +1237,7 @@
   <div class="backdrop-overlay" id="orders-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="drawer-title">📦 My Orders, Live Loom Telemetry &amp; GI Certificates</div>
+        <div class="drawer-title"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> My Orders, Live Loom Telemetry &amp; GI Certificates</div>
         <button type="button" class="drawer-close-btn" onclick="closeModal('orders-modal')">✕</button>
       </div>
       <div class="modal-body" id="orders-modal-body"></div>
@@ -1098,7 +1248,7 @@
   <div class="backdrop-overlay" id="gi-verify-modal">
     <div class="modal-card" style="max-width: 620px;">
       <div class="modal-header">
-        <div class="drawer-title">🛡️ Live Valley GI Tag &amp; Purity Registry Check</div>
+        <div class="drawer-title"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> Live Valley GI Tag &amp; Purity Registry Check</div>
         <button type="button" class="drawer-close-btn" onclick="closeModal('gi-verify-modal')">✕</button>
       </div>
       <div class="modal-body">
@@ -1219,7 +1369,7 @@
           </div>
           <div class="auth-banner-bottom">
             <div class="auth-evaluator-header">
-              <span class="auth-evaluator-title">⚡ QUICK EVALUATOR SIGN-IN - FILL</span>
+              <span class="auth-evaluator-title"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg> QUICK EVALUATOR SIGN-IN - FILL</span>
               <span class="auth-evaluator-sub">One-tap demo</span>
             </div>
             <div class="auth-demo-pills-row">
@@ -1286,14 +1436,16 @@
 
       // Breadcrumb
       document.getElementById("pdp-bc-title").textContent = p.title.toUpperCase();
-      document.getElementById("pdp-bc-cluster").textContent = `🛡️ VERIFIED MASTERCRAFT • ${p.district.toUpperCase()} CLUSTER`;
+      document.getElementById("pdp-bc-cluster").textContent = `VERIFIED MASTERCRAFT • ${p.district.toUpperCase()} CLUSTER`;
 
       // Gallery Stage
-      document.getElementById("pdp-stage-gi-pill").textContent = `🛡️ ${p.giId} • ${p.guildLabel.toUpperCase()} REGISTRY`;
+      document.getElementById("pdp-stage-gi-pill").textContent = `${p.giId} • ${p.guildLabel.toUpperCase()} REGISTRY`;
       document.getElementById("pdp-stage-cluster-pill").textContent = `${p.district} Cluster • ${p.purityMetric}`;
       const mainImg = document.getElementById("pdp-main-image");
       mainImg.src = p.image;
       mainImg.alt = p.title;
+      if (mainImg.complete) { pdpZoomMeasure(); pdpZoomInit(); }
+      else mainImg.addEventListener("load", () => { pdpZoomMeasure(); pdpZoomInit(); }, { once: true });
 
       // Wishlist float button status
       const isWished = AppState.wishlist.includes(p.id);
@@ -1404,15 +1556,235 @@
       `).join("");
     }
 
+    /* =====================================================================
+       HOVER ZOOM — Amazon-style magnifier
+       ---------------------------------------------------------------------
+       A fixed-position panel beside the stage shows the photo magnified,
+       following the cursor. The magnification factor is derived from the
+       SOURCE resolution rather than fixed, because these product shots range
+       from 378px to 1200px wide: a fixed 3x would look crisp on the 1200px
+       walnut shot and like a blur on a 378px sozni one.
+
+       Within a single image the factor is also clamped so the magnified patch
+       can never run past the edge of the source — that is what produces the
+       empty gutter you see in cheap zoom implementations.
+       ===================================================================== */
+    const PDP_ZOOM = {
+      panel: 460,          // lens size in CSS px (matches the stylesheet)
+      gap: 18,             // breathing room between the stage and the lens
+      maxScale: 2.4,       // a 2.4x read is generous; more feels like a funhouse mirror
+      minScale: 1.25,
+      natural: { w: 0, h: 0 },
+      active: false,
+      raf: 0,
+      lastEvt: null
+    };
+
+    function pdpZoomElements() {
+      return {
+        stage: document.getElementById("pdp-stage-box"),
+        img: document.getElementById("pdp-main-image"),
+        lens: document.getElementById("pdp-zoom-lens"),
+        marker: document.getElementById("pdp-zoom-marker")
+      };
+    }
+
+    /* How much may we magnify before we are inventing pixels?
+       `cover` is the scale at which the source fills the stage. At magnification
+       f the user sees the photo at (cover * f) its native resolution, so
+       (cover * f) <= 1.25 is the point past which the image starts to go soft.
+       Solving for f gives the ceiling for each particular file, which is why
+       the walnut shot (1200px) can zoom further than a 378px sozni detail. */
+    function pdpZoomFactor(stageW, stageH, naturalW, naturalH) {
+      const cover = Math.max(stageW / naturalW, stageH / naturalH);
+      const MAX_UPSCALE = 1.25;          /* tolerate a quarter-stop of softness */
+      const cap = MAX_UPSCALE / cover;
+      return Math.max(PDP_ZOOM.minScale, Math.min(PDP_ZOOM.maxScale, cap));
+    }
+
+    function pdpZoomMeasure() {
+      const { img } = pdpZoomElements();
+      if (!img || !img.naturalWidth) return false;
+      PDP_ZOOM.natural.w = img.naturalWidth;
+      PDP_ZOOM.natural.h = img.naturalHeight;
+      return true;
+    }
+
+    function pdpZoomMove(evt) {
+      const { stage, img, lens, marker } = pdpZoomElements();
+      if (!stage || !img || !lens || !marker) return;
+      if (!img.naturalWidth) return;
+
+      const box = stage.getBoundingClientRect();
+      const x = evt.clientX - box.left;
+      const y = evt.clientY - box.top;
+      if (x < 0 || y < 0 || x > box.width || y > box.height) { pdpZoomHide(); return; }
+
+      const factor = pdpZoomFactor(box.width, box.height, img.naturalWidth, img.naturalHeight);
+
+      /* Which mode? Free pixels are not the same as clear space: at 1600px
+         the right margin measures ~480px but the details column occupies it,
+         so a panel there lands on the price. Actually ask the document what is
+         under the candidate rectangle. Only float if it is genuinely empty. */
+      const roomRight = window.innerWidth - box.right - PDP_ZOOM.gap;
+      const roomLeft = box.left - PDP_ZOOM.gap;
+
+      const sideIsClear = (left, width) => {
+        const probeX = left + width / 2;
+        const probes = [0.25, 0.5, 0.75].map(f => box.top + box.height * f);
+        for (const py of probes) {
+          const el = document.elementFromPoint(
+            Math.min(window.innerWidth - 2, Math.max(2, probeX)),
+            Math.min(window.innerHeight - 2, Math.max(2, py))
+          );
+          if (!el) continue;
+          /* the stage itself, or the lens sitting over nothing, is fine */
+          if (stage.contains(el) || el === lens) continue;
+          return false;
+        }
+        return true;
+      };
+
+      const canFloatRight = roomRight >= PDP_ZOOM.panel &&
+        sideIsClear(box.right + PDP_ZOOM.gap, PDP_ZOOM.panel);
+      const canFloatLeft = roomLeft >= PDP_ZOOM.panel &&
+        sideIsClear(box.left - PDP_ZOOM.panel - PDP_ZOOM.gap, PDP_ZOOM.panel);
+      const floating = canFloatRight || canFloatLeft;
+
+      const badge = document.getElementById("pdp-zoom-badge");
+
+      if (!floating) {
+        /* ---------------- in-frame magnify ---------------- */
+        lens.classList.remove("is-open");
+        stage.classList.add("is-inframe");
+        if (!PDP_ZOOM.active) {
+          PDP_ZOOM.active = true;
+          stage.classList.add("zooming");
+        }
+        const pctX = (x / box.width) * 100;
+        const pctY = (y / box.height) * 100;
+        stage.style.setProperty("--pdp-zoom", factor.toFixed(3));
+        stage.style.setProperty("--pdp-origin-x", pctX.toFixed(2) + "%");
+        stage.style.setProperty("--pdp-origin-y", pctY.toFixed(2) + "%");
+        if (badge) badge.textContent = factor.toFixed(1).replace(/\.0$/, "") + "\u00d7";
+        return;
+      }
+
+      /* ---------------- floating panel ---------------- */
+      stage.classList.remove("is-inframe");
+      stage.style.removeProperty("--pdp-zoom");
+      stage.style.removeProperty("--pdp-origin-x");
+      stage.style.removeProperty("--pdp-origin-y");
+
+      /* background-size must reproduce object-fit:cover at (n * factor) */
+      const cover = Math.max(box.width / img.naturalWidth, box.height / img.naturalHeight);
+      const bgW = img.naturalWidth * cover * factor;
+      const bgH = img.naturalHeight * cover * factor;
+
+      /* where the image sits inside the stage under object-fit:cover */
+      const renderedW = img.naturalWidth * cover;
+      const renderedH = img.naturalHeight * cover;
+      const offsetX = (box.width - renderedW) / 2;
+      const offsetY = (box.height - renderedH) / 2;
+
+      /* clamp so the panel never shows beyond the image edge */
+      let px = (x - offsetX) * factor - PDP_ZOOM.panel / 2;
+      let py = (y - offsetY) * factor - PDP_ZOOM.panel / 2;
+      px = Math.max(0, Math.min(bgW - PDP_ZOOM.panel, px));
+      py = Math.max(0, Math.min(bgH - PDP_ZOOM.panel, py));
+
+      /* place the panel on a side we have already proven to be clear */
+      let panelLeft;
+      if (canFloatRight) {
+        panelLeft = box.right + PDP_ZOOM.gap;
+      } else {
+        panelLeft = box.left - PDP_ZOOM.panel - PDP_ZOOM.gap;
+      }
+      panelLeft = Math.max(PDP_ZOOM.gap,
+        Math.min(window.innerWidth - PDP_ZOOM.panel - PDP_ZOOM.gap, panelLeft));
+
+      const panelTop = Math.max(PDP_ZOOM.gap,
+        Math.min(window.innerHeight - PDP_ZOOM.panel - PDP_ZOOM.gap,
+                 box.top + (box.height - PDP_ZOOM.panel) / 2));
+
+      lens.style.width = PDP_ZOOM.panel + "px";
+      lens.style.height = PDP_ZOOM.panel + "px";
+      lens.style.left = panelLeft + "px";
+      lens.style.top = panelTop + "px";
+      lens.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
+      lens.style.backgroundSize = `${bgW}px ${bgH}px`;
+      lens.style.backgroundPosition = `-${px}px -${py}px`;
+
+      /* the marker traces the same patch back onto the stage */
+      const markerW = PDP_ZOOM.panel / factor;
+      const markerH = markerW;
+      const mx = Math.max(0, Math.min(box.width - markerW, x - markerW / 2));
+      const my = Math.max(0, Math.min(box.height - markerH, y - markerH / 2));
+      marker.style.width = markerW + "px";
+      marker.style.height = markerH + "px";
+      marker.style.left = mx + "px";
+      marker.style.top = my + "px";
+
+      if (!PDP_ZOOM.active) {
+        PDP_ZOOM.active = true;
+        stage.classList.add("zooming");
+      }
+      lens.classList.add("is-open");
+    }
+
+    function pdpZoomHide() {
+      const { stage, lens, marker } = pdpZoomElements();
+      if (!PDP_ZOOM.active) return;
+      PDP_ZOOM.active = false;
+      if (stage) {
+        stage.classList.remove("zooming");
+        stage.classList.remove("is-inframe");
+        stage.style.removeProperty("--pdp-zoom");
+        stage.style.removeProperty("--pdp-origin-x");
+        stage.style.removeProperty("--pdp-origin-y");
+      }
+      if (lens) lens.classList.remove("is-open");
+      if (marker) { marker.style.width = "0px"; marker.style.height = "0px"; }
+    }
+
+    function pdpZoomInit() {
+      const { stage, img } = pdpZoomElements();
+      if (!stage || !img) return;
+      if (stage.dataset.zoomBound === "1") return;
+      stage.dataset.zoomBound = "1";
+
+      /* only wire the lens where a real pointer can hover */
+      const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+      if (!canHover) return;
+
+      stage.addEventListener("mouseenter", () => pdpZoomMeasure());
+      stage.addEventListener("mousemove", (e) => {
+        if (PDP_ZOOM.raf) return;
+        PDP_ZOOM.lastEvt = e;
+        PDP_ZOOM.raf = requestAnimationFrame(() => {
+          PDP_ZOOM.raf = 0;
+          if (PDP_ZOOM.lastEvt) pdpZoomMove(PDP_ZOOM.lastEvt);
+        });
+      });
+      stage.addEventListener("mouseleave", pdpZoomHide);
+      stage.addEventListener("click", pdpZoomHide);
+      window.addEventListener("scroll", pdpZoomHide, { passive: true });
+      window.addEventListener("resize", pdpZoomHide);
+    }
+
     function selectPdpThumbnail(cardEl, imgSrc) {
       document.querySelectorAll(".pdp-thumb-card").forEach(c => c.classList.remove("active"));
       cardEl.classList.add("active");
       const mainImg = document.getElementById("pdp-main-image");
       if (mainImg) {
+        pdpZoomHide();
         mainImg.style.opacity = "0.7";
         setTimeout(() => {
           mainImg.src = imgSrc;
           mainImg.style.opacity = "1";
+          /* the natural size changed with the source, so remeasure */
+          if (mainImg.complete) pdpZoomMeasure();
+          else mainImg.addEventListener("load", pdpZoomMeasure, { once: true });
         }, 120);
       }
     }
@@ -1487,10 +1859,10 @@
               </div>
               <div class="product-card-actions">
                 <button type="button" class="btn-card-cart" onclick="event.stopPropagation(); addToCart('${p.id}', 1)" title="Add ${p.title} to Bag">
-                  <span class="btn-icon">🛍️</span> Add to Cart
+                  <span class="btn-icon"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1.5 13.5a1 1 0 0 1-1 1.1H5.5a1 1 0 0 1-1-1.1L6 7z"/><path d="M9 10V5.5a3 3 0 0 1 6 0V10"/></svg></span> Add to Cart
                 </button>
                 <button type="button" class="btn-card-buy" onclick="event.stopPropagation(); buyNow('${p.id}')" title="Buy ${p.title} Now">
-                  <span class="btn-icon">⚡</span> Buy Now
+                  <span class="btn-icon"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg></span> Buy Now
                 </button>
               </div>
             </div>
@@ -1543,10 +1915,10 @@
               </div>
               <div class="product-card-actions">
                 <button type="button" class="btn-card-cart" onclick="event.stopPropagation(); addToCart('${p.id}', 1)">
-                  <span class="btn-icon">🛍️</span> Add to Cart
+                  <span class="btn-icon"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1.5 13.5a1 1 0 0 1-1 1.1H5.5a1 1 0 0 1-1-1.1L6 7z"/><path d="M9 10V5.5a3 3 0 0 1 6 0V10"/></svg></span> Add to Cart
                 </button>
                 <button type="button" class="btn-card-buy" onclick="event.stopPropagation(); buyNow('${p.id}')">
-                  <span class="btn-icon">⚡</span> Buy Now
+                  <span class="btn-icon"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg></span> Buy Now
                 </button>
               </div>
             </div>
@@ -1560,6 +1932,9 @@
       initPDP();
     });
   </script>
+  <!-- Hover-zoom magnifier: one shared panel, positioned in viewport space -->
+  <div class="pdp-zoom-lens" id="pdp-zoom-lens" role="presentation" aria-hidden="true"></div>
+
 </body>
 
 </html>

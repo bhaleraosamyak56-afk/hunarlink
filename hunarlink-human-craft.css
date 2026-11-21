@@ -240,3 +240,35 @@ textarea {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+
+/* ---- inline status icons (replaced the emoji glyphs) --------------------
+   Emoji render as tofu boxes on systems without a colour-emoji font, and even
+   with one they carry their own colour into a tightly controlled palette.
+   These are drawn as single-weight strokes at the same optical size as the
+   caption they sit in. */
+.pdp-ico-shield {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  vertical-align: -0.14em;
+  margin-right: 0.42em;
+  display: inline-block;
+  position: relative;
+  top: -0.02em;
+}
+
+/* in the big stage pill and the breadcrumb, give it a touch more presence */
+.pdp-stage-top-pill .pdp-ico-shield,
+.pdp-bc-right .pdp-ico-shield,
+.pdp-artisan-eyebrow .pdp-ico-shield {
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.45em;
+}
+
+/* the trust tiles use it as a standalone mark, so centre it */
+.pdp-trust-tile-icon .pdp-ico-shield {
+  margin: 0;
+  width: 1.35em;
+  height: 1.35em;
+}
