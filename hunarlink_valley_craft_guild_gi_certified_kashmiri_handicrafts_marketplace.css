@@ -3837,3 +3837,81 @@ h1, h2, h3, h4,
     margin-bottom: 12px;
   }
 }
+
+/* ==========================================================================
+   HERO LOCATION PILL — ROTATING PLACE / CRAFT WORDMARK
+   --------------------------------------------------------------------------
+   The pill cycles "Jammu & Kashmir" <-> "Kashmir Handicrafts" on a loop.
+   Both strings are in the DOM from the first paint (so the reserved width never
+   jumps), the outgoing line blurs + lifts, the incoming one settles in. The
+   rotor is purely decorative — .sr-only carries a static equivalent, and the
+   whole thing stops on prefers-reduced-motion.
+   ========================================================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hero-location-pill {
+  position: relative;
+  overflow: hidden;
+  min-height: 30px;
+}
+
+/* the pin gives a small, calm nod so the pill never looks frozen */
+.hero-location-pill .pill-pin {
+  display: inline-block;
+  transform-origin: 50% 100%;
+}
+
+.loc-rotor {
+  position: relative;
+  display: inline-grid;
+  /* every string is laid in the SAME grid cell: the track is as wide as the
+     longest one, so the pill width never animates or reflows */
+  align-items: center;
+}
+
+.loc-rotor .loc-item {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(6px);
+  filter: blur(1.2px);
+  transition:
+    opacity 0.42s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* no will-change: it pins a stale compositing texture, which showed up as a
+     ghost of the previous string during transitions */
+}
+
+.loc-rotor .loc-item.is-active {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* leaving state: lift up and fade out */
+.loc-rotor .loc-item.is-leaving {
+  opacity: 0;
+  transform: translateY(-6px);
+  filter: blur(1.2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loc-rotor .loc-item {
+    transition-duration: 0.01ms;
+    filter: none;
+    transform: none;
+  }
+}

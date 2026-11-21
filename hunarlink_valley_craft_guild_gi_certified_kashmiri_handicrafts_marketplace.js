@@ -3531,3 +3531,77 @@ document.addEventListener("click", (e) => {
     e.target.classList.remove("open");
   }
 });
+
+/* ==========================================================================
+   Hero Location Pill — rotate the place / craft wordmark
+   --------------------------------------------------------------------------
+   "Jammu & Kashmir" <-> "Kashmir Handicrafts", cross-faded on a loop. The
+   outgoing item gets .is-leaving (lift + fade) while the incoming one settles.
+   Pauses on hover/focus, and skips the timer entirely when the visitor has
+   asked for reduced motion or the tab is hidden.
+   ========================================================================== */
+(function heroLocationRotor() {
+  const rotor = document.getElementById('loc-rotor');
+  if (!rotor) return;
+
+  const items = Array.from(rotor.querySelectorAll('.loc-item'));
+  if (items.length < 2) return;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (reduced.matches) return;   /* keep the first string, no timers at all */
+
+  const HOLD_MS = 2600;
+  let index = 0;
+  let timer = null;
+
+  function advance() {
+    if (document.hidden) return;
+    const outgoing = items[index];
+    index = (index + 1) % items.length;
+    const incoming = items[index];
+
+    outgoing.classList.remove('is-active');
+    outgoing.classList.add('is-leaving');
+    incoming.classList.add('is-active');
+
+    /* drop .is-leaving once the fade has finished so it doesn't linger in the
+       stacked grid cell and interfere with the next transition */
+    window.setTimeout(() => outgoing.classList.remove('is-leaving'), 500);
+  }
+
+  function start() {
+    if (timer || reduced.matches) return;
+    timer = window.setInterval(advance, HOLD_MS);
+  }
+
+  function stop() {
+    if (!timer) return;
+    window.clearInterval(timer);
+    timer = null;
+  }
+
+  /* pause while the visitor is reading / pointing at it */
+  const pill = rotor.closest('.hero-location-pill') || rotor;
+  pill.addEventListener('mouseenter', stop);
+  pill.addEventListener('mouseleave', start);
+  pill.addEventListener('focusin', stop);
+  pill.addEventListener('focusout', start);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop(); else start();
+  });
+
+  reduced.addEventListener('change', () => {
+    if (reduced.matches) {
+      stop();
+      items.forEach((el, i) => {
+        el.classList.toggle('is-active', i === 0);
+        el.classList.remove('is-leaving');
+      });
+    } else {
+      start();
+    }
+  });
+
+  start();
+})();
