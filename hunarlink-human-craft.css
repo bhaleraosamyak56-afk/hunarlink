@@ -1040,3 +1040,108 @@ body.drawer-open .compare-floating-bar {
     padding: 10px 14px;
   }
 }
+
+/* ==========================================================================
+   PDP BREADCRUMB — the only navigation on the product page
+   --------------------------------------------------------------------------
+   The secondary section nav was removed from this page: its items are
+   in-page anchors to storefront sections that do not exist here, and it
+   marked "Home" active while the visitor was on a product. What is left is
+   a real trail, so it now carries the weight: Home / Explore / Guild / Piece.
+   ========================================================================== */
+
+.pdp-breadcrumb-bar {
+  position: sticky;
+  top: var(--hdr-h, 0px);
+  z-index: 90;
+  background-color: rgba(247, 245, 238, 0.94);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.pdp-bc-sep {
+  color: var(--border-mid);
+  padding: 0 1px;
+}
+
+/* The guild crumb reads as a category, quieter than the piece name but
+   clearly a link — it carries the small-caps tracking of a taxonomy. */
+.pdp-bc-guild {
+  letter-spacing: 0.09em;
+  font-size: 0.94em;
+}
+
+.pdp-bc-current {
+  font-size: 0.94em;
+  letter-spacing: 0.055em;
+}
+
+/* Phones: the trail would wrap to three lines. Keep the two crumbs that
+   orient the visitor and let the piece name truncate — the H1 below already
+   states the title in full. */
+@media (max-width: 720px) {
+  .pdp-breadcrumb-inner {
+    gap: 8px;
+  }
+
+  .pdp-bc-guild,
+  .pdp-bc-guild + .pdp-bc-sep {
+    display: none;
+  }
+
+  .pdp-bc-current {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 52vw;
+  }
+
+  .pdp-bc-right {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .pdp-bc-current {
+    max-width: 40vw;
+  }
+}
+
+/* --- PDP breadcrumb: keep the trail on one line ------------------------- */
+.pdp-bc-left a,
+.pdp-bc-left strong {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .pdp-bc-left {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    min-width: 0;
+  }
+}
+
+/* --- GI pill vs the wishlist heart --------------------------------------
+   On narrow screens the registry pill grew under the floating heart and the
+   two collided. The pill now stops short of the button and truncates.      */
+@media (max-width: 720px) {
+  .pdp-stage-top-pill {
+    box-sizing: border-box;
+    max-width: calc(100% - 92px);
+    padding: 7px 12px;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 420px) {
+  .pdp-stage-top-pill {
+    max-width: calc(100% - 84px);
+    font-size: 0.63rem;
+    letter-spacing: 0.02em;
+  }
+}

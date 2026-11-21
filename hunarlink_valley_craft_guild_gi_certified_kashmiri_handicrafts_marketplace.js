@@ -3651,8 +3651,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  /* ── Scroll-spy: keep secondary nav active state in sync with page scroll ── */
-  (function () {
+  /* ── Scroll-spy: keep secondary nav active state in sync with page scroll ──
+     Only the storefront carries the secondary section nav. The product page
+     uses a breadcrumb trail instead, so this block is skipped there rather
+     than leaving listeners chasing elements that do not exist. */
+  if (document.getElementById('section-nav-bar')) (function () {
     let ticking = false;
 
     const onScroll = () => {

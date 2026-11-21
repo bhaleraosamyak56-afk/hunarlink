@@ -1001,22 +1001,6 @@
   </header>
   
 
-  <!-- Secondary Section Navigation Bar (Centered - Matches Reference Image) -->
-  <nav class="section-nav-bar" id="section-nav-bar" aria-label="Section Navigation">
-    <div class="container section-nav-inner">
-      <a href="index.html" class="snav-item active"
-        id="snav-home">Home</a>
-      <a href="index.html#verification-section"
-        class="snav-item" id="snav-verify">Valley Verification Flow</a>
-      <a href="index.html#craft-guilds-section"
-        class="snav-item" id="snav-artisans">Our Artisans</a>
-      <a href="index.html#marketplace-section"
-        class="snav-item" id="snav-store">J&amp;K Heritage Store</a>
-      <a href="index.html#b2b-wholesale-section"
-        class="snav-item" id="snav-wholesale">Wholesale</a>
-    </div>
-  </nav>
-
   <!-- 3. Breadcrumb Bar -->
   <div class="pdp-breadcrumb-bar">
     <div class="container pdp-breadcrumb-inner">
@@ -1024,14 +1008,16 @@
         <a href="index.html" class="pdp-back-arrow"
           title="Back to Marketplace">←</a>
         <a href="index.html">HOME</a>
-        <span>/</span>
-        <a href="index.html#marketplace-section">EXPLORE
-          CRAFTS</a>
-        <span>/</span>
+        <span class="pdp-bc-sep">/</span>
+        <a href="index.html#marketplace-section">EXPLORE CRAFTS</a>
+        <span class="pdp-bc-sep">/</span>
+        <a href="index.html#marketplace-section" class="pdp-bc-guild" id="pdp-bc-guild">PASHMINA &amp; KANI</a>
+        <span class="pdp-bc-sep">/</span>
         <strong class="pdp-bc-current" id="pdp-bc-title">OPENWORK CHINAR WALNUT CHEST</strong>
       </div>
-      <div class="pdp-bc-right" id="pdp-bc-cluster"><svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
-        <svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg> VERIFIED MASTERCRAFT • ANANTNAG CLUSTER
+      <div class="pdp-bc-right" id="pdp-bc-cluster">
+        <svg class="pdp-ico-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span id="pdp-bc-cluster-text">Verified Mastercraft &bull; Anantnag Cluster</span>
       </div>
     </div>
   </div>
@@ -1451,9 +1437,12 @@
       // Page Title
       document.title = `${p.title} — HunarLink Valley Craft Guild`;
 
-      // Breadcrumb
+      // Breadcrumb — set text on the spans so the shield icons survive
       document.getElementById("pdp-bc-title").textContent = p.title.toUpperCase();
-      document.getElementById("pdp-bc-cluster").textContent = `VERIFIED MASTERCRAFT • ${p.district.toUpperCase()} CLUSTER`;
+      const guildCrumb = document.getElementById("pdp-bc-guild");
+      if (guildCrumb) guildCrumb.textContent = p.guildLabel.toUpperCase();
+      const clusterText = document.getElementById("pdp-bc-cluster-text");
+      if (clusterText) clusterText.textContent = `Verified Mastercraft • ${p.district} Cluster`;
 
       // Gallery Stage
       document.getElementById("pdp-stage-gi-pill").textContent = `${p.giId} • ${p.guildLabel.toUpperCase()} REGISTRY`;
