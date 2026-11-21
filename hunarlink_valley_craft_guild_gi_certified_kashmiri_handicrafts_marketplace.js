@@ -2762,7 +2762,20 @@ function updateAuthUI() {
   const user = storedAuth || AppState.currentUser;
   const buyerFirst = (buyerProfile && buyerProfile.firstName) || (user && user.role !== 'artisan' && user.name ? user.name.split(' ')[0] : 'Priya');
   const buyerFull = (buyerProfile && buyerProfile.fullName) || (user && user.fullName) || 'Priya Sharma';
-  const buyerBadge = (buyerProfile && buyerProfile.badge) || (user && user.badge) || 'PS';
+  /* Derive the avatar initials from the profile that is actually signed in.
+     Previously this trusted a stored `badge` field and fell back to a hardcoded
+     'PS', so a collector who changed their name (e.g. in the user portal) kept
+     seeing the old initials in the storefront header. */
+  const buyerName = (buyerProfile && (buyerProfile.fullName || [buyerProfile.firstName, buyerProfile.lastName].filter(Boolean).join(' ')))
+    || (user && user.name)
+    || '';
+  const initialsFromName = buyerName.trim()
+    ? buyerName.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    : '';
+  const buyerBadge = initialsFromName
+    || (buyerProfile && buyerProfile.badge)
+    || (user && user.badge)
+    || 'PS';
 
   const avatarBtn = document.getElementById('profile-menu-btn');
   const nameEl = document.querySelector('.profile-menu-name');
