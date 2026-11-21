@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Control &amp; Management System — HunarLink Multi-Vendor Marketplace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <!-- ADMIN LOGIN MODAL / GATE (Clerk / Local JWT Authentication) -->
+  <div id="admin-login-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="brand-crest">H</div>
+        <h2>Administrative Access Gate</h2>
+        <p>Verify Clerk credentials or use authorized Super Admin session.</p>
+      </div>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <label>Admin Identifier (Email / Clerk UID)</label>
+          <input type="text" id="login-identifier" value="admin@hunarlink.com" required>
+        </div>
+        <div class="form-group">
+          <label>Password / Security Key</label>
+          <input type="password" id="login-password" value="AdminPass@123" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Authenticate Session →</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN ADMIN APP SHELL -->
+  <div class="admin-shell" id="admin-shell">
+    
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-crest">H</div>
+        <div class="brand-titles">
+          <h3>HunarLink</h3>
+          <span>Master Admin System</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">CHANNELS &amp; ANALYTICS</div>
+        <a href="#dashboard" class="nav-item active" data-tab="tab-dashboard">📊 Dashboard Analytics</a>
+        <a href="#customers" class="nav-item" data-tab="tab-customers">👥 Customer Management</a>
+        <a href="#sellers" class="nav-item" data-tab="tab-sellers">🎨 Direct Sellers (Artisans)</a>
+
+        <div class="nav-section-title">VERIFICATION WORKFLOWS</div>
+        <a href="#gi-verifications" class="nav-item" data-tab="tab-gi">🔍 GI LLM Verification</a>
+        <a href="#non-gi-verifications" class="nav-item" data-tab="tab-non-gi">📑 Non-GI Manual Review</a>
+
+        <div class="nav-section-title">SUPPLIER PROCUREMENT</div>
+        <a href="#suppliers" class="nav-item" data-tab="tab-suppliers">🌾 Suppliers &amp; Lots</a>
+        <a href="#dealers" class="nav-item" data-tab="tab-dealers">🏢 Dealers &amp; Warehouses</a>
+        <a href="#procurement" class="nav-item" data-tab="tab-procurement">🤝 Matching &amp; Procurement</a>
+
+        <div class="nav-section-title">B2B WHOLESALE</div>
+        <a href="#wholesale" class="nav-item" data-tab="tab-wholesale">📦 Wholesale &amp; RFQs</a>
+
+        <div class="nav-section-title">GOVERNANCE &amp; SECURITY</div>
+        <a href="#settings" class="nav-item" data-tab="tab-settings">🛡️ Platform Control Center</a>
+        <a href="#audit" class="nav-item" data-tab="tab-audit">📜 Immutable Audit Logs</a>
+        <a href="#roles" class="nav-item" data-tab="tab-roles">⚙️ 14 Admin Roles (RBAC)</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="status-indicator online"></div>
+          <div class="chip-info">
+            <span class="user-name" id="session-user-name">Super Admin</span>
+            <span class="user-role" id="session-role-name">SUPER_ADMIN</span>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-outline-sm">Logout</button>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEWPORT -->
+    <main class="admin-main">
+      
+      <!-- TOP STATUS BAR -->
+      <header class="admin-header">
+        <div class="header-breadcrumb">
+          <span id="breadcrumb-channel">Retail + Wholesale + Supplier Procurement</span>
+          <h1 id="breadcrumb-title">Platform Dashboard</h1>
+        </div>
+        <div class="header-actions">
+          <div class="badge badge-success" id="connection-pill">● API Connected (localhost:8000)</div>
+          <button id="btn-refresh-data" class="btn btn-secondary">↻ Refresh Data</button>
+          <a href="../index.html" class="btn btn-outline" target="_blank">View Marketplace ↗</a>
+        </div>
+      </header>
+
+      <!-- TAB 1: DASHBOARD ANALYTICS -->
+      <section id="tab-dashboard" class="tab-pane active">
+        <!-- KPI METRICS GRID -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-label">Retail Marketplace GMV</span>
+            <div class="kpi-value" id="kpi-retail-gmv">₹0.00</div>
+            <span class="kpi-sub">Direct artisan B2C purchases</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Wholesale B2B GMV</span>
+            <div class="kpi-value" id="kpi-wholesale-gmv">₹0.00</div>
+            <span class="kpi-sub">Bulk dealer-buyer transactions</span>
+          </div>
+          <div class="kpi-card highlight">
+            <span class="kpi-label">Platform Net Revenue</span>
+            <div class="kpi-value" id="kpi-platform-revenue">₹0.00</div>
+            <span class="kpi-sub">0% artisan direct / 5% wholesale fee</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Verified GI Artisans</span>
+            <div class="kpi-value" id="kpi-verified-sellers">0</div>
+            <span class="kpi-sub">Approved active guild workshops</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Pending GI Verifications</span>
+            <div class="kpi-value alert-text" id="kpi-pending-gi">0</div>
+            <span class="kpi-sub">Awaiting human officer approval</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Pending Supplier Lots</span>
+            <div class="kpi-value warning-text" id="kpi-pending-lots">0</div>
+            <span class="kpi-sub">Awaiting dealer matching assignment</span>
+          </div>
+        </div>
+
+        <!-- RECENT PLATFORM ACTIVITY -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Three-Channel Ecosystem Health</h3>
+            <span class="panel-tag">PostgreSQL Live Data</span>
+          </div>
+          <div class="channel-summary-grid">
+            <div class="channel-box">
+              <h4>Channel A: Retail Marketplace</h4>
+              <p>Customers purchasing directly from approved Master Artisans. 100% direct remuneration, 0% platform commission on GI heirlooms.</p>
+              <div class="stat-row"><span>Active Products:</span><strong id="stat-retail-prods">0</strong></div>
+              <div class="stat-row"><span>Registered Collectors:</span><strong id="stat-customers">0</strong></div>
+            </div>
+            <div class="channel-box">
+              <h4>Channel B: Wholesale Marketplace</h4>
+              <p>B2B buyers purchasing in bulk (MOQ 10+) from approved regional dealers, utilizing dynamic price tiering and RFQ negotiations.</p>
+              <div class="stat-row"><span>Active Bulk Listings:</span><strong id="stat-wholesale-listings">0</strong></div>
+              <div class="stat-row"><span>Wholesale Buyers:</span><strong id="stat-wholesale-buyers">0</strong></div>
+            </div>
+            <div class="channel-box">
+              <h4>Channel C: Supplier Procurement</h4>
+              <p>Raw producers and spinner cooperatives submit product lots. Admin assigns suitable vetted dealers via algorithmic matching.</p>
+              <div class="stat-row"><span>Active Suppliers:</span><strong id="stat-suppliers">0</strong></div>
+              <div class="stat-row"><span>Approved Dealers:</span><strong id="stat-dealers">0</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: CUSTOMER MANAGEMENT -->
+      <section id="tab-customers" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Customer Profiles &amp; Account Control</h3>
+            <div class="filter-controls">
+              <input type="text" id="customer-search-input" placeholder="Search by name, email, phone...">
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="customers-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Customer Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Addresses</th>
+                  <th>Account Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customers-tbody">
+                <tr><td colspan="7" class="loading-cell">Loading customer accounts from PostgreSQL...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: DIRECT SELLERS (ARTISANS) -->
+      <section id="tab-sellers" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Direct Seller (Artisan Workshop) Management</h3>
+            <div class="filter-controls">
+              <select id="seller-status-filter">
+                <option value="">All Statuses</option>
+                <option value="APPROVED">Approved Only</option>
+                <option value="PENDING_REVIEW">Pending Review</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="sellers-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Store / Guild Name</th>
+                  <th>Craft Specialty</th>
+                  <th>GI Authorization</th>
+                  <th>Rating</th>
+                  <th>Store Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sellers-tbody">
+                <tr><td colspan="7" class="loading-cell">Loading seller records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: GI LLM VERIFICATION WORKFLOW -->
+      <section id="tab-gi" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>GI Verification Management (LLM-Assisted + Human Sovereign Review)</h3>
+            <button id="btn-trigger-test-gi" class="btn btn-secondary">⚡ Run Test LLM Audit</button>
+          </div>
+          <p class="section-notice">
+            <strong>Legal Notice:</strong> The LLM service extracts Gazette reference data, checks matching/missing fields, and computes confidence scores.
+            In compliance with legal GI governance, <em>an LLM recommendation alone is never accepted as proof of legal identity</em>. Authorized Verification Admins must make the final decision.
+          </p>
+          <div class="table-responsive">
+            <table class="data-table" id="gi-audits-table">
+              <thead>
+                <tr>
+                  <th>Audit ID</th>
+                  <th>Applicant</th>
+                  <th>Claimed GI Code</th>
+                  <th>LLM Provider &amp; Model</th>
+                  <th>Confidence Score</th>
+                  <th>Matching Fields</th>
+                  <th>Discrepancies</th>
+                  <th>Admin Decision</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="gi-audits-tbody">
+                <tr><td colspan="9" class="loading-cell">Loading GI audit records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: NON-GI MANUAL VERIFICATION -->
+      <section id="tab-non-gi" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Non-GI Manual Seller &amp; Supplier Verification</h3>
+            <span class="badge badge-neutral">Completely Admin-Based (No LLM)</span>
+          </div>
+          <p class="section-notice">
+            Manual document review for standard non-GI handicrafts: identity proof, PAN/GSTIN certificates, and physical workshop premises validation.
+          </p>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Verification ID</th>
+                  <th>Target Type</th>
+                  <th>Business Name</th>
+                  <th>Tax / PAN ID</th>
+                  <th>Investigation Status</th>
+                  <th>Remarks</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="non-gi-tbody">
+                <tr><td colspan="7" class="loading-cell">Loading manual verification queue...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SUPPLIERS & PRODUCT LOTS -->
+      <section id="tab-suppliers" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Raw Producer &amp; Supplier Lots</h3>
+            <span class="panel-tag">Supplier-to-Dealer Procurement Channel</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Lot #</th>
+                  <th>Producer / Supplier</th>
+                  <th>Craft Title</th>
+                  <th>GI Tagged</th>
+                  <th>Quantity Available</th>
+                  <th>Expected Unit Price</th>
+                  <th>Total Lot Value</th>
+                  <th>Lot Status</th>
+                  <th>Procurement Action</th>
+                </tr>
+              </thead>
+              <tbody id="lots-tbody">
+                <tr><td colspan="9" class="loading-cell">Loading supplier lots...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: DEALERS & WAREHOUSES -->
+      <section id="tab-dealers" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Approved Regional Dealers &amp; Hubs</h3>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Dealership Name</th>
+                  <th>GSTIN</th>
+                  <th>Warehouse Hub</th>
+                  <th>Monthly Budget</th>
+                  <th>Specializations</th>
+                  <th>Reliability</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dealers-tbody">
+                <tr><td colspan="8" class="loading-cell">Loading dealer profiles...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 8: DEALER MATCHING & PROCUREMENT WORKFLOW -->
+      <section id="tab-procurement" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Dealer Matching Engine &amp; Procurement Pipeline</h3>
+          </div>
+          <p class="section-notice">
+            The matching algorithm ranks dealers by category, capacity, transit proximity, and reliability score. Admin selects a dealer, issues a formal purchase order, and records goods receipt.
+          </p>
+          <div id="matching-workflow-box" class="workflow-interactive-box">
+            <div class="step-card">
+              <h4>Active Lot: <span id="active-lot-title">Grade-A Handspun Changthangi Pashmina Skeins (Lot # LOT-BUD-2026-001)</span></h4>
+              <p>Quantity: <strong>120 Skeins</strong> | Expected Value: <strong>₹456,000.00</strong> | Cluster: <strong>Budgam, Kashmir</strong></p>
+              <button id="btn-run-matching" class="btn btn-primary">⚡ Execute Dealer Matching Algorithm</button>
+            </div>
+            
+            <div id="matching-results-container" style="display: none; margin-top: 1.5rem;">
+              <h4>Recommended &amp; Ranked Dealers (Algorithmic Output)</h4>
+              <div id="ranked-dealers-list" class="ranked-dealers-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 9: WHOLESALE B2B MARKETPLACE -->
+      <section id="tab-wholesale" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Wholesale Catalog &amp; B2B RFQs</h3>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Wholesale Listing</th>
+                  <th>Dealer Fulfilment</th>
+                  <th>MOQ</th>
+                  <th>Bulk Stock</th>
+                  <th>Lead Time</th>
+                  <th>Pricing Tiers</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="wholesale-tbody">
+                <tr><td colspan="8" class="loading-cell">Loading wholesale listings...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 10: PLATFORM CONTROL CENTER -->
+      <section id="tab-settings" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Platform Sovereign Controls (Super Admin Only)</h3>
+            <span class="badge badge-gold">Emergency Switches</span>
+          </div>
+          <p class="section-notice">
+            Toggle platform operations in real-time. Maintenance mode isolates public views without disrupting ongoing payment callbacks or order shipments.
+          </p>
+          <div class="controls-list" id="platform-controls-list">
+            <div class="loading-cell">Loading platform controls...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 11: IMMUTABLE AUDIT LOGS -->
+      <section id="tab-audit" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Immutable System Audit Trail</h3>
+            <span class="badge badge-neutral">Tamper-Proof Ledger</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Admin Email</th>
+                  <th>Role</th>
+                  <th>Action</th>
+                  <th>Target Resource</th>
+                  <th>Reason / Summary</th>
+                  <th>IP Address</th>
+                </tr>
+              </thead>
+              <tbody id="audit-logs-tbody">
+                <tr><td colspan="7" class="loading-cell">Loading audit logs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 12: 14 ADMIN ROLES & RBAC -->
+      <section id="tab-roles" class="tab-pane">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3>Granular Administrative Roles &amp; Staff Directory</h3>
+            <span class="panel-tag">14 Authoritative Roles</span>
+          </div>
+          <div class="roles-grid" id="roles-definitions-grid">
+            <div class="loading-cell">Loading 14 administrative role definitions...</div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="admin-offline-demo.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

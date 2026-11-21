@@ -2869,14 +2869,29 @@ function updateAuthUI() {
 }
 
 function handleUserLoginClick() {
-  /* user-portal/*.html was never committed, so this used to hard-404.
-     Route to the in-page Collector Profile drawer/modals that already exist. */
+  /* The user portal now exists — go to the real page. If it is ever missing
+     (e.g. a partial deploy), fall back to the in-page profile modal instead of
+     a hard 404. */
   const buyerProfile = loadStorage('hunarlink_buyer_profile', null);
-  if (buyerProfile && buyerProfile.isLoggedIn === false) {
-    window.location.href = 'auth.html?mode=login';
-  } else {
-    openCollectorProfileModal();
-  }
+  const loggedOut = buyerProfile && buyerProfile.isLoggedIn === false;
+  const target = loggedOut ? 'user-portal/login.html' : 'user-portal/profile.html';
+  goToOrFallback(target, loggedOut ? 'auth.html?mode=login' : null, openCollectorProfileModal);
+}
+
+function goWholesalePortal() {
+  goToOrFallback('wholesale-portal/wholesale.html', null, openB2BModal);
+}
+
+/* Navigate only if the target page is reachable; otherwise run a fallback
+   handler (or go to the homepage). Prevents any dead-end 404. */
+async function goToOrFallback(target, altTarget, fallbackFn) {
+  try {
+    const res = await fetch(target, { method: 'HEAD', cache: 'no-store' });
+    if (res.ok) { window.location.href = target; return; }
+  } catch (e) { /* offline / file:// — fall through */ }
+  if (typeof fallbackFn === 'function') { fallbackFn(); return; }
+  if (altTarget) { window.location.href = altTarget; return; }
+  window.location.href = 'index.html';
 }
 
 /* Collector profile — replaces the missing user-portal/profile.html */
@@ -3010,6 +3025,8 @@ function logoutCollector() {
   showToast('Signed out of collector session.');
 }
 
+window.goToOrFallback = goToOrFallback;
+window.goWholesalePortal = goWholesalePortal;
 window.openCollectorProfileModal = openCollectorProfileModal;
 window.openCollectorLoginModal = openCollectorLoginModal;
 window.saveCollectorLogin = saveCollectorLogin;
@@ -3018,8 +3035,7 @@ window.logoutCollector = logoutCollector;
 function handleSellerLoginClick() {
   const user = AppState.currentUser || loadStorage('hunarlink_auth_user', null);
   if (user && user.isLoggedIn && user.role === 'artisan') {
-    /* dashboard now really exists (seller-portal/dashboard.html) */
-    window.location.href = 'seller-portal/dashboard.html';
+    goToOrFallback('seller-portal/dashboard.html', 'auth.html?mode=login&role=artisan');
   } else {
     window.location.href = 'auth.html?mode=login&role=artisan';
   }

@@ -12,3 +12,9 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Not part of the static demo (React SPA + FastAPI backend live upstream)
+frontend/node_modules/
+__pycache__/
+*.pyc
+.env

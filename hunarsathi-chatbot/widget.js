@@ -1,465 +1,436 @@
 /* ==========================================================================
-   HunarSathi — Valley Craft Assistant
-   --------------------------------------------------------------------------
-   A dependency-free, offline-capable assistant for the HunarLink prototype.
-
-   It is deliberately rule-based (no API key, no network call) so the demo
-   never fails on stage:
-     · answers GI / verification / wholesale / shipping questions
-     · searches the live catalogue and renders tappable product cards
-     · verifies a real GI tag against AppState products
-     · drives the host page's existing modals & filters
-
-   Exposes:  window.HunarSathi.open() / .close() / .toggle() / .ask(text)
+   HunarSathi — High-Speed Streaming Buyer Chatbot Widget for HunarLink
+   Features: Live SSE Token Streaming, Animated Typing Wave, Hard <20s Cap,
+             Client-Side Micro-Cache, and Instant HunarLink Knowledge Fallback
    ========================================================================== */
 (function () {
-  'use strict';
+  const API_BASE = "http://127.0.0.1:5050";
+  const SESSION_KEY = "hunarsathi_session_id";
+  const HEALTH_TIMEOUT_MS = 2200;
+  const STREAM_TIMEOUT_MS = 20000;
 
-  if (window.__hunarSathiLoaded) return;
-  window.__hunarSathiLoaded = true;
-
-  /* ── helpers ────────────────────────────────────────────────────────── */
-  const $ = (sel, root) => (root || document).querySelector(sel);
-
-  function page() {
-    return (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  }
-
-  function state() {
-    return window.AppState || null;
-  }
-
-  function catalog() {
-    if (typeof window.HL_getCatalog === 'function') {
-      try {
-        const list = window.HL_getCatalog();
-        if (Array.isArray(list) && list.length) return list;
-      } catch (e) { /* fall through */ }
+  function getSessionId() {
+    let sid = sessionStorage.getItem(SESSION_KEY);
+    if (!sid) {
+      sid = "buyer-" + Date.now() + "-" + Math.floor(Math.random() * 10000);
+      sessionStorage.setItem(SESSION_KEY, sid);
     }
-    if (typeof window.getAllProducts === 'function') {
-      try { return window.getAllProducts() || []; } catch (e) { return []; }
-    }
-    return [];
+    return sid;
   }
 
-  function money(n) {
-    if (typeof window.formatINR === 'function') return window.formatINR(n);
-    return '₹' + Number(n || 0).toLocaleString('en-IN');
-  }
+  let backendOnline = false;
+  let supportsStreaming = true;
+  let isBusy = false;
+  let lastHealthCheck = 0;
 
-  function esc(str) {
-    return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
-      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-    ));
-  }
+  const WELCOME_MSG =
+    "Namaste! I am HunarSathi, your dedicated HunarLink buyer assistant.\n\n" +
+    "Ask me about Kashmiri crafts, prices, GI Tag verification, wholesale orders, payments, or tracking!";
 
-  function callHost(fn, ...args) {
-    const f = window[fn];
-    if (typeof f === 'function') {
-      try { return f(...args); } catch (e) { /* host page may not have it */ }
-    }
-    return undefined;
-  }
+  const OFF_TOPIC_MSG =
+    "I am HunarSathi, the dedicated assistant for HunarLink. I can only answer questions related to the HunarLink platform — such as Kashmiri crafts, prices, artisans, GI Tag verification, orders, escrow payments, wholesale, and delivery. How can I help you on HunarLink today?";
 
-  /* ── knowledge base ─────────────────────────────────────────────────── */
-  const GREETING =
-    'Namaste! I\'m <b>HunarSathi</b>, your Valley craft guide. I can help you ' +
-    'verify a GI tag, find a craft, or explain how the 3-step verification works.';
-
-  const CHIPS = ['Verify a GI tag', 'Show pashmina', 'How does verification work?', 'Wholesale / B2B'];
-
-  const INTENTS = [
-    {
-      id: 'verify',
-      test: /(verify|gi ?tag|gi ?id|genuine|authentic|fake|certificate)/i,
-      reply: () => {
-        const p = catalog()[0];
-        const sample = (p && p.giId) || 'GI-JK-PASH-8821';
-        return {
-          html: 'Sure — paste any GI code and I\'ll check it against the registry, ' +
-                'or tap a sample below.<br><br>Every HunarLink piece carries a ' +
-                '3-layer seal: <b>geo-verified loom</b> → <b>lab purity test</b> → ' +
-                '<b>tamper-proof GI laser tag</b>.',
-          after: () => callHost('openGiVerifyModal', sample)
-        };
+  /* Safe lightweight formatter: renders **bold** and `code` via DOM nodes (zero XSS) */
+  function renderFormattedText(container, text) {
+    container.textContent = "";
+    const parts = String(text || "").split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    for (const part of parts) {
+      if (!part) continue;
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        const strong = document.createElement("strong");
+        strong.textContent = part.slice(2, -2);
+        container.appendChild(strong);
+      } else if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        const code = document.createElement("code");
+        code.className = "hs-inline-code";
+        code.textContent = part.slice(1, -1);
+        container.appendChild(code);
+      } else {
+        container.appendChild(document.createTextNode(part));
       }
-    },
-    {
-      id: 'verification-flow',
-      test: /(how.*(verif|work)|3.?step|three.?step|process|valley verification)/i,
-      reply: () => ({
-        html: 'The <b>Valley Verification Flow</b> has three stages:' +
-              '<ul>' +
-              '<li><b>1. Origin Check</b> — logged at the artisan\'s loom with GPS + workshop credentials</li>' +
-              '<li><b>2. Lab Purity Test</b> — fibre &amp; weave testing (e.g. sub-16-micron Changthangi Pashmina)</li>' +
-              '<li><b>3. GI Tag &amp; QR Seal</b> — tamper-proof government tag + scannable Digital Craft Passport</li>' +
-              '</ul>',
-        after: () => {
-          if (page() === 'index.html') callHost('snav_scrollTo', 'snav-verify');
-          else location.href = 'index.html#verification-section';
-        }
-      })
-    },
-    {
-      id: 'wholesale',
-      test: /(wholesale|b2b|bulk|hospitality|hotel|architect|trade|moq)/i,
-      reply: () => ({
-        html: 'We run a dedicated <b>B2B Hospitality &amp; Architectural Trade Portal</b> — ' +
-              'direct guild pricing, MOQ from 10 units, batch GI certification and ' +
-              'export-ready freight. I can open the lot calculator for you.',
-        after: () => callHost('openB2BModal')
-      })
-    },
-    {
-      id: 'orders',
-      test: /(order|track|shipment|delivery|dispatch|courier|my bag)/i,
-      reply: () => ({
-        html: 'You can follow your piece through 5 stages — <b>GI Audit → Loom Dispatch → ' +
-              'Insured Transit → Customs → Delivered</b>. Opening your order tracker now.',
-        after: () => callHost('openOrdersModal')
-      })
-    },
-    {
-      id: 'price',
-      test: /(price|cost|how much|budget|cheap|expensive|₹|rs\.?|under)/i,
-      reply: () => {
-        const list = catalog().filter(p => !p.soldOut);
-        const cheapest = list.slice().sort((a, b) => a.price - b.price)[0];
-        const dearest = list.slice().sort((a, b) => b.price - a.price)[0];
-        if (!cheapest) return { html: 'The catalogue is still loading — try a search instead.' };
-        return {
-          html: `Direct-from-loom pricing ranges from <b>${money(cheapest.price)}</b> ` +
-                `(<i>${esc(cheapest.title)}</i>) up to <b>${money(dearest.price)}</b> ` +
-                `(<i>${esc(dearest.title)}</i>). No middleman cut — the artisan receives it directly.`
-        };
-      }
-    },
-    {
-      id: 'shipping',
-      test: /(ship|deliver|freight|international|abroad|insured|return|refund)/i,
-      reply: () => ({
-        html: 'All pieces travel <b>fully insured</b> with a GI certificate inside the parcel. ' +
-              'Domestic delivery is 3–6 working days; international 7–14 days with export ' +
-              'documentation handled by our trade desk. Returns are accepted within 7 days ' +
-              'if the GI seal is intact.'
-      })
-    },
-    {
-      id: 'pashmina',
-      test: /(pashmina|kani|shawl|cashmere|changthangi|sozni)/i,
-      reply: () => ({
-        html: 'The <b>Pashmina &amp; Kani</b> guild works with sub-16-micron Ladakhi ' +
-              'Changthangi fleece, hand-spun and woven on wooden foot looms using ' +
-              'traditional Talim notation. Here are pieces from that guild:',
-        search: 'pashmina'
-      })
-    },
-    {
-      id: 'walnut',
-      test: /(walnut|wood|carv|lattice|chinar)/i,
-      reply: () => ({
-        html: 'Our <b>Walnut Woodcarving</b> guild is based in Anantnag &amp; Srinagar — ' +
-              'seasoned 300-year-old timber, hand-chiselled with deep Chinar and ' +
-              'Pinjrakari lattice relief:',
-        search: 'walnut'
-      })
-    },
-    {
-      id: 'papier',
-      test: /(papier|mache|mâché|naqash|gold leaf)/i,
-      reply: () => ({
-        html: 'The <b>Papier-Mâché</b> guild moulds Sakhta pulp vessels and illuminates ' +
-              'them with 24K gold-leaf Hazara florals and Persian Guldan motifs:',
-        search: 'papier-mache'
-      })
-    },
-    {
-      id: 'silk',
-      test: /(silk|rug|carpet|knot|kpsi)/i,
-      reply: () => ({
-        html: 'Hand-knotted mulberry silk carpets from Srinagar &amp; Budgam looms — ' +
-              'up to 900 knots per square inch:',
-        search: 'silk-rugs'
-      })
-    },
-    {
-      id: 'artisan',
-      test: /(artisan|maker|ustad|workshop|who made|register|sell|seller|studio)/i,
-      reply: () => ({
-        html: '2,400+ geo-verified artisans from Srinagar, Budgam, Anantnag and Baramulla ' +
-              'list directly — with <b>zero middleman cut</b>. If you are an artisan, you can ' +
-              'open the Artisan Studio and publish a piece in under a minute.',
-        after: () => {
-          if (page() === 'index.html') callHost('openArtisanStudioModal');
-          else location.href = 'index.html';
-        }
-      })
-    },
-    {
-      id: 'greeting',
-      test: /^(hi|hey|hello|namaste|salaam|good (morning|evening|afternoon))/i,
-      reply: () => ({ html: GREETING })
-    },
-    {
-      id: 'thanks',
-      test: /(thank|thanks|shukriya|great|nice|cool|perfect)/i,
-      reply: () => ({ html: 'Anytime. Enjoy exploring the Valley\'s craft heritage.' })
     }
-  ];
-
-  /* ── catalogue search ───────────────────────────────────────────────── */
-  function searchCatalogue(query) {
-    const q = String(query || '').trim().toLowerCase();
-    if (!q) return [];
-    const terms = q.split(/\s+/).filter(t => t.length > 2);
-    return catalog()
-      .map(p => {
-        const hay = [p.title, p.artisan, p.guild, p.guildLabel, p.district, p.giId, p.description]
-          .join(' ').toLowerCase();
-        let score = 0;
-        if (hay.includes(q)) score += 10;
-        terms.forEach(t => { if (hay.includes(t)) score += 4; });
-        if ((p.guild || '').toLowerCase() === q) score += 8;
-        return { p, score };
-      })
-      .filter(x => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
-      .map(x => x.p);
   }
 
-  function filterByGuild(guild) {
-    return catalog().filter(p => p.guild === guild).slice(0, 4);
+  /* Strict HunarLink-only instant fallback when local backend is offline or times out */
+  function offlineHunarLinkFallback(text) {
+    const q = (text || "").trim().toLowerCase();
+    const isHunarLinkRelated = /(hunarlink|hunarsathi|pashmina|shawl|stole|kani|sozni|jamawar|walnut|wood|carv|papier|mache|mâché|sakhta|naqash|silk|rug|carpet|craft|artisan|ustad|kashmir|srinagar|budgam|anantnag|gi\b|gi-jk|jk-wnt|tag|verify|verification|authentic|purity|micron|passport|price|cost|mrp|order|track|ship|deliver|escrow|cod|pay|upi|cart|wishlist|compare|return|refund|wholesale|b2b|bulk|moq|seller|register|profile|login|care|wash|hi|hello|namaste|salam|thanks|help)/i.test(q);
+
+    if (!isHunarLinkRelated) {
+      return OFF_TOPIC_MSG;
+    }
+    if (/^(hi|hello|hey|hii+|namaste|salam|salaam)\b/i.test(q)) {
+      return "Namaste! Welcome to HunarLink — Valley Craft Guild. How can I help you explore our GI-certified Kashmiri crafts, check prices, verify a GI Tag, or track an order today?";
+    }
+    if (/^(thanks|thank\s+you|shukriya)\b/i.test(q)) {
+      return "Shukriya! Let me know anytime you need help with HunarLink crafts, GI verification, or your orders.";
+    }
+    if (/papier|mache|mâché|sakhta|naqash|urn|gulab/i.test(q)) {
+      return "HunarLink's **Papier-Mâché Art** collection features 20 GI-certified pieces priced between **₹500 and ₹980** (MRPs up to ₹1,000), hand-molded from Sakhta pulp with 24K gold leaf Naqash in Zadibal & Budgam. Popular pick: **Shahi Gulab-dan Urn (₹850 • `GI-JK-PAPR-3109`)**.";
+    }
+    if (/pashmina|shawl|stole|micron/i.test(q)) {
+      return "All **16 GI-certified Kashmiri Pashmina & Kani shawls** on HunarLink are priced between **₹1,050 and ₹1,980** (MRPs up to ₹2,000), crafted from authentic sub-16-micron Changthangi fleece:\n• **Royal Khudrang Pashmina** — ₹1,650 (`GI-JK-PASH-8821`)\n• **Natural Ivory Ring Pashmina** — ₹1,320 (`GI-JK-PASH-8830`)\n• **Jamawar Heirloom Stole** — ₹1,850 (`GI-JK-PASH-8810`)";
+    }
+    if (/gi\b|gi-jk|jk-wnt|verify|verification|authentic|fake|lab|passport|seal/i.test(q)) {
+      return "Every HunarLink craft passes our **3-Step Valley Verification Flow**:\n1. **Artisan Geo-Verification** (GPS-logged J&K workshop)\n2. **Material Purity Lab Review** (sub-16µm Pashmina & 99.4% purity test)\n3. **GI Tag & Tamper-Proof QR Laser Seal**\n\nTest any code live in the **Verify GI Tag** box (try `GI-JK-PASH-8821` or `GI #JK-WNT-1180`) — backed by our 100% Authenticity Refund Guarantee.";
+    }
+    if (/wholesale|b2b|bulk|moq|local seller/i.test(q)) {
+      return "HunarLink's **Wholesale Trade Portal** supports both **Bulk Buyers** (inquiries transfer directly to the specified HunarLink Artisan) and **Local Sellers** (inquiries transfer to HunarLink Admin), with tiered discounts (**12%** for 10+ units, **18%** for 25+, **25%** for 50+) and batch GI export seals. Click **Wholesale** in the top navigation bar to start.";
+    }
+    if (/order|track|ship|deliver|escrow|pay|cod|upi|refund|return/i.test(q)) {
+      return "HunarLink protects every order with **UPI Escrow, Card Escrow, and Insured Verify-on-Delivery (COD) Escrow** — scan the physical GI QR tag at your doorstep before payment release. Track all 5 stages (**Confirmed → GI Seal Verified → Packed at Loom → Insured Transit → Delivered**) anytime on your **My Orders** page.";
+    }
+    if (/walnut|wood|silk|rug|carpet|sozni|kani/i.test(q)) {
+      return "HunarLink curates **5 Heritage Craft Guilds** direct from J&K workshops with 100% artisan payout:\n• **Pashmina & Kani Shawls** (₹1,050–₹1,980)\n• **Walnut Woodcarving** (e.g., Openwork Chinar Chest ₹14,800)\n• **Papier-Mâché Art** (₹500–₹980, 24K gold leaf Naqash)\n• **Silk-on-Silk Rugs** (up to 900 knots/sq.in)\n• **Kani Jamawar & Sozni Needlework**";
+    }
+    if (/care|wash|clean|store/i.test(q)) {
+      return "Dry-clean **Pashmina, Kani & Sozni** gently and store in breathable cotton/muslin. Wipe **Walnut Woodcarving & Papier-Mâché** with a soft dry cloth away from moisture.";
+    }
+    if (/seller|artisan|register|portal|dashboard/i.test(q)) {
+      return "J&K artisans can register via the **Artisan Portal** with GI Certification (GI ID, live certificate photo, workshop video & passport photo) or as a Standard Artisan to manage listings, retail orders, and wholesale requests.";
+    }
+    return "On HunarLink, you can shop GI-certified Kashmiri crafts directly from 2,400+ verified J&K artisans with zero middleman cut. Ask me about Pashmina or Papier-Mâché prices, GI verification, Walnut/Silk Rugs, Wholesale bulk orders, escrow payments, or order tracking!";
   }
 
-  /* ── GI lookup: answer a pasted code directly in the chat ───────────── */
-  function findGi(query) {
-    const q = String(query || '').toUpperCase().replace(/[^A-Z0-9#-]/g, '');
-    if (q.length < 6) return null;
-    return catalog().find(p => {
-      const id = String(p.giId || '').toUpperCase().replace(/[^A-Z0-9#-]/g, '');
-      return id === q || id.replace(/-/g, '') === q.replace(/-/g, '');
-    }) || null;
+  function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const merged = Object.assign({}, options || {}, { signal: controller.signal });
+    return fetch(url, merged).finally(() => clearTimeout(timer));
   }
 
-  /* ── DOM ────────────────────────────────────────────────────────────── */
-  let panel, log, input, launcher, chipsWrap;
+  function injectWidget() {
+    if (document.getElementById("hunarsathi-launcher")) return;
 
-  function build() {
-    if (panel) return;
+    const launcher = document.createElement("button");
+    launcher.id = "hunarsathi-launcher";
+    launcher.type = "button";
+    launcher.className = "hunarsathi-launcher";
+    launcher.setAttribute("aria-label", "Open HunarSathi Buyer Assistant");
+    launcher.innerHTML = `
+      <span class="hs-launcher-inner">
+        <span class="hunarsathi-launcher-avatar">✦</span>
+        <span class="hunarsathi-launcher-text">HunarSathi</span>
+        <span class="hunarsathi-launcher-pulse" aria-hidden="true"></span>
+      </span>
+    `;
 
-    launcher = document.createElement('button');
-    launcher.type = 'button';
-    launcher.className = 'hs-launcher';
-    launcher.setAttribute('aria-label', 'Open HunarSathi craft assistant');
-    launcher.innerHTML =
-      '<span class="hs-launcher-icon">🪡</span>' +
-      '<span class="hs-launcher-label">Ask HunarSathi</span>' +
-      '<span class="hs-launcher-dot"></span>';
-    launcher.addEventListener('click', toggle);
+    const win = document.createElement("section");
+    win.id = "hunarsathi-window";
+    win.className = "hunarsathi-window";
+    win.setAttribute("aria-label", "HunarSathi Buyer Chatbot");
+    win.innerHTML = `
+      <div class="hs-header">
+        <div class="hs-header-left">
+          <div class="hs-bot-badge">✦</div>
+          <div>
+            <div class="hs-bot-name">HunarSathi</div>
+            <div class="hs-bot-sub">
+              <span class="hs-status-dot" id="hs-status-dot"></span>
+              <span id="hs-status-text">HunarLink Assistant • Online</span>
+            </div>
+          </div>
+        </div>
+        <div class="hs-header-actions">
+          <button type="button" class="hs-icon-btn" id="hs-reset-btn" title="Reset Chat">↺</button>
+          <button type="button" class="hs-icon-btn" id="hs-close-btn" title="Close">✕</button>
+        </div>
+      </div>
+
+      <div class="hs-scope-bar">
+        <span>HunarLink Buyer Guide Only</span>
+      </div>
+
+      <div class="hs-messages" id="hs-messages"></div>
+
+      <div class="hs-chips-bar">
+        <button type="button" class="hs-chip" data-q="What are the Pashmina prices on HunarLink?">🧣 Pashmina Prices</button>
+        <button type="button" class="hs-chip" data-q="How does HunarLink GI verification work?">GI Verification</button>
+        <button type="button" class="hs-chip" data-q="How do escrow payment and order tracking work?">📦 Orders &amp; Escrow</button>
+        <button type="button" class="hs-chip" data-q="Tell me about Papier-Mâché and Wholesale bulk orders.">🏭 Papier-Mâché &amp; Bulk</button>
+      </div>
+
+      <form class="hs-composer" id="hs-composer">
+        <div class="hs-input-wrap">
+          <input type="text" id="hs-input" class="hs-input" placeholder="Ask HunarSathi about HunarLink..." autocomplete="off" required>
+        </div>
+        <button type="submit" id="hs-send-btn" class="hs-send-btn">
+          <span class="hs-send-inner">Ask</span>
+        </button>
+      </form>
+    `;
+
     document.body.appendChild(launcher);
+    document.body.appendChild(win);
 
-    panel = document.createElement('div');
-    panel.className = 'hs-panel';
-    panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', 'HunarSathi craft assistant');
-    panel.innerHTML =
-      '<div class="hs-header">' +
-        '<div class="hs-header-main">' +
-          '<div class="hs-avatar">🪡</div>' +
-          '<div>' +
-            '<div class="hs-title">HunarSathi</div>' +
-            '<div class="hs-sub"><span class="hs-launcher-dot"></span> Valley craft assistant</div>' +
-          '</div>' +
-        '</div>' +
-        '<button type="button" class="hs-close" aria-label="Close assistant">✕</button>' +
-      '</div>' +
-      '<div class="hs-log" role="log" aria-live="polite"></div>' +
-      '<div class="hs-chips"></div>' +
-      '<form class="hs-form">' +
-        '<input class="hs-input" type="text" placeholder="Ask about a craft, GI tag, or price…" ' +
-          'aria-label="Message HunarSathi">' +
-        '<button class="hs-send" type="submit" aria-label="Send">➤</button>' +
-      '</form>';
-    document.body.appendChild(panel);
+    appendMessage("bot", WELCOME_MSG);
 
-    log = $('.hs-log', panel);
-    input = $('.hs-input', panel);
-    chipsWrap = $('.hs-chips', panel);
-
-    $('.hs-close', panel).addEventListener('click', close);
-    $('.hs-form', panel).addEventListener('submit', e => {
-      e.preventDefault();
-      const v = input.value.trim();
-      if (!v) return;
-      input.value = '';
-      ask(v);
+    launcher.addEventListener("click", () => {
+      win.classList.toggle("open");
+      if (win.classList.contains("open")) {
+        checkBackendHealth(false);
+        document.getElementById("hs-input")?.focus();
+      }
     });
 
-    renderChips(CHIPS);
-    addMsg(GREETING, 'bot');
-  }
-
-  function renderChips(list) {
-    if (!chipsWrap) return;
-    chipsWrap.innerHTML = '';
-    list.forEach(label => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'hs-chip';
-      b.textContent = label;
-      b.addEventListener('click', () => ask(label));
-      chipsWrap.appendChild(b);
+    document.getElementById("hs-close-btn").addEventListener("click", () => {
+      win.classList.remove("open");
     });
-  }
 
-  function addMsg(html, who) {
-    const el = document.createElement('div');
-    el.className = 'hs-msg ' + (who === 'user' ? 'hs-user' : 'hs-bot');
-    el.innerHTML = html;
-    log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
-    return el;
-  }
-
-  function addProductCards(products) {
-    if (!products.length) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'hs-cards';
-    products.forEach(p => {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'hs-card';
-      card.innerHTML =
-        '<img alt="" src="' + esc(p.image) + '">' +
-        '<div class="hs-card-meta">' +
-          '<div class="hs-card-title">' + esc(p.title) + '</div>' +
-          '<div class="hs-card-sub">' + esc(p.artisan || '') + ' • ' + esc(p.giId || '') + '</div>' +
-        '</div>' +
-        '<div class="hs-card-price">' + esc(money(p.price)) + '</div>';
-      card.addEventListener('click', () => {
-        if (typeof window.openProductPage === 'function') {
-          window.openProductPage(p.id);
-        } else if (typeof window.openProductModal === 'function') {
-          window.openProductModal(p.id);
-        }
-      });
-      wrap.appendChild(card);
-    });
-    log.appendChild(wrap);
-    log.scrollTop = log.scrollHeight;
-  }
-
-  function typing() {
-    const el = document.createElement('div');
-    el.className = 'hs-msg hs-bot hs-typing';
-    el.innerHTML = '<span></span><span></span><span></span>';
-    log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
-    return el;
-  }
-
-  /* ── the brain ──────────────────────────────────────────────────────── */
-  let busy = false;
-
-  function ask(text) {
-    build();
-    open();
-    if (busy) return;
-    busy = true;
-
-    addMsg(esc(text), 'user');
-    const t = typing();
-
-    setTimeout(() => {
-      t.remove();
-
-      /* 1. a pasted GI code wins */
-      const gi = findGi(text);
-      if (gi) {
-        addMsg(
-          '✅ <b>Verified.</b><br>' +
-          '<code>' + esc(gi.giId) + '</code><br><br>' +
-          '<b>' + esc(gi.title) + '</b><br>' +
-          'Ustad: ' + esc(gi.artisan) + '<br>' +
-          'Cluster: ' + esc(gi.district || 'J&amp;K') + '<br>' +
-          'Purity: ' + esc(gi.purityMetric || 'Lab verified') + '<br>' +
-          'GI tier: Level ' + esc(gi.giLevel || 3) + ' • ' + esc(money(gi.price)),
-          'bot'
+    document.getElementById("hs-reset-btn").addEventListener("click", async () => {
+      const box = document.getElementById("hs-messages");
+      if (box) box.innerHTML = "";
+      appendMessage("bot", WELCOME_MSG);
+      if (!backendOnline) return;
+      try {
+        await fetchWithTimeout(
+          `${API_BASE}/api/reset`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: getSessionId() }),
+          },
+          2500
         );
-        addProductCards([gi]);
-        busy = false;
-        return;
-      }
-
-      /* 2. known intent */
-      const intent = INTENTS.find(i => i.test.test(text));
-      if (intent) {
-        const r = intent.reply();
-        addMsg(r.html, 'bot');
-        if (r.search) {
-          const items = r.search === 'pashmina'
-            ? catalog().filter(p => p.guild === 'pashmina' || p.guild === 'sozni').slice(0, 3)
-            : filterByGuild(r.search);
-          addProductCards(items);
-        }
-        if (r.after) setTimeout(r.after, 260);
-        busy = false;
-        return;
-      }
-
-      /* 3. catalogue search */
-      const found = searchCatalogue(text);
-      if (found.length) {
-        addMsg('Here\'s what I found for <b>' + esc(text) + '</b>:', 'bot');
-        addProductCards(found);
-        busy = false;
-        return;
-      }
-
-      /* 4. honest fallback */
-      addMsg(
-        'I don\'t have that one yet. Try a craft name (<i>pashmina, walnut, silk rug, ' +
-        'papier-mâché</i>), a GI code, or one of these:',
-        'bot'
-      );
-      renderChips(['Verify a GI tag', 'Show silk rugs', 'Wholesale / B2B', 'How does verification work?']);
-      busy = false;
-    }, 620);
-  }
-
-  /* ── open / close ───────────────────────────────────────────────────── */
-  function open() {
-    build();
-    panel.classList.add('hs-open');
-    launcher.style.display = 'none';
-    setTimeout(() => input && input.focus(), 180);
-  }
-
-  function close() {
-    if (!panel) return;
-    panel.classList.remove('hs-open');
-    if (launcher) launcher.style.display = '';
-  }
-
-  function toggle() {
-    build();
-    panel.classList.contains('hs-open') ? close() : open();
-  }
-
-  /* ── boot ───────────────────────────────────────────────────────────── */
-  function boot() {
-    build();
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && panel && panel.classList.contains('hs-open')) close();
+      } catch (e) {}
     });
+
+    win.querySelectorAll(".hs-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        if (!isBusy) sendUserMessage(chip.dataset.q);
+      });
+    });
+
+    document.getElementById("hs-composer").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("hs-input");
+      const msg = (input?.value || "").trim();
+      if (!msg || isBusy) return;
+      input.value = "";
+      sendUserMessage(msg);
+    });
+
+    // Lightweight background health + warmup check on page load
+    checkBackendHealth(true);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+  async function checkBackendHealth(alsoWarmup) {
+    const now = Date.now();
+    if (!alsoWarmup && now - lastHealthCheck < 15000) return backendOnline;
+    lastHealthCheck = now;
+
+    const dot = document.getElementById("hs-status-dot");
+    const txt = document.getElementById("hs-status-text");
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/api/health`, { method: "GET" }, HEALTH_TIMEOUT_MS);
+      if (!res.ok) throw new Error("not ok");
+      const data = await res.json();
+      backendOnline = true;
+      supportsStreaming = data.streaming !== false;
+      if (alsoWarmup) {
+        fetchWithTimeout(`${API_BASE}/api/warmup`, { method: "GET" }, 2500).catch(() => {});
+      }
+    } catch (e) {
+      backendOnline = false;
+    }
+    if (dot) dot.classList.remove("offline");
+    if (txt) txt.textContent = "HunarLink Assistant • Online";
+    return backendOnline;
+  }
+
+  function scrollMessagesToBottom() {
+    const box = document.getElementById("hs-messages");
+    if (box) box.scrollTop = box.scrollHeight;
+  }
+
+  function appendMessage(role, text, extraClass) {
+    const box = document.getElementById("hs-messages");
+    if (!box) return null;
+    const div = document.createElement("div");
+    div.className = `hs-msg ${role}${extraClass ? " " + extraClass : ""}`;
+    if (role === "bot" && !extraClass) {
+      renderFormattedText(div, text);
+    } else {
+      div.textContent = text;
+    }
+    box.appendChild(div);
+    scrollMessagesToBottom();
+    return div;
+  }
+
+  function appendTypingIndicator() {
+    const box = document.getElementById("hs-messages");
+    if (!box) return null;
+    const div = document.createElement("div");
+    div.className = "hs-msg bot typing";
+    div.innerHTML = `<span class="hs-typing-dots" aria-label="HunarSathi is typing"><span></span><span></span><span></span></span>`;
+    box.appendChild(div);
+    scrollMessagesToBottom();
+    return div;
+  }
+
+  async function streamFromBackend(message, typingEl) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+    let botBubble = null;
+    let accumulated = "";
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: message,
+          session_id: getSessionId(),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line.startsWith("data:")) continue;
+          const payloadStr = line.slice(5).trim();
+          if (!payloadStr) continue;
+
+          let evt;
+          try {
+            evt = JSON.parse(payloadStr);
+          } catch {
+            continue;
+          }
+
+          if (evt.type === "chunk" && evt.text) {
+            if (typingEl && typingEl.parentNode) typingEl.remove();
+            if (!botBubble) {
+              botBubble = appendMessage("bot", "", "streaming");
+            }
+            accumulated += evt.text;
+            renderFormattedText(botBubble, accumulated);
+            scrollMessagesToBottom();
+          } else if (evt.type === "done") {
+            const finalText = (evt.reply || accumulated || "").trim();
+            if (finalText) {
+              if (typingEl && typingEl.parentNode) typingEl.remove();
+              if (!botBubble) botBubble = appendMessage("bot", "");
+              botBubble.classList.remove("streaming");
+              renderFormattedText(botBubble, finalText);
+              scrollMessagesToBottom();
+              return true;
+            }
+          }
+        }
+      }
+
+      if (botBubble) botBubble.classList.remove("streaming");
+      return accumulated.trim().length > 0;
+    } finally {
+      clearTimeout(timeoutId);
+      if (botBubble) botBubble.classList.remove("streaming");
+    }
+  }
+
+  async function fetchJsonFromBackend(message, typingEl) {
+    const res = await fetchWithTimeout(
+      `${API_BASE}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: message,
+          session_id: getSessionId(),
+        }),
+      },
+      STREAM_TIMEOUT_MS
+    );
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.reply) {
+      if (typingEl && typingEl.parentNode) typingEl.remove();
+      appendMessage("bot", data.reply);
+      return true;
+    }
+    return false;
+  }
+
+  async function sendUserMessage(message) {
+    if (isBusy) return;
+    isBusy = true;
+
+    const sendBtn = document.getElementById("hs-send-btn");
+    if (sendBtn) sendBtn.disabled = true;
+
+    appendMessage("user", message);
+    const typingEl = appendTypingIndicator();
+
+    try {
+      // Quick re-check if previously offline (capped at 1.2s so offline replies stay instant)
+      if (!backendOnline) {
+        try {
+          const probe = await fetchWithTimeout(`${API_BASE}/api/health`, { method: "GET" }, 1200);
+          if (probe.ok) {
+            const info = await probe.json().catch(() => ({}));
+            backendOnline = true;
+            supportsStreaming = info.streaming !== false;
+          }
+        } catch (e) {
+          backendOnline = false;
+        }
+      }
+
+      let delivered = false;
+      if (backendOnline) {
+        try {
+          if (supportsStreaming) {
+            delivered = await streamFromBackend(message, typingEl);
+          } else {
+            delivered = await fetchJsonFromBackend(message, typingEl);
+          }
+        } catch (streamErr) {
+          // If streaming endpoint failed (e.g. older server), try standard JSON once within short budget
+          if (supportsStreaming) {
+            try {
+              delivered = await fetchJsonFromBackend(message, typingEl);
+            } catch (e2) {
+              backendOnline = false;
+            }
+          } else {
+            backendOnline = false;
+          }
+        }
+      }
+
+      if (!delivered) {
+        if (typingEl && typingEl.parentNode) typingEl.remove();
+        appendMessage("bot", offlineHunarLinkFallback(message));
+      }
+    } catch (err) {
+      if (typingEl && typingEl.parentNode) typingEl.remove();
+      appendMessage("bot", offlineHunarLinkFallback(message));
+    } finally {
+      isBusy = false;
+      if (sendBtn) sendBtn.disabled = false;
+      document.getElementById("hs-input")?.focus();
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", injectWidget);
   } else {
-    boot();
+    injectWidget();
   }
-
-  window.HunarSathi = { open, close, toggle, ask, build };
 })();

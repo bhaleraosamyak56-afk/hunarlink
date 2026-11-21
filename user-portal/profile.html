@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile — HunarLink Valley Craft Guild</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="user-portal.css">
+</head>
+
+<body>
+
+  <!-- Shared Top Header -->
+  <header class="up-header">
+    <div class="up-header-inner">
+      <a href="../index.html" class="up-brand">
+        <span class="up-emblem">H</span>
+        <div>
+          <div class="up-brand-title">HunarLink</div>
+          <div class="up-brand-sub">Collector Account &amp; Profile</div>
+        </div>
+      </a>
+      <nav class="up-nav-links">
+        <a href="../index.html"
+          class="up-nav-pill">🏠 Storefront</a>
+        <a href="profile.html" class="up-nav-pill active">👤 My Profile</a>
+        <a href="orders.html" class="up-nav-pill">📦 My Orders</a>
+        <a href="login.html" class="up-nav-pill">🔐 Switch / Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Flipkart-Style Two-Column Account Layout -->
+  <main class="up-container">
+    <div class="fk-account-grid">
+
+      <!-- LEFT SIDEBAR -->
+      <aside class="fk-sidebar">
+        <!-- Hello Greeting Card with Customizable Avatar -->
+        <div class="fk-hello-card">
+          <div class="fk-avatar-wrap">
+            <div class="fk-avatar" id="sidebar-avatar">PS</div>
+            <label class="fk-avatar-cam" title="Upload Profile Photo">
+              📷
+              <input type="file" accept="image/*" style="display: none;" onchange="uploadProfileAvatar(event)">
+            </label>
+          </div>
+          <div style="min-width: 0;">
+            <div class="fk-hello-sub">Hello,</div>
+            <div class="fk-hello-name" id="sidebar-fullname">Priya Sharma</div>
+          </div>
+        </div>
+
+        <!-- Navigation Menu (Exact Flipkart Structure) -->
+        <div class="fk-nav-card">
+          <div class="fk-nav-section" style="padding: 4px 0;">
+            <a href="orders.html" class="fk-nav-group-link">
+              <span>📦 MY ORDERS</span>
+              <span>→</span>
+            </a>
+          </div>
+
+          <div class="fk-nav-section">
+            <div class="fk-nav-group-title"><span>👤 ACCOUNT SETTINGS</span></div>
+            <button type="button" class="fk-nav-item active" data-view="personal" onclick="switchProfileView('personal')">
+              <span>Profile Information</span>
+            </button>
+            <button type="button" class="fk-nav-item" data-view="addresses" onclick="switchProfileView('addresses')">
+              <span>Manage Addresses</span>
+              <span id="nav-addr-count" style="font-size: 0.72rem;">0</span>
+            </button>
+            <button type="button" class="fk-nav-item" data-view="payments" onclick="switchProfileView('payments')">
+              <span>Saved UPI &amp; Payments</span>
+            </button>
+          </div>
+
+          <div class="fk-nav-section">
+            <div class="fk-nav-group-title"><span>♡ MY STUFF</span></div>
+            <button type="button" class="fk-nav-item" data-view="wishlist" onclick="switchProfileView('wishlist')">
+              <span>My Wishlist</span>
+              <span id="nav-wish-count" style="font-size: 0.72rem;">0</span>
+            </button>
+            <a href="orders.html" class="fk-nav-item" style="text-decoration: none;">
+              <span>My Reviews &amp; Ratings</span>
+              <span>→</span>
+            </a>
+          </div>
+
+          <div class="fk-nav-section" style="padding: 6px 0;">
+            <button type="button" class="fk-nav-item" style="padding-left: 18px; color: var(--danger-600);"
+              onclick="signOutBuyer()">
+              <span>🚪 Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT MAIN WORKSPACE -->
+      <section class="fk-panel-card">
+
+        <!-- VIEW 1: PERSONAL INFORMATION (FLIPKART EDIT/SAVE TOGGLES) -->
+        <div class="fk-tab-view active" id="view-personal">
+
+          <!-- Block A: Personal Information -->
+          <div class="fk-section-block">
+            <div class="fk-block-head">
+              <h2 class="fk-block-title">Personal Information</h2>
+              <button type="button" class="btn-link-edit" id="btn-edit-personal"
+                onclick="toggleSectionEdit('personal')">Edit</button>
+            </div>
+
+            <form id="form-personal" onsubmit="savePersonalInfo(event)">
+              <div class="form-row-2" style="margin-bottom: 14px;">
+                <div>
+                  <label class="up-label" for="prof-first">First Name</label>
+                  <input type="text" id="prof-first" class="up-input" disabled required>
+                </div>
+                <div>
+                  <label class="up-label" for="prof-last">Last Name</label>
+                  <input type="text" id="prof-last" class="up-input" disabled>
+                </div>
+              </div>
+
+              <div class="form-row-2" style="margin-bottom: 14px;">
+                <div>
+                  <label class="up-label">Your Gender</label>
+                  <div class="gender-radio-row">
+                    <label class="gender-radio-label">
+                      <input type="radio" name="prof-gender" value="Female" disabled> Female
+                    </label>
+                    <label class="gender-radio-label">
+                      <input type="radio" name="prof-gender" value="Male" disabled> Male
+                    </label>
+                    <label class="gender-radio-label">
+                      <input type="radio" name="prof-gender" value="Prefer not to say" disabled> Prefer not to say
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label class="up-label" for="prof-dob">Date of Birth</label>
+                  <input type="date" id="prof-dob" class="up-input" disabled>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 14px;">
+                <label class="up-label" for="prof-bio">Collector Bio &amp; Craft Preferences</label>
+                <textarea id="prof-bio" class="up-textarea" rows="2" disabled
+                  placeholder="Tell artisans about your favorite Kashmiri crafts..."></textarea>
+              </div>
+
+              <!-- Profile Avatar Customization -->
+              <div style="margin-bottom: 14px;">
+                <label class="up-label">Customize Avatar Theme / Photo</label>
+                <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                  <div class="avatar-color-swatches" id="avatar-swatches"></div>
+                  <label class="btn-orange-outline" style="padding: 6px 12px; font-size: 0.76rem; cursor: pointer;">
+                    📷 Upload Photo
+                    <input type="file" accept="image/*" style="display: none;" onchange="uploadProfileAvatar(event)">
+                  </label>
+                  <button type="button" class="btn-link-edit" onclick="removeProfileAvatar()">Remove Photo</button>
+                </div>
+              </div>
+
+              <div id="save-personal-row" style="display: none; margin-top: 12px;">
+                <button type="submit" class="btn-orange">SAVE CHANGES</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Block B: Email Address -->
+          <div class="fk-section-block">
+            <div class="fk-block-head">
+              <h2 class="fk-block-title">Email Address</h2>
+              <button type="button" class="btn-link-edit" id="btn-edit-email"
+                onclick="toggleSectionEdit('email')">Edit</button>
+            </div>
+            <form id="form-email" onsubmit="saveEmailInfo(event)"
+              style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <input type="email" id="prof-email" class="up-input" style="max-width: 360px;" disabled required>
+              <button type="submit" class="btn-orange" id="save-email-btn" style="display: none;">SAVE</button>
+            </form>
+          </div>
+
+          <!-- Block C: Mobile Number -->
+          <div class="fk-section-block">
+            <div class="fk-block-head">
+              <h2 class="fk-block-title">Mobile Number</h2>
+              <button type="button" class="btn-link-edit" id="btn-edit-phone"
+                onclick="toggleSectionEdit('phone')">Edit</button>
+            </div>
+            <form id="form-phone" onsubmit="savePhoneInfo(event)"
+              style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <input type="tel" id="prof-phone" class="up-input" style="max-width: 360px;" disabled required>
+              <button type="submit" class="btn-orange" id="save-phone-btn" style="display: none;">SAVE</button>
+            </form>
+          </div>
+
+          <!-- Block D: Flipkart-Style FAQs -->
+          <div class="fk-section-block">
+            <h3 style="font-size: 1.25rem; margin-bottom: 12px;">FAQs</h3>
+            <div class="faq-item">
+              <div class="faq-q">What happens when I update my name, email address, or mobile number?</div>
+              <div class="faq-a">Your updated profile immediately syncs across the HunarLink storefront header, future GI Ownership Certificates, and live order tracking notifications.</div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-q">Are my saved delivery addresses available during checkout?</div>
+              <div class="faq-a">Yes! Every address you add or set as default under Manage Addresses appears automatically inside HunarLink Checkout.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 2: MANAGE ADDRESSES (SYNCED WITH CHECKOUT) -->
+        <div class="fk-tab-view" id="view-addresses">
+          <div class="fk-block-head" style="justify-content: space-between;">
+            <h2 class="fk-block-title">Manage Delivery Addresses</h2>
+            <button type="button" class="btn-orange" onclick="toggleAddAddressForm()">＋ Add New Address</button>
+          </div>
+
+          <form id="new-address-form"
+            style="display: none; background: var(--bg-ivory); border: 1px solid var(--border-mid); border-radius: 12px; padding: 18px; margin-bottom: 18px;"
+            onsubmit="handleAddAddress(event)">
+            <h3 style="font-size: 1.15rem; margin-bottom: 12px;">Add a New Delivery Address</h3>
+            <div class="form-row-2" style="margin-bottom: 12px;">
+              <div>
+                <label class="up-label" for="addr-name">Receiver Full Name *</label>
+                <input type="text" id="addr-name" class="up-input" required placeholder="e.g. Priya Sharma">
+              </div>
+              <div>
+                <label class="up-label" for="addr-phone">10-Digit Mobile Number *</label>
+                <input type="tel" id="addr-phone" class="up-input" required placeholder="e.g. +91 98112 77420">
+              </div>
+            </div>
+            <div class="form-row-2" style="margin-bottom: 12px;">
+              <div>
+                <label class="up-label" for="addr-pin">Pincode *</label>
+                <input type="text" id="addr-pin" class="up-input" required placeholder="e.g. 110024">
+              </div>
+              <div>
+                <label class="up-label" for="addr-city">City &amp; State *</label>
+                <input type="text" id="addr-city" class="up-input" required placeholder="e.g. New Delhi">
+              </div>
+            </div>
+            <div style="margin-bottom: 12px;">
+              <label class="up-label" for="addr-loc">House No., Street, Locality &amp; Landmark *</label>
+              <input type="text" id="addr-loc" class="up-input" required
+                placeholder="e.g. B-42 Defence Colony, Ring Road">
+            </div>
+            <div style="margin-bottom: 14px;">
+              <label class="up-label">Address Type</label>
+              <div class="gender-radio-row">
+                <label class="gender-radio-label"><input type="radio" name="addr-type" value="Home" checked> Home</label>
+                <label class="gender-radio-label"><input type="radio" name="addr-type" value="Work"> Work / Office</label>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button type="submit" class="btn-orange">Save Address</button>
+              <button type="button" class="btn-orange-outline" onclick="toggleAddAddressForm(false)">Cancel</button>
+            </div>
+          </form>
+
+          <div id="addresses-list"></div>
+        </div>
+
+        <!-- VIEW 3: SAVED UPI & PAYMENT PREFERENCES -->
+        <div class="fk-tab-view" id="view-payments">
+          <div class="fk-block-head">
+            <h2 class="fk-block-title">Saved UPI &amp; Escrow Payment Preferences</h2>
+          </div>
+          <form onsubmit="savePaymentPreferences(event)" style="max-width: 480px;">
+            <div class="form-field">
+              <label class="up-label" for="prof-upi">Preferred UPI ID (Instant Escrow)</label>
+              <input type="text" id="prof-upi" class="up-input" placeholder="e.g. priya.sharma@okaxis">
+            </div>
+            <div class="form-field">
+              <label class="up-label" for="prof-pay-mode">Default Checkout Method</label>
+              <select id="prof-pay-mode" class="up-select">
+                <option value="UPI Verified Escrow">UPI Verified Escrow (Zero Fee)</option>
+                <option value="Verify-on-Delivery Escrow">Insured COD / Verify-on-Delivery Escrow</option>
+                <option value="Card Escrow Protection">Credit / Debit Card Escrow</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-orange">Save Payment Preference</button>
+          </form>
+        </div>
+
+        <!-- VIEW 4: MY WISHLIST -->
+        <div class="fk-tab-view" id="view-wishlist">
+          <div class="fk-block-head" style="justify-content: space-between;">
+            <h2 class="fk-block-title">My Saved Heirloom Wishlist</h2>
+            <a href="../index.html#marketplace-section"
+              class="btn-orange-outline">Explore More Crafts →</a>
+          </div>
+          <div id="wishlist-container"></div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <div class="up-toast" id="up-toast"></div>
+
+  <script src="user-portal.js"></script>
+  <script>
+    const AVATAR_SWATCHES = ["#E05A17", "#9A3412", "#0D2B1D", "#B88528", "#6B2D5C", "#1E4E79"];
+    const editState = { personal: false, email: false, phone: false };
+
+    function renderProfile() {
+      const p = upGetProfile();
+
+      // Sidebar greeting & avatar
+      document.getElementById("sidebar-fullname").textContent = p.fullName;
+      const avatarEl = document.getElementById("sidebar-avatar");
+      if (p.avatarPhoto) {
+        avatarEl.innerHTML = `<img src="${p.avatarPhoto}" alt="${upEsc(p.fullName)}">`;
+      } else {
+        avatarEl.style.backgroundColor = p.avatarColor || "#E05A17";
+        avatarEl.textContent = p.badge || "PS";
+      }
+
+      // Personal Info fields
+      document.getElementById("prof-first").value = p.firstName || "";
+      document.getElementById("prof-last").value = p.lastName || "";
+      document.getElementById("prof-dob").value = p.dob || "";
+      document.getElementById("prof-bio").value = p.bio || "";
+      document.querySelectorAll('input[name="prof-gender"]').forEach(r => {
+        r.checked = r.value === p.gender;
+      });
+
+      // Email, Phone & Payments
+      document.getElementById("prof-email").value = p.email || "";
+      document.getElementById("prof-phone").value = p.phone || "";
+      document.getElementById("prof-upi").value = p.preferredUpi || "";
+      document.getElementById("prof-pay-mode").value = p.preferredPayment || "UPI Verified Escrow";
+
+      // Avatar color swatches
+      document.getElementById("avatar-swatches").innerHTML = AVATAR_SWATCHES.map(hex => `
+        <button type="button" class="swatch-btn ${(p.avatarColor || "#E05A17") === hex ? "selected" : ""}"
+          style="background:${hex};" title="Choose avatar color" onclick="selectAvatarColor('${hex}')"></button>
+      `).join("");
+
+      renderAddresses();
+      renderWishlist();
+    }
+
+    function switchProfileView(viewName) {
+      document.querySelectorAll(".fk-nav-item[data-view]").forEach(b => {
+        b.classList.toggle("active", b.dataset.view === viewName);
+      });
+      document.querySelectorAll(".fk-tab-view").forEach(v => {
+        v.classList.toggle("active", v.id === `view-${viewName}`);
+      });
+    }
+
+    function toggleSectionEdit(section) {
+      editState[section] = !editState[section];
+      const active = editState[section];
+
+      if (section === "personal") {
+        ["prof-first", "prof-last", "prof-dob", "prof-bio"].forEach(id => {
+          document.getElementById(id).disabled = !active;
+        });
+        document.querySelectorAll('input[name="prof-gender"]').forEach(r => r.disabled = !active);
+        document.getElementById("save-personal-row").style.display = active ? "block" : "none";
+        document.getElementById("btn-edit-personal").textContent = active ? "Cancel" : "Edit";
+        if (!active) renderProfile();
+      } else if (section === "email") {
+        document.getElementById("prof-email").disabled = !active;
+        document.getElementById("save-email-btn").style.display = active ? "inline-flex" : "none";
+        document.getElementById("btn-edit-email").textContent = active ? "Cancel" : "Edit";
+        if (!active) renderProfile();
+      } else if (section === "phone") {
+        document.getElementById("prof-phone").disabled = !active;
+        document.getElementById("save-phone-btn").style.display = active ? "inline-flex" : "none";
+        document.getElementById("btn-edit-phone").textContent = active ? "Cancel" : "Edit";
+        if (!active) renderProfile();
+      }
+    }
+
+    function savePersonalInfo(e) {
+      e.preventDefault();
+      const genderEl = document.querySelector('input[name="prof-gender"]:checked');
+      upSaveProfile({
+        ...upGetProfile(),
+        firstName: document.getElementById("prof-first").value.trim(),
+        lastName: document.getElementById("prof-last").value.trim(),
+        gender: genderEl ? genderEl.value : "Female",
+        dob: document.getElementById("prof-dob").value,
+        bio: document.getElementById("prof-bio").value.trim()
+      });
+      editState.personal = true;
+      toggleSectionEdit("personal");
+      renderProfile();
+      upToast("✓ Personal information updated & synced across HunarLink!");
+    }
+
+    function saveEmailInfo(e) {
+      e.preventDefault();
+      upSaveProfile({
+        ...upGetProfile(),
+        email: document.getElementById("prof-email").value.trim()
+      });
+      editState.email = true;
+      toggleSectionEdit("email");
+      renderProfile();
+      upToast("✓ Email address saved!");
+    }
+
+    function savePhoneInfo(e) {
+      e.preventDefault();
+      upSaveProfile({
+        ...upGetProfile(),
+        phone: document.getElementById("prof-phone").value.trim()
+      });
+      editState.phone = true;
+      toggleSectionEdit("phone");
+      renderProfile();
+      upToast("✓ Mobile number saved!");
+    }
+
+    function selectAvatarColor(hex) {
+      upSaveProfile({ ...upGetProfile(), avatarColor: hex, avatarPhoto: "" });
+      renderProfile();
+      upToast("✓ Avatar color updated!");
+    }
+
+    function uploadProfileAvatar(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 180;
+          canvas.height = 180;
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+          canvas.getContext("2d").drawImage(img, sx, sy, minDim, minDim, 0, 0, 180, 180);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          upSaveProfile({ ...upGetProfile(), avatarPhoto: dataUrl });
+          renderProfile();
+          upToast("📷 Profile photo updated!");
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeProfileAvatar() {
+      upSaveProfile({ ...upGetProfile(), avatarPhoto: "" });
+      renderProfile();
+      upToast("Profile photo removed.");
+    }
+
+    function savePaymentPreferences(e) {
+      e.preventDefault();
+      upSaveProfile({
+        ...upGetProfile(),
+        preferredUpi: document.getElementById("prof-upi").value.trim(),
+        preferredPayment: document.getElementById("prof-pay-mode").value
+      });
+      upToast("✓ Payment & UPI preferences saved!");
+    }
+
+    /* Addresses Manager (Synced with hunarlink_addresses) */
+    function getAddresses() {
+      return upLoad(UP_KEYS.ADDRESSES, [
+        {
+          id: "addr-1",
+          name: "Priya Sharma",
+          phone: "+91 98112 77420",
+          pincode: "110024",
+          locality: "B-42 Defence Colony, Ring Road",
+          city: "New Delhi",
+          type: "Home"
+        }
+      ]);
+    }
+
+    function renderAddresses() {
+      const list = getAddresses();
+      document.getElementById("nav-addr-count").textContent = list.length;
+      const wrap = document.getElementById("addresses-list");
+      if (!list.length) {
+        wrap.innerHTML = `<p style="color: var(--text-500); font-size: 0.85rem;">No saved delivery addresses yet. Add one above!</p>`;
+        return;
+      }
+      wrap.innerHTML = list.map((a, idx) => `
+        <div class="address-card ${idx === 0 ? "default-addr" : ""}">
+          <div>
+            <div style="margin-bottom: 5px;">
+              <span class="addr-type-chip">${upEsc(a.type || "Home")}</span>
+              ${idx === 0 ? '<span class="addr-type-chip" style="background: var(--btn-orange); color: #FFF;">DEFAULT</span>' : ""}
+            </div>
+            <div style="font-weight: 700; color: var(--text-900); font-size: 0.9rem;">
+              ${upEsc(a.name)} &nbsp;•&nbsp; ${upEsc(a.phone)}
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-700); margin-top: 3px;">
+              ${upEsc(a.locality)}, ${upEsc(a.city)} — <strong>${upEsc(a.pincode)}</strong>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            ${idx !== 0 ? `<button type="button" class="btn-orange-outline" style="padding: 6px 11px; font-size: 0.74rem;" onclick="setDefaultAddress('${upEsc(a.id)}')">Set Default</button>` : ""}
+            <button type="button" class="btn-link-edit" style="color: var(--danger-600);" onclick="deleteAddress('${upEsc(a.id)}')">Delete</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function toggleAddAddressForm(force) {
+      const form = document.getElementById("new-address-form");
+      const show = typeof force === "boolean" ? force : form.style.display === "none";
+      form.style.display = show ? "block" : "none";
+    }
+
+    function handleAddAddress(e) {
+      e.preventDefault();
+      const typeEl = document.querySelector('input[name="addr-type"]:checked');
+      const newAddr = {
+        id: "addr-" + Date.now(),
+        name: document.getElementById("addr-name").value.trim(),
+        phone: document.getElementById("addr-phone").value.trim(),
+        pincode: document.getElementById("addr-pin").value.trim(),
+        city: document.getElementById("addr-city").value.trim(),
+        locality: document.getElementById("addr-loc").value.trim(),
+        type: typeEl ? typeEl.value : "Home"
+      };
+      const list = getAddresses();
+      list.unshift(newAddr);
+      upSave(UP_KEYS.ADDRESSES, list);
+      e.target.reset();
+      toggleAddAddressForm(false);
+      renderAddresses();
+      upToast("✓ New delivery address saved & synced with HunarLink Checkout!");
+    }
+
+    function setDefaultAddress(id) {
+      const list = getAddresses();
+      const idx = list.findIndex(a => a.id === id);
+      if (idx > 0) {
+        const [item] = list.splice(idx, 1);
+        list.unshift(item);
+        upSave(UP_KEYS.ADDRESSES, list);
+        renderAddresses();
+        upToast("✓ Default delivery address updated!");
+      }
+    }
+
+    function deleteAddress(id) {
+      const list = getAddresses().filter(a => a.id !== id);
+      upSave(UP_KEYS.ADDRESSES, list);
+      renderAddresses();
+      upToast("Address removed.");
+    }
+
+    /* Wishlist Manager (Synced with hunarlink_wishlist) */
+    function renderWishlist() {
+      const ids = upLoad(UP_KEYS.WISHLIST, []);
+      document.getElementById("nav-wish-count").textContent = ids.length;
+      const wrap = document.getElementById("wishlist-container");
+      if (!ids.length) {
+        wrap.innerHTML = `<p style="color: var(--text-500); font-size: 0.86rem;">Your wishlist is currently empty.</p>`;
+        return;
+      }
+      wrap.innerHTML = ids.map(id => `
+        <div class="address-card" style="align-items: center;">
+          <div>
+            <div style="font-weight: 700; color: var(--heading-color); font-size: 0.92rem;">Saved Craft ID: ${upEsc(id)}</div>
+            <div style="font-size: 0.78rem; color: var(--text-500);">GI-Certified Kashmiri Heritage Craft</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <a href="../product.html?id=${encodeURIComponent(id)}" class="btn-orange" style="padding: 7px 14px; font-size: 0.76rem;">View Craft →</a>
+            <button type="button" class="btn-link-edit" style="color: var(--danger-600);" onclick="removeWishlistItem('${upEsc(id)}')">Remove</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function removeWishlistItem(id) {
+      const ids = upLoad(UP_KEYS.WISHLIST, []).filter(x => x !== id);
+      upSave(UP_KEYS.WISHLIST, ids);
+      renderWishlist();
+      upToast("Removed from wishlist.");
+    }
+
+    function signOutBuyer() {
+      const p = upGetProfile();
+      upSaveProfile({ ...p, isLoggedIn: false });
+      window.location.href = "login.html";
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderProfile();
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab && ["personal", "addresses", "payments", "wishlist"].includes(tab)) {
+        switchProfileView(tab);
+      }
+    });
+  </script>
+</body>
+
+</html>
+
