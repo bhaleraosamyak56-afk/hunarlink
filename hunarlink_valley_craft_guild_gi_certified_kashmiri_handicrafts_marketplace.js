@@ -1162,7 +1162,7 @@ const AppState = {
     search: "",
     guild: "all",
     artisan: "",
-    maxPrice: 125000,
+    maxPrice: 220000,
     minRating: 0,
     giTier: 0,
     district: "all",
@@ -1240,8 +1240,28 @@ function renderMarketplace() {
   if (!grid) return;
 
   const products = getFilteredProducts();
+  const total = getAllProducts().length;
   if (summary) {
-    summary.textContent = `Showing ${products.length} of ${getAllProducts().length} GI-Certified Valley Treasures`;
+    const affordable = getAllProducts().filter(p => p.price <= AppState.filters.maxPrice).length;
+    summary.textContent = products.length === total
+      ? `Showing all ${total} GI-Certified Valley Treasures`
+      : `Showing ${products.length} of ${total} GI-Certified Valley Treasures`;
+    /* When the price slider alone is the bottleneck, say so explicitly — the
+       biggest reason the filter "looked broken" was that 12 of 96 crafts are
+       priced above the slider's 1,25,000 ceiling and were silently excluded. */
+    summary.title = affordable < total
+      ? `${total - affordable} crafts are priced above ${formatINR(AppState.filters.maxPrice)} and are hidden by the price filter.`
+      : '';
+  }
+
+  /* Live count in the filter bar itself */
+  const matchEl = document.getElementById("price-match-count");
+  if (matchEl) {
+    const capped = getAllProducts().filter(p => p.price <= AppState.filters.maxPrice).length;
+    matchEl.textContent = capped === 1
+      ? "1 craft within budget"
+      : `${capped} crafts within budget`;
+    matchEl.classList.toggle("is-empty", capped === 0);
   }
 
   /* Update category pills */
@@ -1260,7 +1280,7 @@ function renderMarketplace() {
     if (AppState.filters.guild !== "all") chips.push(`Guild: ${AppState.filters.guild.toUpperCase()}`);
     if (AppState.filters.artisan) chips.push(`Artisan: ${AppState.filters.artisan}`);
     if (AppState.filters.search) chips.push(`Search: "${AppState.filters.search}"`);
-    if (AppState.filters.maxPrice < 125000) chips.push(`Max: ${formatINR(AppState.filters.maxPrice)}`);
+    if (AppState.filters.maxPrice < 220000) chips.push(`Max: ${formatINR(AppState.filters.maxPrice)}`);
     if (AppState.filters.district !== "all") chips.push(`Cluster: ${AppState.filters.district}`);
     chipsWrap.innerHTML = chips.map(c => `<span class="filter-chip-tag">${c}</span>`).join("");
   }
@@ -1341,7 +1361,7 @@ function resetAllFilters() {
     search: "",
     guild: "all",
     artisan: "",
-    maxPrice: 125000,
+    maxPrice: 220000,
     minRating: 0,
     giTier: 0,
     district: "all",
@@ -1350,9 +1370,14 @@ function resetAllFilters() {
   const sInput = document.getElementById("global-search-input");
   if (sInput) sInput.value = "";
   const pSlider = document.getElementById("price-range-slider");
-  if (pSlider) pSlider.value = "125000";
+  if (pSlider) pSlider.value = "220000";
   const pLabel = document.getElementById("price-slider-val");
-  if (pLabel) pLabel.textContent = "Up to ₹1,25,000";
+  if (pLabel) pLabel.textContent = "Any price";
+  const pMatch = document.getElementById("price-match-count");
+  if (pMatch) {
+    pMatch.textContent = `${getAllProducts().length} crafts within budget`;
+    pMatch.classList.remove("is-empty");
+  }
   const rSelect = document.getElementById("rating-filter");
   if (rSelect) rSelect.value = "0";
   const gSelect = document.getElementById("gi-tier-filter");

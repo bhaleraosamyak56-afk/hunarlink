@@ -3915,3 +3915,61 @@ h1, h2, h3, h4,
     transform: none;
   }
 }
+
+/* ==========================================================================
+   PRICE FILTER — make the result legible while dragging
+   --------------------------------------------------------------------------
+   Dragging the slider used to give no feedback inside the control itself, and
+   the thumb's position was a mystery (a 500-step range rendered over 83 distinct
+   prices). The readout under the track now states the live match count, so you
+   can see the filter doing something without hunting for the results summary.
+   ========================================================================== */
+
+.filter-group-price {
+  min-width: 240px;
+}
+
+.price-match-count {
+  margin-top: 7px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--forest-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.price-match-count::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #1B7A4E;
+  flex: none;
+}
+
+.price-match-count.is-empty {
+  color: var(--danger-600);
+}
+
+.price-match-count.is-empty::before {
+  background: var(--danger-600);
+}
+
+/* a slightly larger, easier-to-grab thumb */
+.filter-range {
+  height: 22px;
+  cursor: grab;
+}
+
+.filter-range:active {
+  cursor: grabbing;
+}
+
+.filter-range:focus-visible {
+  outline: 2px solid var(--btn-ink, #B4471F);
+  outline-offset: 3px;
+  border-radius: 4px;
+}

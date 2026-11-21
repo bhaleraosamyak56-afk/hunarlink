@@ -575,13 +575,15 @@
 
       <!-- Flipkart-Style Multi-Filter & Sort Toolbar -->
       <div class="flipkart-filter-bar">
-        <div class="filter-group">
+        <div class="filter-group filter-group-price">
           <label class="filter-label" for="price-range-slider">
             <span>Max Price</span>
-            <span id="price-slider-val">Up to ₹1,25,000</span>
+            <span id="price-slider-val">Any price</span>
           </label>
-          <input type="range" id="price-range-slider" class="filter-range" min="500" max="125000" step="500"
-            value="125000">
+          <input type="range" id="price-range-slider" class="filter-range" min="500" max="220000" step="500"
+            value="220000" aria-describedby="price-match-count">
+          <!-- says out loud what the filter did, so you never have to guess -->
+          <div class="price-match-count" id="price-match-count" aria-live="polite">96 crafts within budget</div>
         </div>
 
         <div class="filter-group">
