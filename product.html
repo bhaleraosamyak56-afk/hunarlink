@@ -249,8 +249,12 @@
       transition: opacity 160ms ease;
     }
 
-    /* no hover on touch — the marker and lens stay out of the way */
-    @media (hover: none), (pointer: coarse) {
+    /* On a touch-only device the floating panel and the patch marker make no
+       sense, so they are hidden. The in-frame magnify is NOT hidden: a tap
+       pins it, which is the only way a phone or tablet can inspect detail.
+       (Suppressing everything behind (hover: none) is what made the feature
+       invisible on hybrids that do have a trackpad.) */
+    @media (hover: none) {
       .pdp-zoom-lens,
       .pdp-zoom-marker {
         display: none !important;
@@ -1570,7 +1574,7 @@
        empty gutter you see in cheap zoom implementations.
        ===================================================================== */
     const PDP_ZOOM = {
-      panel: 460,          // lens size in CSS px (matches the stylesheet)
+      panel: 460,          // default lens size; shrinks if the screen is small
       gap: 18,             // breathing room between the stage and the lens
       maxScale: 2.4,       // a 2.4x read is generous; more feels like a funhouse mirror
       minScale: 1.25,
@@ -1607,6 +1611,12 @@
       if (!img || !img.naturalWidth) return false;
       PDP_ZOOM.natural.w = img.naturalWidth;
       PDP_ZOOM.natural.h = img.naturalHeight;
+      /* A fixed 460px panel only fits on wide screens. Scale it to the viewport
+         so a scaled display or a small window still gets the side panel
+         instead of being pushed into the in-frame path. */
+      PDP_ZOOM.panel = Math.round(
+        Math.max(280, Math.min(460, Math.min(window.innerWidth * 0.34, window.innerHeight * 0.62)))
+      );
       return true;
     }
 
@@ -1620,7 +1630,8 @@
       const y = evt.clientY - box.top;
       if (x < 0 || y < 0 || x > box.width || y > box.height) { pdpZoomHide(); return; }
 
-      const factor = pdpZoomFactor(box.width, box.height, img.naturalWidth, img.naturalHeight);
+      const base = pdpZoomFactor(box.width, box.height, img.naturalWidth, img.naturalHeight);
+      const factor = Math.max(1, Math.min(PDP_ZOOM.maxScale, base * (PDP_ZOOM.boost || 1)));
 
       /* Which mode? Free pixels are not the same as clear space: at 1600px
          the right margin measures ~480px but the details column occupies it,
@@ -1753,12 +1764,19 @@
       if (stage.dataset.zoomBound === "1") return;
       stage.dataset.zoomBound = "1";
 
-      /* only wire the lens where a real pointer can hover */
-      const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-      if (!canHover) return;
+      /* Bind unconditionally.
+         The old gate required (hover:hover) and (pointer:fine), which a
+         touchscreen laptop or any hybrid device reports as FALSE even though
+         it has a perfectly good trackpad. The zoom then silently never bound
+         and the user saw nothing. Decide from the event itself instead: a
+         real mouse move means a real pointer, whatever the media queries say. */
+      stage.addEventListener("mouseenter", (e) => {
+        if (e.pointerType === "touch") return;
+        pdpZoomMeasure();
+      });
 
-      stage.addEventListener("mouseenter", () => pdpZoomMeasure());
       stage.addEventListener("mousemove", (e) => {
+        if (e.pointerType === "touch") return;
         if (PDP_ZOOM.raf) return;
         PDP_ZOOM.lastEvt = e;
         PDP_ZOOM.raf = requestAnimationFrame(() => {
@@ -1766,10 +1784,70 @@
           if (PDP_ZOOM.lastEvt) pdpZoomMove(PDP_ZOOM.lastEvt);
         });
       });
+
       stage.addEventListener("mouseleave", pdpZoomHide);
-      stage.addEventListener("click", pdpZoomHide);
+
+      /* a click pins the magnified view on touch devices, where there is no
+         hover to hold it open — this is the only way they can inspect detail */
+      stage.addEventListener("click", (e) => {
+        if (PDP_ZOOM.pinned) { PDP_ZOOM.pinned = false; pdpZoomHide(); return; }
+        if (e.pointerType === "touch" || !window.matchMedia("(hover: hover)").matches) {
+          PDP_ZOOM.pinned = true;
+          pdpZoomMove(e);
+        }
+      });
+      stage.addEventListener("touchstart", (e) => {
+        if (PDP_ZOOM.pinned || !e.touches.length) return;
+        const t = e.touches[0];
+        pdpZoomMeasure();
+        PDP_ZOOM.pinned = true;
+        pdpZoomMove({ clientX: t.clientX, clientY: t.clientY, pointerType: "touch" });
+      }, { passive: true });
+      stage.addEventListener("touchmove", (e) => {
+        if (!PDP_ZOOM.pinned || !e.touches.length) return;
+        const t = e.touches[0];
+        pdpZoomMove({ clientX: t.clientX, clientY: t.clientY, pointerType: "touch" });
+      }, { passive: true });
       window.addEventListener("scroll", pdpZoomHide, { passive: true });
       window.addEventListener("resize", pdpZoomHide);
+
+      /* keyboard route: the stage is focusable and the panel is reachable with
+         arrow keys. A zoom that only works with a mouse is a bug, not a
+         feature choice. */
+      if (!stage.hasAttribute("tabindex")) stage.setAttribute("tabindex", "0");
+      if (!stage.getAttribute("role")) stage.setAttribute("role", "img");
+      const img0 = document.getElementById("pdp-main-image");
+      if (img0 && !stage.getAttribute("aria-label")) {
+        stage.setAttribute("aria-label", (img0.alt || "Product image") + " — press Enter to magnify");
+      }
+      PDP_ZOOM.kb = { x: 0.5, y: 0.5, on: false };
+      const kbSynthetic = () => {
+        const b = stage.getBoundingClientRect();
+        return { clientX: b.left + b.width * PDP_ZOOM.kb.x,
+                 clientY: b.top + b.height * PDP_ZOOM.kb.y };
+      };
+      stage.addEventListener("focus", () => { pdpZoomMeasure(); PDP_ZOOM.kb.on = true; pdpZoomMove(kbSynthetic()); });
+      stage.addEventListener("blur", () => { PDP_ZOOM.kb.on = false; pdpZoomHide(); });
+      stage.addEventListener("keydown", (e) => {
+        const step = e.shiftKey ? 0.18 : 0.07;
+        let used = true;
+        if (e.key === "ArrowLeft")  PDP_ZOOM.kb.x = Math.max(0.05, PDP_ZOOM.kb.x - step);
+        else if (e.key === "ArrowRight") PDP_ZOOM.kb.x = Math.min(0.95, PDP_ZOOM.kb.x + step);
+        else if (e.key === "ArrowUp")    PDP_ZOOM.kb.y = Math.max(0.05, PDP_ZOOM.kb.y - step);
+        else if (e.key === "ArrowDown")  PDP_ZOOM.kb.y = Math.min(0.95, PDP_ZOOM.kb.y + step);
+        else if (e.key === "Escape") {
+          /* must return here: the shared tail below re-opens the zoom, which
+             meant Escape closed it and instantly reopened it. */
+          e.preventDefault();
+          PDP_ZOOM.kb.on = false;
+          pdpZoomHide();
+          return;
+        }
+        else if (e.key === "+" || e.key === "=") { PDP_ZOOM.boost = Math.min(2, (PDP_ZOOM.boost || 1) + 0.25); }
+        else if (e.key === "-") { PDP_ZOOM.boost = Math.max(0.5, (PDP_ZOOM.boost || 1) - 0.25); }
+        else used = false;
+        if (used) { e.preventDefault(); PDP_ZOOM.kb.on = true; pdpZoomMove(kbSynthetic()); }
+      });
     }
 
     function selectPdpThumbnail(cardEl, imgSrc) {
