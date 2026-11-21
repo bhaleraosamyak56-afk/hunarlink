@@ -3535,7 +3535,7 @@ document.addEventListener("click", (e) => {
 /* ==========================================================================
    Hero Location Pill — rotate the place / craft wordmark
    --------------------------------------------------------------------------
-   "Jammu & Kashmir" <-> "Kashmir Handicrafts", cross-faded on a loop. The
+   A short list of place/craft strings, cross-faded on a 5s loop. The
    outgoing item gets .is-leaving (lift + fade) while the incoming one settles.
    Pauses on hover/focus, and skips the timer entirely when the visitor has
    asked for reduced motion or the tab is hidden.
@@ -3550,7 +3550,7 @@ document.addEventListener("click", (e) => {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (reduced.matches) return;   /* keep the first string, no timers at all */
 
-  const HOLD_MS = 2600;
+  const HOLD_MS = 5000;   /* each string holds for 5s before the next */
   let index = 0;
   let timer = null;
 
