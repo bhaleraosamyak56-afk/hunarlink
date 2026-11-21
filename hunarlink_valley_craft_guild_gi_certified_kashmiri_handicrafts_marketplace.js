@@ -2826,7 +2826,7 @@ function updateAuthUI() {
         sellerBtn.classList.remove('logged-in');
         sellerBtn.style.backgroundColor = '';
         sellerBtn.style.color = '';
-        sellerBtn.title = 'Access Artisan Workspace & Registration';
+        sellerBtn.title = 'Artisan Login - Artisan & Seller Portal';
       }
     }
   } else {
@@ -2860,7 +2860,7 @@ function updateAuthUI() {
       sellerBtn.style.backgroundColor = '';
       sellerBtn.style.color = '';
       sellerBtn.style.borderColor = '';
-      sellerBtn.title = 'Artisan Portal Sign In';
+      sellerBtn.title = 'Artisan Login - Artisan & Seller Portal';
     }
   }
 }
