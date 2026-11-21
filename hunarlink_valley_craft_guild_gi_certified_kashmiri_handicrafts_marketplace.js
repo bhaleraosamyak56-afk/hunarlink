@@ -3193,13 +3193,14 @@ window.HL_getOrders = function () {
       so a click never gets overridden by a stale scroll-spy value.
    ========================================================================== */
 
-/* Nav order → section order on the page (Home → Valley Verification Flow →
-   Our Artisans → J&K Heritage Store → Wholesale). Keep this list in sync with
-   the DOM order of .snav-item so "next/previous section" logic stays correct. */
+/* Nav order → section order on the page (Home → Our Artisans → Valley
+   Verification Flow → J&K Heritage Store → Wholesale). This array must match
+   BOTH the DOM order of .snav-item and the DOM order of the <section> elements,
+   otherwise the scroll-spy highlights the wrong item. */
 const SNAV_SECTIONS = [
   { navId: 'snav-home',      sectionId: 'hero-section' },
-  { navId: 'snav-verify',    sectionId: 'verification-section' },
   { navId: 'snav-artisans',  sectionId: 'craft-guilds-section' },
+  { navId: 'snav-verify',    sectionId: 'verification-section' },
   { navId: 'snav-store',     sectionId: 'marketplace-section' },
   { navId: 'snav-wholesale', sectionId: 'b2b-wholesale-section' }
 ];
