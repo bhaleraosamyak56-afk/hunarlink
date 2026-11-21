@@ -1,0 +1,3009 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artisan Sign In &amp; Register — HunarLink Valley Craft Guild</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       HunarLink Authentication Suite (Buyer & Artisan Portals)
+       ========================================================================== */
+    :root {
+      --forest-950: #081711;
+      --forest-900: #0D2B1D;
+      --forest-800: #143A29;
+      --forest-700: #1C4D37;
+      --forest-600: #256649;
+      --forest-500: #2F7F5C;
+      --gold-600: #B88528;
+      --gold-500: #D4A03D;
+      --gold-400: #E5B454;
+      --ivory-bg: #FAF8F3;
+      --card-bg: #FFFFFF;
+      --text-main: #112A20;
+      --text-muted: #64756A;
+      --border-color: #E2DCD0;
+      --input-border: #D8D2C5;
+      --font-heading: 'Cormorant Garamond', Georgia, serif;
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: clamp(14px, 0.88rem + 0.2vw, 16.5px);
+      overflow-x: clip;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--ivory-bg);
+      color: var(--text-main);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: clip;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Overall Layout: Auto-Adaptive Split Screen */
+    .auth-container {
+      display: flex;
+      min-height: 100dvh;
+      width: 100%;
+    }
+
+    /* ── LEFT HERO PANE (Simple Solid Color Matching Main Page Heritage Branding) ── */
+    .auth-hero-pane {
+      flex: 1 1 48%;
+      min-width: 0;
+      position: relative;
+      background-color: var(--forest-900); /* Simple solid deep heritage green #0D2B1D from main page */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 4px 0 25px rgba(0, 0, 0, 0.06);
+      z-index: 2;
+    }
+
+    .auth-hero-content {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(26px, 4vw, 56px) clamp(22px, 4.5vw, 64px) clamp(24px, 3.2vw, 44px);
+    }
+
+    /* Top Brand & Badge */
+    .hero-top-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .hero-brand-logo {
+      font-family: var(--font-heading);
+      font-size: 2.3rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .hero-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 35, 23, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(8px);
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #E2ECE5;
+    }
+
+    .hero-badge-pill .pill-dot {
+      color: var(--gold-400);
+      font-size: 0.85rem;
+    }
+
+    /* Center Headline & Subtitle */
+    .hero-middle-body {
+      margin: auto 0;
+      padding: 32px 0;
+      max-width: 520px;
+    }
+
+    .hero-headline {
+      font-family: var(--font-heading);
+      font-size: clamp(2.1rem, 3.4vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.08;
+      color: #FFFFFF;
+      margin-bottom: clamp(14px, 2vw, 22px);
+      letter-spacing: -0.01em;
+    }
+
+    .hero-headline .accent-gold {
+      color: var(--gold-400);
+      font-style: italic;
+      font-weight: 600;
+    }
+
+    .hero-divider-bar {
+      width: 58px;
+      height: 3px;
+      background: var(--gold-400);
+      border-radius: 2px;
+      margin-bottom: 22px;
+    }
+
+    .hero-subtext {
+      font-size: 1.05rem;
+      line-height: 1.62;
+      color: #D6E3DC;
+      font-weight: 400;
+    }
+
+    /* Bottom Feature Cards (4 or 3 cards) */
+    .hero-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .hero-cards-grid.three-cols {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .hero-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(212, 160, 61, 0.45);
+      border-radius: 12px;
+      padding: 14px 12px;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hero-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--gold-400);
+      transform: translateY(-2px);
+    }
+
+    .hero-card-icon {
+      font-size: 1.35rem;
+      color: var(--gold-400);
+      line-height: 1;
+    }
+
+    .hero-card-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1.25;
+    }
+
+    .hero-card-desc {
+      font-size: 0.70rem;
+      color: #BACBC3;
+      line-height: 1.35;
+    }
+
+    /* ── RIGHT FORM PANE ─────────────────────────────────────────────────────── */
+    .auth-form-pane {
+      flex: 1 1 52%;
+      min-width: 0;
+      background-color: var(--ivory-bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      padding: clamp(24px, 3.6vw, 48px) clamp(18px, 4.2vw, 56px) clamp(32px, 4.5vw, 56px);
+      overflow-y: auto;
+      max-height: 100dvh;
+      z-index: 1;
+    }
+
+    /* Form Inner Content Wrapper */
+    .form-inner-wrap {
+      width: 100%;
+      max-width: min(560px, 100%);
+      margin: auto 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Back Link (Back to Home / Back to Login) */
+    .auth-back-nav {
+      margin-bottom: 26px;
+    }
+
+    .auth-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+      font-size: 0.88rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px 0;
+    }
+
+    .auth-back-link:hover {
+      color: var(--forest-700);
+      transform: translateX(-3px);
+    }
+
+    /* Header Titles */
+    .form-heading-group {
+      margin-bottom: 24px;
+    }
+
+    .form-title {
+      font-family: var(--font-heading);
+      font-size: 2.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+
+    .form-subtitle {
+      font-size: 0.90rem;
+      color: #195C38;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    /* Dual-Pill Role Switcher (Buyer vs Artisan) */
+    .auth-pill-switcher {
+      display: flex;
+      background-color: #EFECE3;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 24px;
+      gap: 4px;
+    }
+
+    .auth-pill-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      border-radius: 9px;
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #384C42;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .auth-pill-btn.active {
+      background-color: var(--forest-900);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(13, 43, 29, 0.2);
+    }
+
+    .auth-pill-btn:hover:not(.active) {
+      color: var(--text-main);
+      background-color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Form Fields & Grid */
+    .form-grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #2D4438;
+      letter-spacing: 0.02em;
+    }
+
+    .form-label .req {
+      color: #D32F2F;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon-left {
+      position: absolute;
+      left: 14px;
+      color: #6C7D73;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .input-icon-left svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .input-field {
+      width: 100%;
+      height: 48px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      padding: 0 16px 0 42px;
+      font-family: var(--font-sans);
+      font-size: 0.90rem;
+      color: var(--text-main);
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--forest-900);
+      box-shadow: 0 0 0 3px rgba(13, 43, 29, 0.08);
+      background-color: #FFFFFF;
+    }
+
+    .input-field::placeholder {
+      color: #9AA79F;
+      font-size: 0.86rem;
+    }
+
+    /* Password toggle eye button */
+    .input-btn-eye {
+      position: absolute;
+      right: 14px;
+      background: none;
+      border: none;
+      color: #6C7D73;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      transition: color 0.15s ease;
+    }
+
+    .input-btn-eye:hover {
+      color: var(--text-main);
+    }
+
+    .input-btn-eye svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    /* Phone prefix badge */
+    .phone-prefix {
+      font-weight: 700;
+      color: #112A20;
+      font-size: 0.85rem;
+      padding-right: 6px;
+      border-right: 1px solid #D1C9BD;
+      margin-right: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .input-wrapper.phone-wrap .input-field {
+      padding-left: 78px;
+    }
+
+    .input-wrapper.phone-wrap .phone-prefix-box {
+      position: absolute;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    /* Select Dropdown */
+    select.input-field {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236C7D73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      cursor: pointer;
+    }
+
+    /* Form Checkbox Row */
+    .form-options-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      font-size: 0.84rem;
+    }
+
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: #3B4F44;
+      user-select: none;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--forest-900);
+      cursor: pointer;
+    }
+
+    .link-forgot {
+      color: #195C38;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color 0.15s ease;
+      cursor: pointer;
+    }
+
+    .link-forgot:hover {
+      text-decoration: underline;
+      color: var(--forest-900);
+    }
+
+    /* Terms of service checkbox label */
+    .terms-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: #42564C;
+      line-height: 1.4;
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+
+    .terms-label input[type="checkbox"] {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--forest-900);
+    }
+
+    .terms-label a {
+      color: var(--forest-900);
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    /* Primary Submit Button */
+    .btn-submit-auth {
+      width: 100%;
+      height: 50px;
+      background-color: var(--forest-900);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-size: 0.94rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(13, 43, 29, 0.22);
+    }
+
+    .btn-submit-auth:hover {
+      background-color: var(--forest-950);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(13, 43, 29, 0.32);
+    }
+
+    .btn-submit-auth:active {
+      transform: translateY(0);
+    }
+
+    /* Social Divider */
+    .social-divider {
+      display: flex;
+      align-items: center;
+      margin: 22px 0;
+      color: #88998F;
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    .social-divider::before,
+    .social-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background-color: #DCD5C8;
+    }
+
+    .social-divider span {
+      padding: 0 14px;
+    }
+
+    /* Social Buttons (Google & Apple) */
+    .social-btns-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .btn-social {
+      height: 46px;
+      background-color: #FFFFFF;
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #20352A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-social:hover {
+      background-color: #FBF9F4;
+      border-color: #B2AAA0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .btn-social svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Bottom Switcher Link */
+    .auth-footer-prompt {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #4A5D53;
+    }
+
+    .auth-footer-prompt a {
+      color: #195C38;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+
+    .auth-footer-prompt a:hover {
+      color: var(--forest-900);
+    }
+
+    /* ── FORGOT PASSWORD SPECIFIC STYLES ─────────────────────────────────────── */
+    .forgot-illustration-wrap {
+      text-align: center;
+      margin: 10px 0 24px;
+    }
+
+    .forgot-illustration-img {
+      width: 140px;
+      height: auto;
+      display: inline-block;
+      filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.06));
+    }
+
+    .auth-info-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background-color: #FDF6E3;
+      border: 1px solid #F1E2BA;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-top: 20px;
+      color: #7A5310;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .auth-info-alert .info-icon {
+      font-size: 1.15rem;
+      line-height: 1;
+      color: #C28B1E;
+      flex-shrink: 0;
+    }
+
+    /* ── QUICK DEMO EVALUATOR BAR ────────────────────────────────────────────── */
+    .demo-evaluator-card {
+      margin-top: 28px;
+      padding: 14px 16px;
+      background-color: #FFFFFF;
+      border: 1px dashed #C9D4CC;
+      border-radius: 12px;
+    }
+
+    .demo-evaluator-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .demo-evaluator-title {
+      font-size: 0.70rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--forest-800);
+    }
+
+    .demo-evaluator-badge {
+      font-size: 0.68rem;
+      color: var(--gold-600);
+      font-weight: 700;
+    }
+
+    .demo-pills-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-demo-pill {
+      background-color: #F3F7F4;
+      border: 1px solid #D0DDD4;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #194C34;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-demo-pill:hover {
+      background-color: var(--forest-900);
+      color: #FFFFFF;
+      border-color: var(--forest-900);
+    }
+
+    /* ── TOAST NOTIFICATION ─────────────────────────────────────────────────── */
+    .auth-toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-30px);
+      background-color: var(--forest-950);
+      color: #FFFFFF;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border: 1px solid rgba(212, 160, 61, 0.4);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .auth-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── AUTO-ADAPTIVE SCREEN-RATIO RESPONSIVE DESIGN ────────────────────────── */
+    @media (max-width: 1180px) {
+      .hero-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-height: 700px) and (min-width: 961px) {
+      .hero-middle-body {
+        padding: 14px 0;
+      }
+      .hero-headline {
+        font-size: clamp(1.9rem, 2.8vw, 2.6rem);
+      }
+      .hero-card {
+        padding: 10px 10px;
+      }
+    }
+
+    @media (max-width: 960px), (max-aspect-ratio: 4/5) {
+      .auth-container {
+        flex-direction: column;
+      }
+
+      .auth-hero-pane {
+        flex: none;
+        min-height: auto;
+      }
+
+      .hero-middle-body {
+        padding: 18px 0 8px;
+      }
+
+      .hero-cards-grid {
+        display: none;
+      }
+
+      .auth-form-pane {
+        flex: 1 1 auto;
+        max-height: none;
+        overflow-y: visible;
+      }
+    }
+
+    @media (max-width: 580px) {
+      .gi-choice-switcher,
+      .form-grid-2col,
+      .social-btns-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-title {
+        font-size: clamp(1.95rem, 7vw, 2.4rem);
+      }
+
+      .floral-corner {
+        display: none;
+      }
+    }
+
+    /* ── GI CERTIFICATION REGISTRATION CHOICE BUTTONS ────────────────────────── */
+    .gi-choice-switcher {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      background-color: #EFECE3;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 6px;
+      margin-bottom: 22px;
+    }
+
+    .gi-choice-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      padding: 12px 14px;
+      border: 1.5px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: #2E4237;
+      font-family: var(--font-sans);
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .gi-choice-btn:hover:not(.active) {
+      background-color: rgba(255, 255, 255, 0.72);
+      border-color: #D2CBB9;
+    }
+
+    .gi-choice-btn.active {
+      background-color: var(--forest-900);
+      color: #FFFFFF;
+      border-color: var(--forest-900);
+      box-shadow: 0 4px 12px rgba(13, 43, 29, 0.2);
+    }
+
+    .gi-choice-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      line-height: 1.25;
+    }
+
+    .gi-choice-sub {
+      font-size: 0.70rem;
+      opacity: 0.82;
+      line-height: 1.3;
+    }
+
+    .gi-choice-btn.active .gi-choice-sub {
+      color: #D5E4DC;
+      opacity: 1;
+    }
+
+    /* Standard (No GI) Notice Banner */
+    .no-gi-info-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background-color: #F4F7F5;
+      border: 1px solid #CFE0D6;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      font-size: 0.79rem;
+      color: #214533;
+      line-height: 1.45;
+    }
+
+    /* ── GI LIVE VERIFICATION SUITE ──────────────────────────────────────────── */
+    .gi-verification-section {
+      background-color: #FFFFFF;
+      border: 1.5px solid #D5DDD7;
+      border-radius: 14px;
+      padding: 18px;
+      margin: 6px 0 20px;
+      box-shadow: 0 4px 14px rgba(13, 43, 29, 0.04);
+    }
+
+    .gi-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #EAE5DA;
+    }
+
+    .gi-section-title {
+      font-family: var(--font-heading);
+      font-size: 1.32rem;
+      font-weight: 700;
+      color: var(--forest-900);
+    }
+
+    .gi-live-only-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.67rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background-color: #FFF4E5;
+      color: #9A5500;
+      border: 1px solid #F3D1A0;
+    }
+
+    .live-capture-card {
+      background-color: #FAF8F3;
+      border: 1.5px dashed #C8C1B2;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .live-capture-card.captured {
+      border-style: solid;
+      border-color: #257A4B;
+      background-color: #F4FAF6;
+    }
+
+    .live-capture-card.error-highlight {
+      border-color: #D32F2F;
+      background-color: #FFF5F5;
+    }
+
+    .capture-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .capture-card-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .capture-card-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1.35;
+    }
+
+    .capture-status-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background-color: #EAE6DC;
+      color: #4D5E55;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .capture-status-pill.done {
+      background-color: #E2F4EA;
+      color: #146138;
+    }
+
+    .capture-status-pill.recording {
+      background-color: #FDE8E8;
+      color: #C62828;
+      animation: pulseRec 1.1s infinite;
+    }
+
+    @keyframes pulseRec {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+
+    .camera-stage {
+      position: relative;
+      width: 100%;
+      background-color: #0B1912;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .camera-stage.active {
+      display: block;
+    }
+
+    .camera-stage video {
+      width: 100%;
+      max-height: 240px;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Passport-size 35x45mm face guide overlay */
+    .passport-guide-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse 34% 48% at 50% 48%, transparent 56%, rgba(8, 23, 17, 0.58) 58%);
+    }
+
+    .passport-guide-oval {
+      width: 118px;
+      height: 152px;
+      border: 2px dashed var(--gold-400);
+      border-radius: 50% / 46%;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+    }
+
+    .passport-guide-caption {
+      margin-top: 6px;
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      background: rgba(8, 23, 17, 0.75);
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+    }
+
+    /* Document framing guide for GI Certificate */
+    .cert-guide-overlay {
+      position: absolute;
+      inset: 14px;
+      border: 2px dashed rgba(229, 180, 84, 0.85);
+      border-radius: 8px;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 6px;
+    }
+
+    .rec-timer-pill {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(198, 40, 40, 0.92);
+      color: #FFFFFF;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rec-timer-pill.active {
+      display: inline-flex;
+    }
+
+    .capture-preview-wrap {
+      display: none;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .capture-preview-wrap.active {
+      display: block;
+    }
+
+    .capture-preview-img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      border: 1.5px solid #257A4B;
+      object-fit: cover;
+    }
+
+    .capture-preview-img.passport-frame {
+      width: 126px;
+      height: 162px;
+      object-fit: cover;
+      border: 3px solid #FFFFFF;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14), 0 0 0 1.5px #257A4B;
+      border-radius: 6px;
+    }
+
+    .capture-preview-video {
+      width: 100%;
+      max-height: 210px;
+      border-radius: 8px;
+      background: #000000;
+      border: 1.5px solid #257A4B;
+    }
+
+    .capture-meta-stamp {
+      font-size: 0.69rem;
+      font-weight: 600;
+      color: #16653B;
+      margin-top: 5px;
+    }
+
+    .capture-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-cam {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid #C8C1B2;
+      background-color: #FFFFFF;
+      color: var(--forest-900);
+      transition: all 0.18s ease;
+    }
+
+    .btn-cam:hover {
+      background-color: #F2EFE7;
+      border-color: var(--forest-800);
+    }
+
+    .btn-cam.primary {
+      background-color: var(--forest-900);
+      color: #FFFFFF;
+      border-color: var(--forest-900);
+    }
+
+    .btn-cam.primary:hover {
+      background-color: var(--forest-950);
+    }
+
+    .btn-cam.danger {
+      background-color: #C62828;
+      color: #FFFFFF;
+      border-color: #C62828;
+    }
+
+    .btn-cam.danger:hover {
+      background-color: #A61B1B;
+    }
+
+    .cam-error-msg {
+      display: none;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background-color: #FFF2F2;
+      border: 1px solid #F5C2C2;
+      color: #9E1C1C;
+      font-size: 0.73rem;
+      line-height: 1.4;
+    }
+
+    .cam-error-msg.visible {
+      display: block;
+    }
+
+    /* Skill Description Textarea */
+    .skill-textarea {
+      width: 100%;
+      min-height: 92px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-family: var(--font-sans);
+      font-size: 0.86rem;
+      color: var(--text-main);
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .skill-textarea:focus {
+      border-color: var(--forest-900);
+      box-shadow: 0 0 0 3px rgba(13, 43, 29, 0.08);
+    }
+
+    .skill-char-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.71rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ── SAFFRON ORANGE BUTTONS & TERRACOTTA HEADINGS THEME ────────────────── */
+    .form-title,
+    .gi-section-title {
+      color: #9A3412;
+    }
+
+    .form-subtitle,
+    .link-forgot,
+    .auth-footer-prompt a {
+      color: #C84B11;
+    }
+
+    .hero-brand-logo,
+    .hero-headline .accent-gold {
+      color: #FFB46B;
+    }
+
+    .hero-divider-bar {
+      background: #E05A17;
+    }
+
+    .btn-submit-auth,
+    .auth-pill-btn.active,
+    .gi-choice-btn.active,
+    .btn-cam.primary {
+      background-color: #E05A17;
+      border-color: #E05A17;
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(224, 90, 23, 0.28);
+    }
+
+    .btn-submit-auth:hover,
+    .btn-cam.primary:hover,
+    .btn-demo-pill:hover {
+      background-color: #C2480C;
+      border-color: #C2480C;
+      color: #FFFFFF;
+    }
+
+    .btn-demo-pill {
+      border-color: #F4C4A1;
+      color: #9A3412;
+      background-color: #FFF6EE;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="auth-container">
+
+    <!-- ========================================================================
+         LEFT HERO PANE: DYNAMIC CRAFT NARRATIVE & FEATURE BADGES
+         ======================================================================== -->
+    <aside class="auth-hero-pane" id="auth-hero-pane">
+      <div class="auth-hero-content">
+
+        <!-- Top Brand Title & Authenticity Pill -->
+        <div class="hero-top-bar">
+          <a href="index.html"
+            class="hero-brand-logo">HunarLink</a>
+          <div class="hero-badge-pill">
+            <span class="pill-dot">✺</span> AUTHENTIC • TRACEABLE • ARTISAN-CENTRIC
+          </div>
+        </div>
+
+        <!-- Center Dynamic Headline & Narrative -->
+        <div class="hero-middle-body">
+          <h1 class="hero-headline" id="hero-headline">
+            Your Craft.<br><span class="accent-gold">Your Identity.</span><br>Your Marketplace.
+          </h1>
+          <div class="hero-divider-bar"></div>
+          <p class="hero-subtext" id="hero-subtext">
+            Take your traditional craftsmanship beyond borders. Build your digital storefront, connect with buyers and grow your business.
+          </p>
+        </div>
+
+        <!-- Bottom Dynamic Feature Cards (4 Cards for Artisan, 3 for Forgot) -->
+        <div class="hero-cards-grid" id="hero-cards-grid">
+          <!-- Dynamic cards injected by JS -->
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ========================================================================
+         RIGHT FORM PANE: ARTISAN AUTHENTICATION INTERFACE
+         ======================================================================== -->
+    <main class="auth-form-pane">
+
+      <div class="form-inner-wrap">
+
+        <!-- Top Navigation (Back to Home / Back to Login) -->
+        <div class="auth-back-nav">
+          <a href="index.html"
+            class="auth-back-link" id="auth-back-link">
+            ← Back to Home
+          </a>
+        </div>
+
+        <!-- Header Title & Subtitle -->
+        <div class="form-heading-group">
+          <h2 class="form-title" id="form-title">Welcome, Artisan</h2>
+          <p class="form-subtitle" id="form-subtitle">Access to your HunarLink Artisan Workspace</p>
+        </div>
+
+        <!-- Artisan Login Indicator (Shown ONLY in Login mode) -->
+        <div class="auth-pill-switcher" id="auth-pill-switcher">
+          <div class="auth-pill-btn active" id="pill-artisan" style="cursor: default;">
+            <span class="pill-icon">🔨</span> <span id="pill-artisan-text">Artisan Login</span>
+          </div>
+        </div>
+
+        <!-- Two Seller Registration Type Buttons (Replaces "Artisan Register" button) -->
+        <div class="gi-choice-switcher" id="gi-register-switcher" style="display: none;" role="tablist"
+          aria-label="Seller GI Certification Status">
+          <button type="button" class="gi-choice-btn active" id="btn-has-gi" role="tab" aria-selected="true"
+            onclick="setGiRegistrationMode('with_gi')">
+            <span class="gi-choice-title">🛡️ Have GI Certification / Tag</span>
+            <span class="gi-choice-sub">Enter GI ID + live camera &amp; skill verification</span>
+          </button>
+          <button type="button" class="gi-choice-btn" id="btn-no-gi" role="tab" aria-selected="false"
+            onclick="setGiRegistrationMode('no_gi')">
+            <span class="gi-choice-title">📝 No GI Certification / Tag</span>
+            <span class="gi-choice-sub">Standard seller account registration</span>
+          </button>
+        </div>
+
+        <!-- ====================================================================
+             FORM 1: ARTISAN LOGIN FORM
+             ==================================================================== -->
+        <form id="form-login" onsubmit="submitLoginForm(event)">
+          <!-- Email Address -->
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <div class="input-wrapper">
+              <span class="input-icon-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+              </span>
+              <input type="email" id="login-email" class="input-field" placeholder="Enter your email" required>
+            </div>
+          </div>
+
+          <!-- Password -->
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-wrapper">
+              <span class="input-icon-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </span>
+              <input type="password" id="login-password" class="input-field" placeholder="Enter your password" required>
+              <button type="button" class="input-btn-eye" onclick="togglePasswordVisibility('login-password')"
+                aria-label="Toggle password visibility">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Options: Remember Me & Forgot Password -->
+          <div class="form-options-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="login-remember" checked>
+              <span>Remember me</span>
+            </label>
+            <a href="#" class="link-forgot" onclick="event.preventDefault(); setAuthState('forgot')">Forgot Password?</a>
+          </div>
+
+          <!-- Primary Submit Button -->
+          <button type="submit" class="btn-submit-auth" id="login-submit-btn">
+            Sign In to Workspace →
+          </button>
+        </form>
+
+        <!-- ====================================================================
+             FORM 2: CREATE ARTISAN ACCOUNT (GI-CERTIFIED OR STANDARD SELLER)
+             ==================================================================== -->
+        <form id="form-artisan-register" style="display: none;" onsubmit="submitArtisanRegister(event)">
+
+          <!-- Info Banner for Standard Seller (No GI Certification) -->
+          <div class="no-gi-info-banner" id="no-gi-info-banner" style="display: none;">
+            <span style="font-size: 1rem; line-height: 1;">ℹ️</span>
+            <div>
+              <strong>Standard Seller Account:</strong> Enter your basic artisan details below to create your account
+              right away. You can apply for GI Certification anytime later from your Artisan Studio.
+            </div>
+          </div>
+
+          <!-- Row 1: Full Name & Phone -->
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label">Full Name <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+                <input type="text" id="artisan-reg-name" class="input-field" placeholder="Enter your full name"
+                  required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Phone Number <span class="req">*</span></label>
+              <div class="input-wrapper phone-wrap">
+                <div class="phone-prefix-box">
+                  <span class="phone-prefix">🇮🇳 +91</span>
+                </div>
+                <input type="tel" id="artisan-reg-phone" class="input-field" placeholder="Enter mobile number" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: Email & Password -->
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label">Email Address <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                  </svg>
+                </span>
+                <input type="email" id="artisan-reg-email" class="input-field" placeholder="Enter your email" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Password <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input type="password" id="artisan-reg-password" class="input-field" placeholder="Create strong password"
+                  required>
+                <button type="button" class="input-btn-eye" onclick="togglePasswordVisibility('artisan-reg-password')"
+                  aria-label="Toggle password">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: Confirm Password & Craft Category -->
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label">Confirm Password <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input type="password" id="artisan-reg-cpassword" class="input-field" placeholder="Re-enter password"
+                  required>
+                <button type="button" class="input-btn-eye" onclick="togglePasswordVisibility('artisan-reg-cpassword')"
+                  aria-label="Toggle password">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Craft Category <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                </span>
+                <select id="artisan-reg-craft" class="input-field" required>
+                  <option value="" disabled selected>Select Craft Discipline</option>
+                  <option value="walnut">Walnut Woodcarving</option>
+                  <option value="pashmina">Pashmina &amp; Cashmere Weaving</option>
+                  <option value="papier-mache">Papier-Mâché Naqash Art</option>
+                  <option value="silk-rugs">Silk Rugs &amp; Hand-Knotted Carpets</option>
+                  <option value="kani-sozni">Kani Loom &amp; Sozni Needlework</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 4: Business / Workshop Name & City/District -->
+          <div class="form-grid-2col">
+            <div class="form-group">
+              <label class="form-label">Business / Atelier Name <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                  </svg>
+                </span>
+                <input type="text" id="artisan-reg-business" class="input-field"
+                  placeholder="e.g. Wani Woodcraft Atelier" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">City / District Cluster <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                </span>
+                <select id="artisan-reg-district" class="input-field" required>
+                  <option value="" disabled selected>Select J&amp;K Cluster</option>
+                  <option value="Srinagar">Srinagar (Old City Craft Corridor)</option>
+                  <option value="Anantnag">Anantnag (Mattan Wood &amp; Loom Cluster)</option>
+                  <option value="Budgam">Budgam (Kanihama Loom Cluster)</option>
+                  <option value="Baramulla">Baramulla (North Valley Guild)</option>
+                  <option value="Bandipora">Bandipora (Wular Heritage Guild)</option>
+                  <option value="Ganderbal">Ganderbal (Sindh River Loom Cluster)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================================================================
+               GI-CERTIFIED SELLER VERIFICATION SUITE (LIVE CAMERA ONLY)
+               ================================================================ -->
+          <div class="gi-verification-section" id="gi-verification-section">
+            <div class="gi-section-header">
+              <div class="gi-section-title">🛡️ GI Certification &amp; Live Verification</div>
+              <span class="gi-live-only-badge">● Live Camera • Auto Gallery Fallback</span>
+            </div>
+
+            <!-- 1. GI Certification / Tag ID -->
+            <div class="form-group">
+              <label class="form-label" for="artisan-gi-id">GI Certification / Tag ID <span class="req">*</span></label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <polyline points="9 12 11 14 15 10"></polyline>
+                  </svg>
+                </span>
+                <input type="text" id="artisan-gi-id" class="input-field"
+                  placeholder="Enter your official GI ID (e.g. GI-JK-PASH-8821)" required>
+              </div>
+            </div>
+
+            <!-- 2. Live Photo of GI Certificate (No Gallery / Folder Upload) -->
+            <div class="live-capture-card" id="live-cert-card">
+              <div class="capture-card-head">
+                <div>
+                  <div class="capture-card-label">1. Live Photo of GI Certificate <span class="req">*</span></div>
+                  <div class="capture-card-hint">Hold your physical GI Certificate in front of your camera. If no webcam is
+                    available on this device, a secure gallery-upload fallback appears automatically.</div>
+                </div>
+                <span class="capture-status-pill" id="cert-status-pill">Required</span>
+              </div>
+
+              <div class="camera-stage" id="cert-camera-stage">
+                <video id="cert-camera-video" autoplay playsinline muted></video>
+                <div class="cert-guide-overlay">
+                  <span class="passport-guide-caption">ALIGN GI CERTIFICATE INSIDE FRAME</span>
+                </div>
+              </div>
+
+              <div class="capture-preview-wrap" id="cert-preview-wrap">
+                <img loading="lazy" decoding="async" id="cert-preview-img" class="capture-preview-img" alt="Captured Live GI Certificate">
+                <div class="capture-meta-stamp" id="cert-meta-stamp"></div>
+              </div>
+
+              <div class="capture-actions-row">
+                <button type="button" class="btn-cam primary" id="btn-cert-open" onclick="openLiveCamera('cert')">
+                  📷 Open Camera
+                </button>
+                <button type="button" class="btn-cam primary" id="btn-cert-snap" style="display: none;"
+                  onclick="captureLivePhoto('cert')">
+                  📸 Capture Certificate Photo
+                </button>
+                <button type="button" class="btn-cam" id="btn-cert-cancel" style="display: none;"
+                  onclick="stopAllCameras()">
+                  Cancel
+                </button>
+                <button type="button" class="btn-cam" id="btn-cert-retake" style="display: none;"
+                  onclick="openLiveCamera('cert')">
+                  ↺ Retake Live Photo
+                </button>
+                <button type="button" class="btn-cam" id="btn-cert-upload" style="display: none;"
+                  onclick="document.getElementById('cert-file-input').click()">
+                  📁 Upload Certificate Photo (No Camera)
+                </button>
+                <input type="file" id="cert-file-input" accept="image/*" style="display: none;"
+                  onchange="handleLiveCaptureFile('cert', this)">
+              </div>
+              <div class="cam-error-msg" id="cert-cam-error"></div>
+            </div>
+
+            <!-- 3. Live Video of Product or Workshop / Warehouse -->
+            <div class="live-capture-card" id="live-video-card">
+              <div class="capture-card-head">
+                <div>
+                  <div class="capture-card-label">2. Live Video of Product or Warehouse / Workshop <span
+                      class="req">*</span></div>
+                  <div class="capture-card-hint">Record a live video (3–30 sec) showing your handmade craft, loom, or
+                    workshop directly from your camera. No camera detected? Use the upload fallback below.</div>
+                </div>
+                <span class="capture-status-pill" id="video-status-pill">Required</span>
+              </div>
+
+              <div class="camera-stage" id="video-camera-stage">
+                <video id="video-camera-stream" autoplay playsinline muted></video>
+                <span class="rec-timer-pill" id="video-rec-timer">● REC 00:00 / 00:30</span>
+              </div>
+
+              <div class="capture-preview-wrap" id="video-preview-wrap">
+                <video id="video-preview-player" class="capture-preview-video" controls playsinline></video>
+                <div class="capture-meta-stamp" id="video-meta-stamp"></div>
+              </div>
+
+              <div class="capture-actions-row">
+                <button type="button" class="btn-cam primary" id="btn-video-open" onclick="openLiveCamera('video')">
+                  🎥 Open Camera
+                </button>
+                <button type="button" class="btn-cam danger" id="btn-video-start" style="display: none;"
+                  onclick="startLiveVideoRecording()">
+                  ⏺ Start Live Recording
+                </button>
+                <button type="button" class="btn-cam primary" id="btn-video-stop" style="display: none;"
+                  onclick="stopLiveVideoRecording()">
+                  ⏹ Stop &amp; Save Video
+                </button>
+                <button type="button" class="btn-cam" id="btn-video-cancel" style="display: none;"
+                  onclick="stopAllCameras()">
+                  Cancel
+                </button>
+                <button type="button" class="btn-cam" id="btn-video-retake" style="display: none;"
+                  onclick="openLiveCamera('video')">
+                  ↺ Re-record Live Video
+                </button>
+                <button type="button" class="btn-cam" id="btn-video-upload" style="display: none;"
+                  onclick="document.getElementById('video-file-input').click()">
+                  📁 Upload Workshop Video (No Camera)
+                </button>
+                <input type="file" id="video-file-input" accept="video/*" style="display: none;"
+                  onchange="handleLiveCaptureFile('video', this)">
+              </div>
+              <div class="cam-error-msg" id="video-cam-error"></div>
+            </div>
+
+            <!-- 4. Live Passport-Size Photo of Seller -->
+            <div class="live-capture-card" id="live-passport-card">
+              <div class="capture-card-head">
+                <div>
+                  <div class="capture-card-label">3. Live Passport-Size Photo of Seller <span class="req">*</span>
+                  </div>
+                  <div class="capture-card-hint">Center your face inside the passport guide (35×45 mm portrait ratio).
+                    Captured live via front camera — with upload fallback when no camera is present.</div>
+                </div>
+                <span class="capture-status-pill" id="passport-status-pill">Required</span>
+              </div>
+
+              <div class="camera-stage" id="passport-camera-stage">
+                <video id="passport-camera-video" autoplay playsinline muted></video>
+                <div class="passport-guide-overlay">
+                  <div class="passport-guide-oval"></div>
+                  <span class="passport-guide-caption">PASSPORT SIZE (35×45 MM)</span>
+                </div>
+              </div>
+
+              <div class="capture-preview-wrap" id="passport-preview-wrap">
+                <img loading="lazy" decoding="async" id="passport-preview-img" class="capture-preview-img passport-frame"
+                  alt="Captured Live Seller Passport Photo">
+                <div class="capture-meta-stamp" id="passport-meta-stamp"></div>
+              </div>
+
+              <div class="capture-actions-row">
+                <button type="button" class="btn-cam primary" id="btn-passport-open"
+                  onclick="openLiveCamera('passport')">
+                  🤳 Open Front Camera
+                </button>
+                <button type="button" class="btn-cam primary" id="btn-passport-snap" style="display: none;"
+                  onclick="captureLivePhoto('passport')">
+                  📸 Capture Passport Photo
+                </button>
+                <button type="button" class="btn-cam" id="btn-passport-cancel" style="display: none;"
+                  onclick="stopAllCameras()">
+                  Cancel
+                </button>
+                <button type="button" class="btn-cam" id="btn-passport-retake" style="display: none;"
+                  onclick="openLiveCamera('passport')">
+                  ↺ Retake Passport Photo
+                </button>
+                <button type="button" class="btn-cam" id="btn-passport-upload" style="display: none;"
+                  onclick="document.getElementById('passport-file-input').click()">
+                  📁 Upload Passport Photo (No Camera)
+                </button>
+                <input type="file" id="passport-file-input" accept="image/*" style="display: none;"
+                  onchange="handleLiveCaptureFile('passport', this)">
+              </div>
+              <div class="cam-error-msg" id="passport-cam-error"></div>
+            </div>
+
+            <!-- 5. Artisan Skill Description Box -->
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="artisan-skill-desc">Describe Your Craft &amp; Skill <span
+                  class="req">*</span></label>
+              <textarea id="artisan-skill-desc" class="skill-textarea" rows="4" maxlength="600"
+                placeholder="Tell buyers and verifiers about your craft specialization, years of experience, traditional techniques (e.g., Kani wooden bobbins, Sozni needlework, deep walnut relief carving), and workshop lineage..."
+                oninput="updateSkillCharCount()" required></textarea>
+              <div class="skill-char-row">
+                <span>Minimum 20 characters for GI verification review</span>
+                <span id="skill-char-count">0 / 600</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Terms & Policy -->
+          <label class="terms-label">
+            <input type="checkbox" id="artisan-reg-terms" required checked>
+            <span>I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></span>
+          </label>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-submit-auth" id="artisan-register-submit-btn">
+            Submit GI Verification &amp; Create Account →
+          </button>
+        </form>
+
+        <!-- ====================================================================
+             FORM 4: FORGOT PASSWORD
+             ==================================================================== -->
+        <div id="form-forgot" style="display: none;">
+          <!-- Center Illustration -->
+          <div class="forgot-illustration-wrap">
+            <img loading="lazy" decoding="async" src="assets/auth/forgot_illustration.png" alt="Reset Password Security" class="forgot-illustration-img">
+          </div>
+
+          <form onsubmit="submitForgotPassword(event)">
+            <!-- Email Field -->
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <div class="input-wrapper">
+                <span class="input-icon-left">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                  </svg>
+                </span>
+                <input type="email" id="forgot-email" class="input-field" placeholder="Enter your registered email"
+                  required>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn-submit-auth" style="margin-top: 8px;">
+              Send reset link →
+            </button>
+          </form>
+
+          <!-- Golden Info Alert Banner -->
+          <div class="auth-info-alert">
+            <span class="info-icon">ⓘ</span>
+            <div>
+              we'll send a password reset link to your email. please check your inbox (and spam folder) as well
+            </div>
+          </div>
+        </div>
+
+        <!-- Social Divider & Buttons (Hidden in Forgot Password state) -->
+        <div id="auth-social-section">
+          <div class="social-divider">
+            <span>or continue with</span>
+          </div>
+
+          <div class="social-btns-grid">
+            <!-- Google Auth -->
+            <button type="button" class="btn-social" onclick="handleSocialAuth('Google')">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  fill="#4285F4" />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853" />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  fill="#FBBC05" />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  fill="#EA4335" />
+              </svg>
+              <span>Continue with Google</span>
+            </button>
+
+            <!-- Apple Auth -->
+            <button type="button" class="btn-social" onclick="handleSocialAuth('Apple')">
+              <svg viewBox="0 0 24 24" fill="#000000">
+                <path
+                  d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.63 1.35-.57.66-1.06 1.73-.93 2.76 1 .08 2.03-.51 2.64-1.26z" />
+              </svg>
+              <span>Continue with Apple</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer Alternative Prompt -->
+        <div class="auth-footer-prompt" id="auth-footer-prompt">
+          <span>New to HunarLink?</span>
+          <a href="#" onclick="event.preventDefault(); handleFooterPromptClick()">Register as an Artisan</a>
+        </div>
+
+        <!-- Quick Evaluator 1-Tap Demo Bar -->
+        <div class="demo-evaluator-card">
+          <div class="demo-evaluator-header">
+            <span class="demo-evaluator-title">⚡ Quick Evaluator Demo Logins</span>
+            <span class="demo-evaluator-badge">One-Tap Auth</span>
+          </div>
+          <div class="demo-pills-row">
+            <button type="button" class="btn-demo-pill" onclick="quickFillDemo('artisan_wani')">
+              ● Artisan: Fayaz Ahmad (Walnut)
+            </button>
+            <button type="button" class="btn-demo-pill" onclick="quickFillDemo('artisan_mir')">
+              ● Artisan: Ustad Mir (Pashmina)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Toast Container -->
+  <div class="auth-toast" id="auth-toast"></div>
+
+  <!-- ========================================================================
+       APPLICATION CONTROLLER SCRIPT (ARTISAN PORTAL ONLY)
+       ======================================================================== -->
+  <script>
+    /* --------------------------------------------------------------------------
+       State Definitions (Artisan Login, Artisan Register, Forgot Password)
+       -------------------------------------------------------------------------- */
+    const AUTH_CONFIG = {
+      // Artisan Login
+      "login_artisan": {
+        headline: 'Your Craft.<br><span class="accent-gold">Your Identity.</span><br>Your Marketplace.',
+        subtext: "Take your traditional craftsmanship beyond borders. Build your digital storefront, connect with buyers and grow your business.",
+        cards: [
+          { icon: "🏪", title: "Create Your Store", desc: "Showcase your craftsmanship" },
+          { icon: "📈", title: "Grow Your Business", desc: "Track orders and earnings" },
+          { icon: "🛡️", title: "Verify Your Craft", desc: "Get authenticity & GI recognition" },
+          { icon: "🌐", title: "Reach New Markets", desc: "Connect with buyers worldwide" }
+        ],
+        title: "Welcome, Artisan",
+        subtitle: "Access to your HunarLink Artisan Workspace",
+        artisanPillText: "Artisan Login",
+        submitBtnText: "Sign In to Workspace →",
+        footerText: "New to HunarLink?",
+        footerLinkText: "Register as an Artisan",
+        footerAction: "register"
+      },
+
+      // Artisan Register
+      "register_artisan": {
+        headline: 'Join HunarLink<br>as an <span class="accent-gold">Artisan</span>',
+        subtext: "List your crafts, obtain verified GI credentials, and connect directly with connoisseurs worldwide without middlemen.",
+        cards: [
+          { icon: "🏪", title: "Create Your Store", desc: "Showcase your craftsmanship" },
+          { icon: "📈", title: "Grow Your Business", desc: "Track orders and earnings" },
+          { icon: "🛡️", title: "Verify Your Craft", desc: "Get authenticity & GI recognition" },
+          { icon: "🌐", title: "Reach New Markets", desc: "Connect with buyers worldwide" }
+        ],
+        title: "Create Artisan Account",
+        subtitle: "List your crafts - Get verified - Reach new markets",
+        artisanPillText: "Artisan Register",
+        submitBtnText: "Create Artisan Account →",
+        footerText: "Already have an account?",
+        footerLinkText: "Login",
+        footerAction: "login"
+      },
+
+      // Forgot Password
+      "forgot": {
+        headline: 'Reset Your<br><span class="accent-gold">Password</span>',
+        subtext: "Don't worry, it happens to everyone. Enter your registered email and we'll send you a secure link to reset your password",
+        cards: [
+          { icon: "🛡️", title: "Secure & Private", desc: "Your data is always protected" },
+          { icon: "✉️", title: "Quick Recovery", desc: "Get a reset link in seconds" },
+          { icon: "🔒", title: "Account Safety", desc: "Regain access securely" }
+        ],
+        title: "Forgot Password?",
+        subtitle: "No worries. Let’s get you back to HunarLink.",
+        submitBtnText: "Send reset link →",
+        footerText: "Remembered your password?",
+        footerLinkText: "Login Now",
+        footerAction: "login"
+      }
+    };
+
+    // Current State Tracker (Artisan-only portal)
+    const AuthState = {
+      mode: "login",     // 'login', 'register', 'forgot'
+      role: "artisan",
+      giStatus: "with_gi" // 'with_gi' | 'no_gi'
+    };
+
+    // Live Camera Capture State (Strictly Live Camera Only — No Gallery Uploads)
+    const LiveCaptureState = {
+      activeType: null,      // 'cert' | 'video' | 'passport' | null
+      activeStream: null,
+      mediaRecorder: null,
+      recordedChunks: [],
+      recSeconds: 0,
+      recTimerId: null,
+      certPhoto: null,       // DataURL captured live
+      certTimestamp: null,
+      productVideoBlob: null,
+      productVideoUrl: null,
+      videoDuration: 0,
+      videoTimestamp: null,
+      passportPhoto: null,   // 35x45mm cropped DataURL captured live
+      passportTimestamp: null
+    };
+
+    function getAuthRedirectTarget(defaultAnchor) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const explicit = params.get("redirect");
+        if (explicit) return explicit;
+        if (document.referrer && document.referrer.includes(".html") && !document.referrer.includes("auth.html")) {
+          return document.referrer;
+        }
+      } catch (e) {}
+      return defaultAnchor
+        ? `index.html#${defaultAnchor}`
+        : "index.html";
+    }
+
+    /* --------------------------------------------------------------------------
+       State Switcher Function
+       -------------------------------------------------------------------------- */
+    function setAuthState(mode) {
+      AuthState.mode = mode || "login";
+      AuthState.role = "artisan";
+
+      if (AuthState.mode !== "register") {
+        stopAllCameras();
+      }
+
+      // Update URL query parameters seamlessly
+      try {
+        const url = new URL(window.location);
+        url.searchParams.set("mode", AuthState.mode);
+        url.searchParams.set("role", "artisan");
+        window.history.replaceState({}, "", url);
+      } catch (e) { }
+
+      const stateKey = AuthState.mode === "forgot" ? "forgot" : `${AuthState.mode}_artisan`;
+      const conf = AUTH_CONFIG[stateKey] || AUTH_CONFIG["login_artisan"];
+
+      // 1. Update Left Hero Pane (Simple clean solid color, zero background image)
+      const heroPane = document.getElementById("auth-hero-pane");
+      heroPane.style.backgroundImage = "none";
+      document.getElementById("hero-headline").innerHTML = conf.headline;
+      document.getElementById("hero-subtext").textContent = conf.subtext;
+
+      // Render Cards Grid
+      const cardsGrid = document.getElementById("hero-cards-grid");
+      cardsGrid.className = `hero-cards-grid ${conf.cards.length === 3 ? "three-cols" : ""}`;
+      cardsGrid.innerHTML = conf.cards.map(c => `
+        <div class="hero-card">
+          <div class="hero-card-icon">${c.icon}</div>
+          <div class="hero-card-title">${c.title}</div>
+          <div class="hero-card-desc">${c.desc}</div>
+        </div>
+      `).join("");
+
+      // 2. Update Right Form Pane
+      document.getElementById("form-title").textContent = conf.title;
+      document.getElementById("form-subtitle").textContent = conf.subtitle;
+
+      // Back navigation link
+      const backLink = document.getElementById("auth-back-link");
+      if (AuthState.mode === "forgot") {
+        backLink.textContent = "← Back to Login";
+        backLink.href = "#";
+        backLink.onclick = (e) => { e.preventDefault(); setAuthState("login"); };
+      } else {
+        const target = getAuthRedirectTarget("");
+        const isPdp = target.includes("product.html");
+        backLink.textContent = isPdp ? "← Back to Product" : "← Back to Home";
+        backLink.href = target;
+        backLink.onclick = null;
+      }
+
+      // Login indicator vs Two GI Registration Buttons (replaces "Artisan Register" button)
+      const loginPillSwitcher = document.getElementById("auth-pill-switcher");
+      const giRegSwitcher = document.getElementById("gi-register-switcher");
+
+      if (AuthState.mode === "login") {
+        loginPillSwitcher.style.display = "flex";
+        giRegSwitcher.style.display = "none";
+        document.getElementById("pill-artisan-text").textContent = conf.artisanPillText;
+      } else if (AuthState.mode === "register") {
+        loginPillSwitcher.style.display = "none";
+        giRegSwitcher.style.display = "grid";
+      } else {
+        loginPillSwitcher.style.display = "none";
+        giRegSwitcher.style.display = "none";
+      }
+
+      // Hide all forms first
+      document.getElementById("form-login").style.display = "none";
+      document.getElementById("form-artisan-register").style.display = "none";
+      document.getElementById("form-forgot").style.display = "none";
+
+      // Show the active form
+      if (AuthState.mode === "login") {
+        document.getElementById("form-login").style.display = "block";
+        document.getElementById("login-submit-btn").textContent = conf.submitBtnText;
+      } else if (AuthState.mode === "register") {
+        document.getElementById("form-artisan-register").style.display = "block";
+        setGiRegistrationMode(AuthState.giStatus);
+      } else if (AuthState.mode === "forgot") {
+        document.getElementById("form-forgot").style.display = "block";
+      }
+
+      // Social Auth & Footer Prompts
+      const socialSection = document.getElementById("auth-social-section");
+      if (AuthState.mode === "forgot") {
+        socialSection.style.display = "none";
+      } else {
+        socialSection.style.display = "block";
+      }
+
+      const footerPrompt = document.getElementById("auth-footer-prompt");
+      footerPrompt.innerHTML = `
+        <span>${conf.footerText}</span>
+        <a href="#" onclick="event.preventDefault(); handleFooterPromptClick()">${conf.footerLinkText}</a>
+      `;
+    }
+
+    /* --------------------------------------------------------------------------
+       GI Certification vs Standard Seller Registration Mode Switcher
+       -------------------------------------------------------------------------- */
+    function setGiRegistrationMode(status) {
+      AuthState.giStatus = status === "no_gi" ? "no_gi" : "with_gi";
+      const isGi = AuthState.giStatus === "with_gi";
+
+      if (!isGi) {
+        stopAllCameras();
+      }
+
+      const btnHasGi = document.getElementById("btn-has-gi");
+      const btnNoGi = document.getElementById("btn-no-gi");
+      const giSection = document.getElementById("gi-verification-section");
+      const noGiBanner = document.getElementById("no-gi-info-banner");
+      const giIdInput = document.getElementById("artisan-gi-id");
+      const skillInput = document.getElementById("artisan-skill-desc");
+      const submitBtn = document.getElementById("artisan-register-submit-btn");
+
+      if (btnHasGi) {
+        btnHasGi.classList.toggle("active", isGi);
+        btnHasGi.setAttribute("aria-selected", isGi ? "true" : "false");
+      }
+      if (btnNoGi) {
+        btnNoGi.classList.toggle("active", !isGi);
+        btnNoGi.setAttribute("aria-selected", !isGi ? "true" : "false");
+      }
+
+      if (giSection) giSection.style.display = isGi ? "block" : "none";
+      if (noGiBanner) noGiBanner.style.display = isGi ? "none" : "flex";
+      if (giIdInput) giIdInput.required = isGi;
+      if (skillInput) skillInput.required = isGi;
+
+      if (submitBtn) {
+        submitBtn.textContent = isGi
+          ? "Submit GI Verification & Create Account →"
+          : "Create Standard Artisan Account →";
+      }
+    }
+
+    function updateSkillCharCount() {
+      const textarea = document.getElementById("artisan-skill-desc");
+      const counter = document.getElementById("skill-char-count");
+      if (textarea && counter) {
+        counter.textContent = `${textarea.value.length} / 600`;
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       Live Camera Capture Controller (NO Gallery / File Upload Allowed)
+       -------------------------------------------------------------------------- */
+    function formatTimer(secs) {
+      const m = String(Math.floor(secs / 60)).padStart(2, "0");
+      const s = String(secs % 60).padStart(2, "0");
+      return `${m}:${s}`;
+    }
+
+    function showCamError(type, message) {
+      const errEl = document.getElementById(`${type}-cam-error`);
+      if (errEl) {
+        errEl.textContent = message;
+        errEl.classList.add("visible");
+      }
+    }
+
+    function clearCamError(type) {
+      const errEl = document.getElementById(`${type}-cam-error`);
+      if (errEl) {
+        errEl.textContent = "";
+        errEl.classList.remove("visible");
+      }
+    }
+
+    function stopAllCameras() {
+      if (LiveCaptureState.recTimerId) {
+        clearInterval(LiveCaptureState.recTimerId);
+        LiveCaptureState.recTimerId = null;
+      }
+
+      if (LiveCaptureState.mediaRecorder && LiveCaptureState.mediaRecorder.state === "recording") {
+        try {
+          LiveCaptureState.mediaRecorder.onstop = null;
+          LiveCaptureState.mediaRecorder.stop();
+        } catch (e) {}
+      }
+      LiveCaptureState.mediaRecorder = null;
+
+      if (LiveCaptureState.activeStream) {
+        LiveCaptureState.activeStream.getTracks().forEach(t => t.stop());
+        LiveCaptureState.activeStream = null;
+      }
+
+      // Reset all camera viewfinders & action buttons cleanly
+      ["cert", "video", "passport"].forEach(type => {
+        const stage = document.getElementById(`${type}-camera-stage`);
+        if (stage) stage.classList.remove("active");
+
+        const vid = document.getElementById(type === "video" ? "video-camera-stream" : `${type}-camera-video`);
+        if (vid) vid.srcObject = null;
+
+        const hasCapture =
+          (type === "cert" && !!LiveCaptureState.certPhoto) ||
+          (type === "video" && !!LiveCaptureState.productVideoBlob) ||
+          (type === "passport" && !!LiveCaptureState.passportPhoto);
+
+        const openBtn = document.getElementById(`btn-${type}-open`);
+        const cancelBtn = document.getElementById(`btn-${type}-cancel`);
+        const retakeBtn = document.getElementById(`btn-${type}-retake`);
+
+        if (openBtn) openBtn.style.display = hasCapture ? "none" : "inline-flex";
+        if (cancelBtn) cancelBtn.style.display = "none";
+        if (retakeBtn) retakeBtn.style.display = hasCapture ? "inline-flex" : "none";
+
+        if (type === "video") {
+          const startBtn = document.getElementById("btn-video-start");
+          const stopBtn = document.getElementById("btn-video-stop");
+          const timerEl = document.getElementById("video-rec-timer");
+          const pill = document.getElementById("video-status-pill");
+          if (startBtn) startBtn.style.display = "none";
+          if (stopBtn) stopBtn.style.display = "none";
+          if (timerEl) timerEl.classList.remove("active");
+          if (pill && !hasCapture) {
+            pill.className = "capture-status-pill";
+            pill.textContent = "Required";
+          }
+        } else {
+          const snapBtn = document.getElementById(`btn-${type}-snap`);
+          if (snapBtn) snapBtn.style.display = "none";
+        }
+      });
+
+      LiveCaptureState.activeType = null;
+    }
+
+    async function openLiveCamera(type) {
+      stopAllCameras();
+      clearCamError(type);
+
+      const card = document.getElementById(`live-${type}-card`);
+      if (card) card.classList.remove("error-highlight");
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showCamError(
+          type,
+          "Live camera API is unavailable in this browser or context (requires HTTPS or localhost). Use the \"Upload (No Camera)\" fallback below to continue verification."
+        );
+        revealUploadFallback(type);
+        return;
+      }
+
+      const constraints = type === "passport"
+        ? { video: { facingMode: { ideal: "user" }, width: { ideal: 720 }, height: { ideal: 960 } }, audio: false }
+        : type === "video"
+          ? { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true }
+          : { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        // Fallback for video without microphone if audio permission was denied
+        if (type === "video") {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          } catch (videoErr) {
+            showCamError(
+              type,
+              "Camera access was blocked or no camera was detected. Please allow camera permission, or use the \"Upload (No Camera)\" fallback below."
+            );
+            revealUploadFallback(type);
+            return;
+          }
+        } else {
+          showCamError(
+            type,
+            "Camera access was blocked or no camera was detected. Please allow camera permission, or use the \"Upload (No Camera)\" fallback below."
+          );
+          revealUploadFallback(type);
+          return;
+        }
+      }
+
+      LiveCaptureState.activeStream = stream;
+      LiveCaptureState.activeType = type;
+
+      const stage = document.getElementById(`${type}-camera-stage`);
+      const previewWrap = document.getElementById(`${type}-preview-wrap`);
+      const videoEl = document.getElementById(type === "video" ? "video-camera-stream" : `${type}-camera-video`);
+
+      if (previewWrap) previewWrap.classList.remove("active");
+      if (stage) stage.classList.add("active");
+      if (videoEl) {
+        videoEl.srcObject = stream;
+        try { await videoEl.play(); } catch (e) {}
+      }
+
+      const openBtn = document.getElementById(`btn-${type}-open`);
+      const cancelBtn = document.getElementById(`btn-${type}-cancel`);
+      const retakeBtn = document.getElementById(`btn-${type}-retake`);
+
+      if (openBtn) openBtn.style.display = "none";
+      if (retakeBtn) retakeBtn.style.display = "none";
+      if (cancelBtn) cancelBtn.style.display = "inline-flex";
+
+      if (type === "video") {
+        const startBtn = document.getElementById("btn-video-start");
+        if (startBtn) startBtn.style.display = "inline-flex";
+      } else {
+        const snapBtn = document.getElementById(`btn-${type}-snap`);
+        if (snapBtn) snapBtn.style.display = "inline-flex";
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       Gallery-Upload Fallback (no webcam / permission denied)
+       Keeps the GI verification flow completable on projector PCs and laptops
+       without cameras while preserving live capture as the primary path.
+       -------------------------------------------------------------------------- */
+    function revealUploadFallback(type) {
+      const btn = document.getElementById(`btn-${type}-upload`);
+      if (btn) btn.style.display = "inline-flex";
+    }
+
+    function handleLiveCaptureFile(type, input) {
+      const file = input && input.files && input.files[0];
+      if (!file) return;
+      const stamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      if (type === "video") {
+        if (LiveCaptureState.productVideoUrl) {
+          URL.revokeObjectURL(LiveCaptureState.productVideoUrl);
+        }
+        LiveCaptureState.productVideoBlob = file;
+        LiveCaptureState.productVideoUrl = URL.createObjectURL(file);
+        LiveCaptureState.videoDuration = null;
+        LiveCaptureState.videoTimestamp = stamp;
+
+        const player = document.getElementById("video-preview-player");
+        const previewWrap = document.getElementById("video-preview-wrap");
+        const metaStamp = document.getElementById("video-meta-stamp");
+        const statusPill = document.getElementById("video-status-pill");
+        const card = document.getElementById("live-video-card");
+
+        if (player) player.src = LiveCaptureState.productVideoUrl;
+        if (previewWrap) previewWrap.classList.add("active");
+        if (metaStamp) metaStamp.textContent = `✓ Workshop/product video uploaded (offline fallback) at ${stamp}`;
+        if (statusPill) {
+          statusPill.className = "capture-status-pill done";
+          statusPill.textContent = "✓ Uploaded";
+        }
+        if (card) {
+          card.classList.remove("error-highlight");
+          card.classList.add("captured");
+        }
+        showAuthToast("📁 Workshop video accepted via upload fallback!");
+        input.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (type === "passport") {
+            // Center-crop to the 35x45 (7:9) passport ratio, matching live capture
+            const targetRatio = 35 / 45;
+            const vw = img.width, vh = img.height;
+            let sx = 0, sy = 0, sw = vw, sh = vh;
+            if (vw / vh > targetRatio) {
+              sw = Math.round(vh * targetRatio);
+              sx = Math.round((vw - sw) / 2);
+            } else {
+              sh = Math.round(vw / targetRatio);
+              sy = Math.round((vh - sh) / 2);
+            }
+            canvas.width = 350;
+            canvas.height = 450;
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 350, 450);
+          } else {
+            const maxW = 1080;
+            const scale = Math.min(1, maxW / img.width);
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          }
+
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
+          if (type === "cert") {
+            LiveCaptureState.certPhoto = dataUrl;
+            LiveCaptureState.certTimestamp = stamp;
+          } else {
+            LiveCaptureState.passportPhoto = dataUrl;
+            LiveCaptureState.passportTimestamp = stamp;
+          }
+
+          const previewImg = document.getElementById(`${type}-preview-img`);
+          const previewWrap = document.getElementById(`${type}-preview-wrap`);
+          const metaStamp = document.getElementById(`${type}-meta-stamp`);
+          const statusPill = document.getElementById(`${type}-status-pill`);
+          const card = document.getElementById(`live-${type}-card`);
+
+          if (previewImg) previewImg.src = dataUrl;
+          if (previewWrap) previewWrap.classList.add("active");
+          if (metaStamp) {
+            metaStamp.textContent = type === "passport"
+              ? `✓ Passport photo uploaded (camera unavailable) at ${stamp}`
+              : `✓ GI Certificate photo uploaded (camera unavailable) at ${stamp}`;
+          }
+          if (statusPill) {
+            statusPill.className = "capture-status-pill done";
+            statusPill.textContent = "✓ Uploaded";
+          }
+          if (card) {
+            card.classList.remove("error-highlight");
+            card.classList.add("captured");
+          }
+          stopAllCameras();
+          showAuthToast("📁 Photo accepted via upload fallback (no camera on this device).");
+          input.value = "";
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /* Proactively reveal fallbacks when the browser has no camera API at all */
+    window.addEventListener("DOMContentLoaded", () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        ["cert", "video", "passport"].forEach(revealUploadFallback);
+      }
+    });
+
+    function captureLivePhoto(type) {
+      const videoEl = document.getElementById(`${type}-camera-video`);
+      if (!videoEl || !videoEl.videoWidth) {
+        showCamError(type, "Camera feed is still initializing. Please wait a second and tap Capture again.");
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      if (type === "passport") {
+        // Exact 35x45mm (7:9) passport-size portrait center crop
+        const targetRatio = 35 / 45;
+        const vw = videoEl.videoWidth;
+        const vh = videoEl.videoHeight;
+        let sx = 0, sy = 0, sw = vw, sh = vh;
+
+        if (vw / vh > targetRatio) {
+          sw = Math.round(vh * targetRatio);
+          sx = Math.round((vw - sw) / 2);
+        } else {
+          sh = Math.round(vw / targetRatio);
+          sy = Math.round((vh - sh) / 2);
+        }
+
+        canvas.width = 350;
+        canvas.height = 450;
+        ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, 350, 450);
+      } else {
+        // Full-frame crisp GI certificate capture
+        const maxW = 1080;
+        const scale = Math.min(1, maxW / videoEl.videoWidth);
+        canvas.width = Math.round(videoEl.videoWidth * scale);
+        canvas.height = Math.round(videoEl.videoHeight * scale);
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      }
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      const stamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      if (type === "cert") {
+        LiveCaptureState.certPhoto = dataUrl;
+        LiveCaptureState.certTimestamp = stamp;
+      } else {
+        LiveCaptureState.passportPhoto = dataUrl;
+        LiveCaptureState.passportTimestamp = stamp;
+      }
+
+      const previewImg = document.getElementById(`${type}-preview-img`);
+      const previewWrap = document.getElementById(`${type}-preview-wrap`);
+      const metaStamp = document.getElementById(`${type}-meta-stamp`);
+      const statusPill = document.getElementById(`${type}-status-pill`);
+      const card = document.getElementById(`live-${type}-card`);
+
+      if (previewImg) previewImg.src = dataUrl;
+      if (previewWrap) previewWrap.classList.add("active");
+      if (metaStamp) {
+        metaStamp.textContent = type === "passport"
+          ? `✓ Live Passport Photo (35×45 mm) captured at ${stamp}`
+          : `✓ Live GI Certificate captured via camera at ${stamp}`;
+      }
+      if (statusPill) {
+        statusPill.className = "capture-status-pill done";
+        statusPill.textContent = "✓ Captured Live";
+      }
+      if (card) {
+        card.classList.remove("error-highlight");
+        card.classList.add("captured");
+      }
+
+      stopAllCameras();
+      showAuthToast(
+        type === "passport"
+          ? "📸 Live passport-size seller photo captured!"
+          : "📸 Live GI Certificate photo captured!"
+      );
+    }
+
+    function startLiveVideoRecording() {
+      if (!LiveCaptureState.activeStream || LiveCaptureState.activeType !== "video") {
+        showCamError("video", "Open the live camera first before starting recording.");
+        return;
+      }
+
+      if (typeof MediaRecorder === "undefined") {
+        showCamError("video", "Live video recording (MediaRecorder) is not supported in this browser.");
+        return;
+      }
+
+      clearCamError("video");
+      LiveCaptureState.recordedChunks = [];
+      LiveCaptureState.recSeconds = 0;
+
+      const mimeCandidates = [
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
+        "video/webm",
+        "video/mp4"
+      ];
+      const supportedMime = mimeCandidates.find(m => MediaRecorder.isTypeSupported(m));
+      let recorder;
+      try {
+        recorder = supportedMime
+          ? new MediaRecorder(LiveCaptureState.activeStream, { mimeType: supportedMime })
+          : new MediaRecorder(LiveCaptureState.activeStream);
+      } catch (e) {
+        showCamError("video", "Unable to start live video recorder on this device.");
+        return;
+      }
+
+      LiveCaptureState.mediaRecorder = recorder;
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          LiveCaptureState.recordedChunks.push(ev.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const duration = Math.max(1, LiveCaptureState.recSeconds);
+        const blob = new Blob(LiveCaptureState.recordedChunks, { type: recorder.mimeType || "video/webm" });
+
+        if (LiveCaptureState.productVideoUrl) {
+          URL.revokeObjectURL(LiveCaptureState.productVideoUrl);
+        }
+
+        LiveCaptureState.productVideoBlob = blob;
+        LiveCaptureState.productVideoUrl = URL.createObjectURL(blob);
+        LiveCaptureState.videoDuration = duration;
+        LiveCaptureState.videoTimestamp = new Date().toLocaleTimeString([], {
+          hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+
+        const player = document.getElementById("video-preview-player");
+        const previewWrap = document.getElementById("video-preview-wrap");
+        const metaStamp = document.getElementById("video-meta-stamp");
+        const statusPill = document.getElementById("video-status-pill");
+        const card = document.getElementById("live-video-card");
+
+        if (player) player.src = LiveCaptureState.productVideoUrl;
+        if (previewWrap) previewWrap.classList.add("active");
+        if (metaStamp) {
+          metaStamp.textContent = `✓ Live Product / Workshop video (${duration}s) recorded at ${LiveCaptureState.videoTimestamp}`;
+        }
+        if (statusPill) {
+          statusPill.className = "capture-status-pill done";
+          statusPill.textContent = "✓ Recorded Live";
+        }
+        if (card) {
+          card.classList.remove("error-highlight");
+          card.classList.add("captured");
+        }
+
+        stopAllCameras();
+        showAuthToast(`🎥 Live product/workshop video saved (${duration}s)!`);
+      };
+
+      recorder.start(250);
+
+      const startBtn = document.getElementById("btn-video-start");
+      const stopBtn = document.getElementById("btn-video-stop");
+      const cancelBtn = document.getElementById("btn-video-cancel");
+      const timerEl = document.getElementById("video-rec-timer");
+      const pill = document.getElementById("video-status-pill");
+
+      if (startBtn) startBtn.style.display = "none";
+      if (stopBtn) stopBtn.style.display = "inline-flex";
+      if (cancelBtn) cancelBtn.style.display = "none";
+      if (timerEl) {
+        timerEl.textContent = "● REC 00:00 / 00:30";
+        timerEl.classList.add("active");
+      }
+      if (pill) {
+        pill.className = "capture-status-pill recording";
+        pill.textContent = "● Recording...";
+      }
+
+      LiveCaptureState.recTimerId = setInterval(() => {
+        LiveCaptureState.recSeconds += 1;
+        if (timerEl) {
+          timerEl.textContent = `● REC ${formatTimer(LiveCaptureState.recSeconds)} / 00:30`;
+        }
+        if (LiveCaptureState.recSeconds >= 30) {
+          stopLiveVideoRecording();
+        }
+      }, 1000);
+    }
+
+    function stopLiveVideoRecording() {
+      if (LiveCaptureState.recTimerId) {
+        clearInterval(LiveCaptureState.recTimerId);
+        LiveCaptureState.recTimerId = null;
+      }
+      if (LiveCaptureState.mediaRecorder && LiveCaptureState.mediaRecorder.state === "recording") {
+        LiveCaptureState.mediaRecorder.stop();
+      }
+    }
+
+    window.addEventListener("beforeunload", stopAllCameras);
+
+    function handleFooterPromptClick() {
+      if (AuthState.mode === "login") {
+        setAuthState("register");
+      } else {
+        setAuthState("login");
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       Password Visibility Toggle
+       -------------------------------------------------------------------------- */
+    function togglePasswordVisibility(fieldId) {
+      const field = document.getElementById(fieldId);
+      if (!field) return;
+      field.type = field.type === "password" ? "text" : "password";
+    }
+
+    /* --------------------------------------------------------------------------
+       Toast Helper
+       -------------------------------------------------------------------------- */
+    function showAuthToast(msg) {
+      const toast = document.getElementById("auth-toast");
+      if (!toast) return;
+      toast.innerHTML = msg;
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3400);
+    }
+
+    /* --------------------------------------------------------------------------
+       Form Submit Handlers with Real Stateful LocalStorage Storage
+       -------------------------------------------------------------------------- */
+
+    /* ---- Credential store (shared key `hunarlink_users` with user-portal) ----
+       Demo artisan accounts (match the Quick Evaluator Demo pills):
+         fayaz.wani@anantnagcrafts.org      /  WalnutArtisan#1
+         ghulam.mir@zadibalpashmina.com     /  SozniLoom100%                     */
+    const DEMO_ARTISAN_USERS = [
+      {
+        email: "fayaz.wani@anantnagcrafts.org",
+        phone: "+91 94190 55218",
+        password: "WalnutArtisan#1",
+        role: "artisan",
+        name: "Fayaz Ahmad Wani",
+        business: "Wani Woodcraft Atelier",
+        craft: "walnut",
+        district: "Anantnag",
+        giCertified: true,
+        giId: "GI #JK-WNT-1180",
+        title: "Master Artisan • Anantnag Walnut Guild",
+        badge: "FA"
+      },
+      {
+        email: "ghulam.mir@zadibalpashmina.com",
+        phone: "+91 94190 88210",
+        password: "SozniLoom100%",
+        role: "artisan",
+        name: "Master Ghulam Qadir Mir",
+        business: "Mir Heritage Loom Guild",
+        craft: "pashmina",
+        district: "Srinagar",
+        giCertified: true,
+        giId: "GI-JK-PASH-8821",
+        title: "Master Artisan • Pashmina & Kani Guild",
+        badge: "UM"
+      }
+    ];
+
+    function getPlatformUsers() {
+      let users = null;
+      try {
+        const raw = localStorage.getItem("hunarlink_users");
+        users = raw ? JSON.parse(raw) : null;
+      } catch (err) {}
+      if (!Array.isArray(users)) users = [];
+      /* Merge-seed: the buyer portal seeds its demo account into the same
+         shared key, so always ensure the demo artisan accounts exist too. */
+      let changed = false;
+      DEMO_ARTISAN_USERS.forEach(d => {
+        if (!users.some(u => String(u.email).toLowerCase() === d.email.toLowerCase())) {
+          users.push({ ...d });
+          changed = true;
+        }
+      });
+      if (!users.length || changed) {
+        localStorage.setItem("hunarlink_users", JSON.stringify(users));
+      }
+      return users;
+    }
+
+    function savePlatformUsers(users) {
+      localStorage.setItem("hunarlink_users", JSON.stringify(users));
+    }
+
+    function findPlatformUser(identifier) {
+      const id = String(identifier || "").trim().toLowerCase();
+      return getPlatformUsers().find(u => String(u.email).toLowerCase() === id);
+    }
+
+    function submitLoginForm(e) {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value;
+
+      if (!email || !password) {
+        showAuthToast("⚠️ Please enter both your email address and password.");
+        return;
+      }
+
+      const user = findPlatformUser(email);
+      if (!user) {
+        showAuthToast("⚠️ No artisan account found for \"" + email + "\". Please register first, or use a Quick Evaluator Demo pill below.");
+        return;
+      }
+      if (user.role && user.role !== "artisan") {
+        showAuthToast("⚠️ \"" + email + "\" is a Buyer account. Please use the User Login portal instead.");
+        return;
+      }
+      if ((user.password || "") !== password) {
+        showAuthToast("⚠️ Incorrect password for \"" + email + "\". Try again or use a Quick Evaluator Demo pill.");
+        return;
+      }
+
+      const authUser = {
+        name: user.name || "Verified Artisan",
+        email: user.email,
+        phone: user.phone || "+91 00000 00000",
+        role: "artisan",
+        business: user.business || "Kashmir Heritage Atelier",
+        craft: user.craft || "pashmina",
+        district: user.district || "Srinagar",
+        giCertified: !!user.giCertified,
+        giId: user.giId || null,
+        verified: true,
+        title: user.title || "Verified Artisan • Kashmir Heritage Guild",
+        badge: user.badge || "AR",
+        isLoggedIn: true,
+        cluster: user.district || "Srinagar",
+        loginTime: new Date().toISOString()
+      };
+
+      localStorage.setItem("hunarlink_auth_user", JSON.stringify(authUser));
+
+      showAuthToast(`✓ Welcome ${authUser.name}! Verified Artisan Session Active. Opening Seller Portal...`);
+
+      setTimeout(() => {
+        window.location.href = "seller-portal/dashboard.html";
+      }, 900);
+    }
+
+    function submitArtisanRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById("artisan-reg-name").value.trim();
+      const phone = document.getElementById("artisan-reg-phone").value.trim();
+      const email = document.getElementById("artisan-reg-email").value.trim();
+      const pwd = document.getElementById("artisan-reg-password").value;
+      const cpwd = document.getElementById("artisan-reg-cpassword").value;
+      const craft = document.getElementById("artisan-reg-craft").value;
+      const business = document.getElementById("artisan-reg-business").value.trim();
+      const district = document.getElementById("artisan-reg-district").value;
+      const isGiCertified = AuthState.giStatus === "with_gi";
+
+      if (pwd !== cpwd) {
+        showAuthToast("⚠️ Passwords do not match. Please verify.");
+        return;
+      }
+
+      let giId = "";
+      let skillDescription = "";
+
+      if (isGiCertified) {
+        giId = (document.getElementById("artisan-gi-id")?.value || "").trim();
+        skillDescription = (document.getElementById("artisan-skill-desc")?.value || "").trim();
+
+        if (!giId) {
+          showAuthToast("⚠️ Please enter your official GI Certification / Tag ID.");
+          document.getElementById("artisan-gi-id")?.focus();
+          return;
+        }
+
+        if (!LiveCaptureState.certPhoto) {
+          const card = document.getElementById("live-cert-card");
+          if (card) {
+            card.classList.add("error-highlight");
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          showAuthToast("⚠️ Please capture a live camera photo of your GI Certificate.");
+          return;
+        }
+
+        if (!LiveCaptureState.productVideoBlob) {
+          const card = document.getElementById("live-video-card");
+          if (card) {
+            card.classList.add("error-highlight");
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          showAuthToast("⚠️ Please record a live video of your product or workshop/warehouse.");
+          return;
+        }
+
+        if (!LiveCaptureState.passportPhoto) {
+          const card = document.getElementById("live-passport-card");
+          if (card) {
+            card.classList.add("error-highlight");
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          showAuthToast("⚠️ Please capture your live passport-size seller photo.");
+          return;
+        }
+
+        if (skillDescription.length < 20) {
+          showAuthToast("⚠️ Please describe your craft & skill in at least 20 characters.");
+          document.getElementById("artisan-skill-desc")?.focus();
+          return;
+        }
+      }
+
+      stopAllCameras();
+
+      /* Persist credentials + reject duplicate registrations so the new
+         account can actually sign in again later. */
+      if (findPlatformUser(email)) {
+        showAuthToast("⚠️ An artisan account with this email already exists. Please sign in instead.");
+        return;
+      }
+      const platformUsers = getPlatformUsers();
+      platformUsers.push({
+        email,
+        phone: "+91 " + phone,
+        password: pwd,
+        role: "artisan",
+        name: name,
+        business: business,
+        craft: craft,
+        district: district,
+        giCertified: isGiCertified,
+        giId: isGiCertified ? giId : null,
+        title: isGiCertified ? `GI-Verified Artisan (${giId}) • ${district} Cluster` : `Standard Artisan • ${district} Cluster`,
+        badge: (name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "AR")
+      });
+      savePlatformUsers(platformUsers);
+
+      const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "UM";
+      const authUser = {
+        name: name,
+        email: email,
+        phone: "+91 " + phone,
+        role: "artisan",
+        business: business,
+        craft: craft,
+        district: district,
+        giCertified: isGiCertified,
+        giId: isGiCertified ? giId : null,
+        skillDescription: isGiCertified ? skillDescription : null,
+        liveVerification: isGiCertified
+          ? {
+              certPhotoCaptured: true,
+              certTimestamp: LiveCaptureState.certTimestamp,
+              productVideoRecorded: true,
+              videoDurationSec: LiveCaptureState.videoDuration,
+              videoTimestamp: LiveCaptureState.videoTimestamp,
+              passportPhotoCaptured: true,
+              passportTimestamp: LiveCaptureState.passportTimestamp
+            }
+          : null,
+        title: isGiCertified
+          ? `GI-Verified Artisan (${giId}) • ${district} Cluster`
+          : `Standard Artisan • ${district} Cluster`,
+        badge: initials,
+        verified: true,
+        isLoggedIn: true,
+        loginTime: new Date().toISOString()
+      };
+
+      localStorage.setItem("hunarlink_auth_user", JSON.stringify(authUser));
+      showAuthToast(
+        isGiCertified
+          ? `🛡️ GI-Certified Artisan Profile (${giId}) Verified for ${name}! Opening Seller Portal...`
+          : `✓ Standard Artisan Account Created for ${name}! Opening Seller Portal...`
+      );
+
+      setTimeout(() => {
+        window.location.href = "seller-portal/dashboard.html";
+      }, 950);
+    }
+
+    function submitForgotPassword(e) {
+      e.preventDefault();
+      const email = document.getElementById("forgot-email").value.trim();
+      if (!email) return;
+
+      showAuthToast(`✉️ Password reset link dispatched to ${email}! Check inbox & spam.`);
+      setTimeout(() => {
+        setAuthState("login");
+      }, 2000);
+    }
+
+    function handleSocialAuth(provider) {
+      showAuthToast(`Connecting to ${provider} Secure Identity Gateway...`);
+      setTimeout(() => {
+        const authUser = {
+          name: "Master Ghulam Qadir Mir",
+          email: "ustad.mir@gmail.com",
+          phone: "+91 94190 88210",
+          role: "artisan",
+          business: "Mir Heritage Loom Guild",
+          craft: "pashmina",
+          district: "Srinagar",
+          giCertified: true,
+          giId: "GI-JK-PASH-8821",
+          verified: true,
+          title: "Master Artisan • Srinagar Pashmina Guild",
+          badge: "GM",
+          isLoggedIn: true,
+          socialProvider: provider,
+          loginTime: new Date().toISOString()
+        };
+        localStorage.setItem("hunarlink_auth_user", JSON.stringify(authUser));
+        showAuthToast(`✓ Authenticated via ${provider} as ${authUser.name}! Opening Seller Portal...`);
+        setTimeout(() => {
+          window.location.href = "seller-portal/dashboard.html";
+        }, 850);
+      }, 600);
+    }
+
+    /* --------------------------------------------------------------------------
+       Quick Evaluator 1-Tap Demo Logins (Artisan Accounts)
+       -------------------------------------------------------------------------- */
+    function quickFillDemo(type) {
+      setAuthState("login");
+      let authUser;
+      if (type === "artisan_wani") {
+        document.getElementById("login-email").value = "fayaz.wani@anantnagcrafts.org";
+        document.getElementById("login-password").value = "WalnutArtisan#1";
+        authUser = {
+          name: "Fayaz Ahmad Wani",
+          email: "fayaz.wani@anantnagcrafts.org",
+          phone: "+91 94190 55218",
+          role: "artisan",
+          business: "Wani Woodcraft Atelier",
+          craft: "walnut",
+          district: "Anantnag",
+          giCertified: true,
+          giId: "GI #JK-WNT-1180",
+          verified: true,
+          title: "Master Artisan • Anantnag Walnut Guild",
+          badge: "FA",
+          isLoggedIn: true
+        };
+      } else {
+        document.getElementById("login-email").value = "ghulam.mir@zadibalpashmina.com";
+        document.getElementById("login-password").value = "SozniLoom100%";
+        authUser = {
+          name: "Master Ghulam Qadir Mir",
+          email: "ghulam.mir@zadibalpashmina.com",
+          phone: "+91 94190 88210",
+          role: "artisan",
+          business: "Mir Heritage Loom Guild",
+          craft: "pashmina",
+          district: "Srinagar",
+          giCertified: true,
+          giId: "GI-JK-PASH-8821",
+          verified: true,
+          title: "Master Artisan • Srinagar Pashmina Guild",
+          badge: "GM",
+          isLoggedIn: true
+        };
+      }
+
+      localStorage.setItem("hunarlink_auth_user", JSON.stringify(authUser));
+      showAuthToast(`⚡ Demo Credentials Verified for ${authUser.name}! Opening Seller Portal...`);
+
+      setTimeout(() => {
+        window.location.href = "seller-portal/dashboard.html";
+      }, 900);
+    }
+
+    /* --------------------------------------------------------------------------
+       Initialize Page from URL Query Params or Default
+       -------------------------------------------------------------------------- */
+    window.addEventListener("DOMContentLoaded", () => {
+      const params = new URLSearchParams(window.location.search);
+      const modeParam = params.get("mode") || "login";
+      setAuthState(modeParam);
+    });
+  </script>
+</body>
+
+</html>
+
