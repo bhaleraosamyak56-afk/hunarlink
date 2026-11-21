@@ -1122,3 +1122,20 @@ h1, h2, h3, h4 {
     transform: none;
   }
 }
+
+/* ==========================================================================
+   NAV — auth pill has two states (Login vs Sign Out)
+   ========================================================================== */
+.up-nav-pill.up-nav-signout {
+  color: #8E3616;
+  border-color: #EBD2C5;
+  background-color: #FBEFE9;
+  font-weight: 700;
+}
+
+.up-nav-pill.up-nav-signout:hover {
+  background-color: #B4471F;
+  border-color: #B4471F;
+  color: #FFFFFF;
+  text-decoration: none;
+}

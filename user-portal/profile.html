@@ -30,7 +30,7 @@
           class="up-nav-pill">🏠 Storefront</a>
         <a href="profile.html" class="up-nav-pill active">👤 My Profile</a>
         <a href="orders.html" class="up-nav-pill">📦 My Orders</a>
-        <a href="login.html" class="up-nav-pill">🔐 Switch / Login</a>
+        <a href="login.html" class="up-nav-pill" id="nav-auth-pill">🔐 Switch / Login</a>
       </nav>
     </div>
   </header>
@@ -590,12 +590,15 @@
     }
 
     function signOutBuyer() {
+      /* shared helper: closes the session but keeps the saved profile details */
+      if (typeof upSignOutBuyer === "function") { upSignOutBuyer(); return; }
       const p = upGetProfile();
       upSaveProfile({ ...p, isLoggedIn: false });
       window.location.href = "login.html";
     }
 
     window.addEventListener("DOMContentLoaded", () => {
+      if (typeof upRenderNavAuth === "function") upRenderNavAuth();
       renderProfile();
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");

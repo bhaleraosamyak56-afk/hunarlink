@@ -30,7 +30,7 @@
           class="up-nav-pill">🏠 Storefront</a>
         <a href="profile.html" class="up-nav-pill">👤 My Profile</a>
         <a href="orders.html" class="up-nav-pill active">📦 Track Orders</a>
-        <a href="login.html" class="up-nav-pill">🔐 User Login</a>
+        <a href="login.html" class="up-nav-pill" id="nav-auth-pill">🔐 User Login</a>
       </nav>
     </div>
   </header>
@@ -45,12 +45,29 @@
           <div style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-500); margin-bottom: 6px;">
             Collector Account
           </div>
-          <div style="font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; color: var(--heading-color);"
-            id="trk-user-name">Priya Sharma</div>
-          <div style="font-size: 0.76rem; color: var(--text-700);" id="trk-user-contact">priya.sharma@valleycollector.in</div>
-          <a href="profile.html" class="btn-link-edit" style="display: inline-block; padding-left: 0; margin-top: 6px;">
-            ✏️ Customize Profile →
-          </a>
+
+          <!-- signed-in identity -->
+          <div id="trk-identity">
+            <div style="font-family: var(--font-serif); font-size: 1.25rem; font-weight: 700; color: var(--heading-color);"
+              id="trk-user-name">Priya Sharma</div>
+            <div style="font-size: 0.76rem; color: var(--text-700);" id="trk-user-contact">priya.sharma@valleycollector.in</div>
+            <a href="profile.html" class="btn-link-edit" style="display: inline-block; padding-left: 0; margin-top: 6px;">
+              ✏️ Customize Profile →
+            </a>
+          </div>
+
+          <!-- signed-out state: never show someone else's name/orders -->
+          <div id="trk-signed-out" style="display: none;">
+            <div style="font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; color: var(--heading-color);">
+              Not signed in
+            </div>
+            <p style="font-size: 0.76rem; color: var(--text-700); line-height: 1.5; margin: 6px 0 10px;">
+              Sign in to see your own orders and live loom-to-door tracking.
+            </p>
+            <a href="login.html" class="btn-orange" style="width: 100%; justify-content: center;">
+              🔐 Sign in to view orders
+            </a>
+          </div>
         </div>
 
         <h3 style="font-size: 1.15rem; margin-bottom: 12px;">Filters</h3>
@@ -144,6 +161,34 @@
     }
 
     function renderOrders() {
+      const loggedIn = typeof upIsLoggedIn === "function" ? upIsLoggedIn() : true;
+
+      /* Signed out: show the prompt, not somebody else's identity or order
+         history. Signed in: fill in the real collector. */
+      const identity = document.getElementById("trk-identity");
+      const signedOut = document.getElementById("trk-signed-out");
+      if (identity) identity.style.display = loggedIn ? "" : "none";
+      if (signedOut) signedOut.style.display = loggedIn ? "none" : "block";
+
+      if (!loggedIn) {
+        const list = document.getElementById("orders-list-wrap");
+        if (list) {
+          list.innerHTML = `
+            <div class="orders-empty-state" style="background:#fff;border:1px solid var(--border-light);
+                 border-radius:12px;padding:34px 26px;text-align:center;box-shadow:var(--shadow-sm);">
+              <div style="font-size:2rem;margin-bottom:10px;" aria-hidden="true">📦</div>
+              <div style="font-family:var(--font-serif);font-size:1.3rem;font-weight:700;
+                   color:var(--heading-color);margin-bottom:6px;">No orders to show yet</div>
+              <p style="font-size:0.84rem;color:var(--text-700);line-height:1.55;max-width:44ch;margin:0 auto 16px;">
+                Sign in and your orders appear here with live loom-to-door tracking, escrow status
+                and the artisan's workshop notes.
+              </p>
+              <a href="login.html" class="btn-orange" style="display:inline-flex;">🔐 Sign in</a>
+            </div>`;
+        }
+        return;
+      }
+
       const prof = upGetProfile();
       document.getElementById("trk-user-name").textContent = prof.fullName;
       document.getElementById("trk-user-contact").textContent = `${prof.email} • ${prof.phone}`;
@@ -426,7 +471,10 @@
       }
     });
 
-    window.addEventListener("DOMContentLoaded", renderOrders);
+    window.addEventListener("DOMContentLoaded", () => {
+      if (typeof upRenderNavAuth === "function") upRenderNavAuth();
+      renderOrders();
+    });
   </script>
 </body>
 

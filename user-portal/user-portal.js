@@ -27,7 +27,10 @@ const DEFAULT_USER_PROFILE = {
   avatarPhoto: "",
   badge: "PS",
   role: "buyer",
-  isLoggedIn: true,
+  /* A visitor who has never signed in is NOT this demo persona. Pages that need
+     an identity must check upIsLoggedIn() first, otherwise a brand-new visitor
+     is silently shown Priya Sharma's name and order history. */
+  isLoggedIn: false,
   memberSince: "Nov 2026"
 };
 
@@ -52,6 +55,63 @@ function upGetProfile() {
   const saved = upLoad(UP_KEYS.BUYER_PROFILE, null);
   if (saved) return { ...DEFAULT_USER_PROFILE, ...saved };
   return { ...DEFAULT_USER_PROFILE };
+}
+
+/* --------------------------------------------------------------------------
+   Session helpers — one source of truth for "is somebody signed in?"
+   --------------------------------------------------------------------------
+   The buyer profile may exist in storage (so a returning visitor keeps their
+   details) while the session itself is closed, so isLoggedIn is the flag that
+   matters. An artisan session stored in hunarlink_auth_user does not count as
+   a collector login.
+   -------------------------------------------------------------------------- */
+function upIsLoggedIn() {
+  const profile = upLoad(UP_KEYS.BUYER_PROFILE, null);
+  if (profile && typeof profile.isLoggedIn === "boolean") {
+    return profile.isLoggedIn === true;
+  }
+  const auth = upLoad(UP_KEYS.AUTH_USER, null);
+  if (auth && auth.isLoggedIn && auth.role !== "artisan") return true;
+  return false;
+}
+
+/* Close the collector session but KEEP the saved profile details, so signing
+   back in restores the same person instead of resetting to the demo defaults. */
+function upSignOutBuyer() {
+  const profile = upLoad(UP_KEYS.BUYER_PROFILE, null);
+  if (profile) {
+    upSave(UP_KEYS.BUYER_PROFILE, { ...profile, isLoggedIn: false });
+  }
+  try {
+    const auth = upLoad(UP_KEYS.AUTH_USER, null);
+    if (auth && auth.role !== "artisan") {
+      localStorage.removeItem(UP_KEYS.AUTH_USER);
+    }
+  } catch (e) { /* storage unavailable — nothing to clear */ }
+  if (typeof upToast === "function") upToast("Signed out of your collector account.");
+  window.location.href = "login.html";
+}
+
+/* The nav pill is a Login link when signed out and a Sign Out action when
+   signed in — a "Log in" button sitting next to your own name is dead weight. */
+function upRenderNavAuth() {
+  const pill = document.getElementById("nav-auth-pill");
+  if (!pill) return;
+
+  if (upIsLoggedIn()) {
+    pill.textContent = "🚪 Sign Out";
+    pill.setAttribute("href", "#");
+    pill.setAttribute("role", "button");
+    pill.classList.add("up-nav-signout");
+    pill.addEventListener("click", function (e) {
+      e.preventDefault();
+      upSignOutBuyer();
+    });
+  } else {
+    pill.textContent = "🔐 User Login";
+    pill.setAttribute("href", "login.html");
+    pill.classList.remove("up-nav-signout");
+  }
 }
 
 function upSaveProfile(profile) {
