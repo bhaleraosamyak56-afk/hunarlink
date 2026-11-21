@@ -1233,7 +1233,7 @@
       background-color: #E05A17;
       border-color: #E05A17;
       color: #FFFFFF;
-      box-shadow: 0 4px 14px rgba(224, 90, 23, 0.28);
+      box-shadow: 0 4px 14px rgba(180, 71, 31, 0.28);
     }
 
     .btn-submit-auth:hover,
@@ -1248,6 +1248,151 @@
       border-color: #F4C4A1;
       color: #9A3412;
       background-color: #FFF6EE;
+    }
+
+    /* ======================================================================
+       DESIGN PASS — "WARM CRAFT" BUTTON SYSTEM
+       Warm clay instead of saturated orange, layered elevation, and a
+       gradient sheen that fades in on hover. Labels untouched.
+       ====================================================================== */
+    :root {
+      --btn-ink: #B4471F;
+      --btn-ink-hover: #A03C19;
+      --btn-ink-deep: #8E3616;
+      --btn-ink-soft: #FBEFE9;
+      --btn-ink-border: #EBD2C5;
+      --btn-ink-glow: rgba(180, 71, 31, 0.26);
+      --btn-sheen: linear-gradient(180deg,
+          rgba(255, 255, 255, 0.30) 0%,
+          rgba(255, 255, 255, 0.08) 42%,
+          rgba(0, 0, 0, 0.16) 100%);
+      --btn-lift:
+        0 1px 1px rgba(28, 16, 11, 0.06),
+        0 2px 5px -1px var(--btn-ink-glow),
+        0 7px 16px -6px var(--btn-ink-glow);
+      --btn-lift-hover:
+        0 1px 1px rgba(28, 16, 11, 0.09),
+        0 4px 9px -2px var(--btn-ink-glow),
+        0 14px 26px -8px var(--btn-ink-glow);
+      --btn-press: inset 0 2px 5px rgba(0, 0, 0, 0.22);
+      --btn-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .btn-submit-auth,
+    .btn-demo-pill,
+    .btn-social,
+    .btn-cam,
+    .auth-pill-btn,
+    .gi-choice-btn {
+      position: relative;
+      z-index: 0;
+      isolation: isolate;
+      overflow: hidden;
+      transition:
+        background-color 0.26s var(--btn-ease),
+        border-color 0.26s var(--btn-ease),
+        color 0.2s var(--btn-ease),
+        box-shadow 0.3s var(--btn-ease),
+        transform 0.22s var(--btn-ease);
+    }
+
+    .btn-submit-auth::after,
+    .btn-cam.primary::after,
+    .auth-pill-btn.active::after,
+    .gi-choice-btn.active::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      background: var(--btn-sheen);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.34s var(--btn-ease);
+    }
+
+    .btn-submit-auth:hover::after,
+    .btn-cam.primary:hover::after,
+    .auth-pill-btn.active:hover::after,
+    .gi-choice-btn.active:hover::after {
+      opacity: 1;
+    }
+
+    .btn-submit-auth,
+    .btn-cam.primary,
+    .auth-pill-btn.active,
+    .gi-choice-btn.active {
+      background-color: var(--btn-ink);
+      background-image: none;
+      border-color: var(--btn-ink);
+      color: #FFFFFF;
+      box-shadow: var(--btn-lift);
+    }
+
+    .btn-submit-auth:hover,
+    .btn-cam.primary:hover {
+      background-color: var(--btn-ink-hover);
+      border-color: var(--btn-ink-deep);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+      box-shadow: var(--btn-lift-hover);
+    }
+
+    .btn-submit-auth:active,
+    .btn-cam.primary:active {
+      transform: translateY(0);
+      background-color: var(--btn-ink-deep);
+      box-shadow: var(--btn-press);
+    }
+
+    .btn-demo-pill,
+    .auth-pill-btn:not(.active),
+    .gi-choice-btn:not(.active) {
+      background-color: #FFFFFF;
+      border: 1px solid var(--btn-ink-border);
+      color: #8A3A15;
+      box-shadow: 0 1px 2px rgba(28, 16, 11, 0.04);
+    }
+
+    .btn-demo-pill:hover {
+      background-color: var(--btn-ink-soft);
+      border-color: var(--btn-ink);
+      color: #7A3211;
+    }
+
+    .btn-social {
+      box-shadow: 0 1px 2px rgba(28, 16, 11, 0.05);
+    }
+
+    .btn-social:hover {
+      border-color: var(--btn-ink-border);
+      background-color: #FFFCFA;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px -4px rgba(28, 16, 11, 0.14);
+    }
+
+    .btn-submit-auth:focus-visible,
+    .btn-demo-pill:focus-visible,
+    .btn-social:focus-visible,
+    .btn-cam:focus-visible {
+      outline: 2px solid var(--btn-ink);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn-submit-auth,
+      .btn-demo-pill,
+      .btn-social,
+      .btn-cam,
+      .btn-submit-auth::after,
+      .btn-cam.primary::after {
+        transition-duration: 0.01ms;
+      }
+      .btn-submit-auth:hover,
+      .btn-demo-pill:hover,
+      .btn-social:hover {
+        transform: none;
+      }
     }
   </style>
 </head>

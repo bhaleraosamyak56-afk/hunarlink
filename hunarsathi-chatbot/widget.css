@@ -532,38 +532,38 @@
 }
 
 .hs-launcher-inner {
-  background: linear-gradient(135deg, #E05A17 0%, #C2480C 100%);
+  background: linear-gradient(160deg, #C04E22 0%, #B4471F 46%, #8E3616 100%);
   color: #FFFFFF;
 }
 
 .hunarsathi-launcher-avatar {
-  background: #FFF3E6;
-  color: #9A3412;
+  background: #FBEFE9;
+  color: #8A3A15;
 }
 
 .hs-send-btn,
 .hs-send-inner {
-  background: #E05A17;
+  background: #B4471F;
   color: #FFFFFF;
 }
 
 .hs-send-btn:hover:not(:disabled) .hs-send-inner {
-  background: #C2480C;
+  background: #A03C19;
 }
 
 .hs-msg.user {
-  background: #E05A17;
+  background: #B4471F;
   color: #FFFFFF;
 }
 
 .hs-chip {
-  border-color: #F4C4A1;
-  color: #9A3412;
+  border-color: #EBD2C5;
+  color: #8A3A15;
 }
 
 .hs-chip:hover {
   background:
-    linear-gradient(#E05A17, #E05A17) padding-box,
+    linear-gradient(#B4471F, #B4471F) padding-box,
     var(--hs-gemini-conic) border-box;
   color: #FFFFFF;
 }
@@ -580,7 +580,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #E05A17;
+  background: #B4471F;
   opacity: 0.35;
   animation: hsTypingWave 1.1s ease-in-out infinite;
 }
@@ -608,7 +608,7 @@
   content: '▍';
   display: inline-block;
   margin-left: 2px;
-  color: #E05A17;
+  color: #B4471F;
   animation: hsBlinkCaret 0.75s step-end infinite;
 }
 
@@ -622,7 +622,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.76rem;
   background: #F6EFE2;
-  color: #9A3412;
+  color: #8A3A15;
   padding: 1px 5px;
   border-radius: 5px;
   border: 1px solid #EADBC6;

@@ -3413,3 +3413,339 @@ h1, h2, h3, h4,
     padding-block: 4px;
   }
 }
+
+/* ==========================================================================
+   DESIGN PASS — "WARM CRAFT" BUTTON SYSTEM
+   --------------------------------------------------------------------------
+   Replaces the flat safety-orange (#E05A17) with a deeper, warmer clay and
+   gives every button a real elevation set + a gradient sheen that fades in on
+   hover. Labels, casing and letter-spacing are deliberately NOT touched — only
+   the *material* of the button changes.
+   ========================================================================== */
+
+:root {
+  /* the one accent every filled button now uses */
+  --btn-ink: #B4471F;
+  --btn-ink-hover: #A03C19;
+  --btn-ink-deep: #8E3616;
+  --btn-ink-soft: #FBEFE9;
+  --btn-ink-border: #EBD2C5;
+  --btn-ink-glow: rgba(180, 71, 31, 0.28);
+
+  /* top highlight -> bottom shade: the gradient that appears on hover */
+  --btn-sheen: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.30) 0%,
+      rgba(255, 255, 255, 0.08) 42%,
+      rgba(0, 0, 0, 0.16) 100%);
+
+  /* layered elevation: contact shadow + ambient shadow */
+  --btn-lift:
+    0 1px 1px rgba(28, 16, 11, 0.06),
+    0 2px 5px -1px var(--btn-ink-glow),
+    0 7px 16px -6px var(--btn-ink-glow);
+  --btn-lift-hover:
+    0 1px 1px rgba(28, 16, 11, 0.09),
+    0 4px 9px -2px var(--btn-ink-glow),
+    0 14px 26px -8px var(--btn-ink-glow);
+  --btn-press: inset 0 2px 5px rgba(0, 0, 0, 0.22);
+
+  --btn-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* legacy tokens remapped so nothing on the page stays neon */
+  --btn-orange: var(--btn-ink);
+  --btn-orange-hover: var(--btn-ink-hover);
+  --btn-orange-dark: var(--btn-ink-deep);
+  --btn-orange-soft: var(--btn-ink-soft);
+  --btn-orange-border: var(--btn-ink-border);
+}
+
+/* --------------------------------------------------------------------------
+   1. Mechanics — a stacked layer for the sheen, one transition curve
+   -------------------------------------------------------------------------- */
+
+.btn-primary-forest,
+.btn-artisan-studio,
+.btn-acquire,
+.btn-gold,
+.btn-card-buy,
+.btn-card-cart,
+.btn-subscribe,
+.btn-white-solid,
+.btn-outline-ivory,
+.btn-outline-dark,
+.btn-seller-login,
+.btn-user-login,
+.auth-submit-btn,
+.verify-quick-btn,
+.verify-nav-btn,
+.cat-pill-btn {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    background-color 0.26s var(--btn-ease),
+    border-color 0.26s var(--btn-ease),
+    color 0.2s var(--btn-ease),
+    box-shadow 0.3s var(--btn-ease),
+    transform 0.22s var(--btn-ease);
+}
+
+.btn-primary-forest::after,
+.btn-artisan-studio::after,
+.btn-acquire::after,
+.btn-gold::after,
+.btn-card-buy::after,
+.btn-subscribe::after,
+.auth-submit-btn::after,
+.verify-quick-btn::after,
+.verify-nav-btn.primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--btn-sheen);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.34s var(--btn-ease);
+}
+
+.btn-primary-forest:hover::after,
+.btn-artisan-studio:hover::after,
+.btn-acquire:hover::after,
+.btn-gold:hover::after,
+.btn-card-buy:hover::after,
+.btn-subscribe:hover::after,
+.auth-submit-btn:hover::after,
+.verify-quick-btn:hover::after,
+.verify-nav-btn.primary:hover:not(:disabled)::after {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   2. Filled buttons — clay, layered shadow, gradient sheen on hover
+   -------------------------------------------------------------------------- */
+
+.btn-primary-forest,
+.btn-artisan-studio,
+.btn-acquire,
+.btn-gold,
+.btn-card-buy,
+.btn-subscribe,
+.auth-submit-btn,
+.verify-quick-btn {
+  background-color: var(--btn-ink);
+  background-image: none;
+  color: #FFFFFF;
+  border-color: var(--btn-ink);
+  box-shadow: var(--btn-lift);
+}
+
+.btn-primary-forest:hover,
+.btn-artisan-studio:hover,
+.btn-acquire:hover,
+.btn-gold:hover,
+.btn-card-buy:hover,
+.btn-subscribe:hover,
+.auth-submit-btn:hover,
+.verify-quick-btn:hover {
+  background-color: var(--btn-ink-hover);
+  border-color: var(--btn-ink-deep);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+  box-shadow: var(--btn-lift-hover);
+}
+
+.btn-primary-forest:active,
+.btn-artisan-studio:active,
+.btn-acquire:active,
+.btn-gold:active,
+.btn-card-buy:active,
+.btn-subscribe:active,
+.auth-submit-btn:active,
+.verify-quick-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--btn-press);
+  background-color: var(--btn-ink-deep);
+}
+
+/* fill colour is now dark enough that these read better in white */
+.btn-card-buy,
+.btn-gold {
+  color: #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   3. Outlined buttons — hairline in the warm family, warm tint on hover
+   -------------------------------------------------------------------------- */
+
+.btn-outline-ivory,
+.btn-seller-login,
+.btn-user-login,
+.btn-card-cart,
+.verify-nav-btn,
+.cat-pill-btn:not(.active) {
+  background-color: #FFFFFF;
+  background-image: none;
+  color: #8A3A15;
+  border: 1px solid var(--btn-ink-border);
+  box-shadow: 0 1px 2px rgba(28, 16, 11, 0.04);
+}
+
+.btn-outline-ivory:hover,
+.btn-seller-login:hover,
+.btn-user-login:hover,
+.btn-card-cart:hover,
+.verify-nav-btn:hover:not(:disabled) {
+  background-color: var(--btn-ink-soft);
+  border-color: var(--btn-ink);
+  color: #7A3211;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px -2px rgba(180, 71, 31, 0.18);
+}
+
+.btn-outline-ivory:active,
+.btn-seller-login:active,
+.btn-user-login:active,
+.btn-card-cart:active,
+.verify-nav-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 3px rgba(28, 16, 11, 0.1);
+}
+
+/* .btn-user-login.logged-in keeps its quiet success tint */
+.btn-user-login.logged-in {
+  background-color: #EAF5EE;
+  border-color: #B7DBC3;
+  color: #155B33;
+}
+
+/* active pill / primary nav button stay filled */
+.verify-nav-btn.primary,
+.cat-pill-btn.active {
+  background-color: var(--btn-ink);
+  border-color: var(--btn-ink);
+  color: #FFFFFF;
+  box-shadow: var(--btn-lift);
+}
+
+.verify-nav-btn.primary:hover:not(:disabled),
+.cat-pill-btn.active:hover {
+  background-color: var(--btn-ink-hover);
+  box-shadow: var(--btn-lift-hover);
+}
+
+.cat-pill-btn:hover:not(.active) {
+  background-color: var(--btn-ink-soft);
+  border-color: var(--btn-ink);
+  color: #7A3211;
+}
+
+/* --------------------------------------------------------------------------
+   4. On-dark surfaces — the white B2B button and the glassy ghost button
+   -------------------------------------------------------------------------- */
+
+.btn-white-solid {
+  background-color: #FFFFFF;
+  color: var(--btn-ink-deep);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.08),
+    0 6px 16px -6px rgba(0, 0, 0, 0.35);
+}
+
+.btn-white-solid:hover {
+  background-color: #FFF6F1;
+  color: var(--btn-ink-deep);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.1),
+    0 10px 22px -8px rgba(0, 0, 0, 0.42);
+}
+
+.btn-outline-dark {
+  background-color: rgba(255, 255, 255, 0.10);
+  background-image: none;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow: none;
+}
+
+.btn-outline-dark:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.44);
+  color: #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   5. Focus — one consistent, visible ring everywhere
+   -------------------------------------------------------------------------- */
+
+.btn-primary-forest:focus-visible,
+.btn-artisan-studio:focus-visible,
+.btn-acquire:focus-visible,
+.btn-gold:focus-visible,
+.btn-card-buy:focus-visible,
+.btn-card-cart:focus-visible,
+.btn-subscribe:focus-visible,
+.btn-white-solid:focus-visible,
+.btn-outline-ivory:focus-visible,
+.btn-outline-dark:focus-visible,
+.btn-seller-login:focus-visible,
+.btn-user-login:focus-visible,
+.auth-submit-btn:focus-visible,
+.verify-quick-btn:focus-visible,
+.verify-nav-btn:focus-visible,
+.cat-pill-btn:focus-visible {
+  outline: 2px solid var(--btn-ink);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   6. Respect reduced-motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary-forest,
+  .btn-artisan-studio,
+  .btn-acquire,
+  .btn-gold,
+  .btn-card-buy,
+  .btn-card-cart,
+  .btn-subscribe,
+  .btn-white-solid,
+  .auth-submit-btn,
+  .verify-quick-btn,
+  .verify-nav-btn,
+  .cat-pill-btn,
+  .btn-outline-ivory,
+  .btn-outline-dark,
+  .btn-seller-login,
+  .btn-user-login,
+  .btn-primary-forest::after,
+  .btn-artisan-studio::after,
+  .btn-acquire::after,
+  .btn-gold::after,
+  .btn-card-buy::after,
+  .btn-subscribe::after,
+  .auth-submit-btn::after,
+  .verify-quick-btn::after {
+    transition-duration: 0.01ms;
+  }
+
+  .btn-primary-forest:hover,
+  .btn-artisan-studio:hover,
+  .btn-acquire:hover,
+  .btn-gold:hover,
+  .btn-card-buy:hover,
+  .btn-card-cart:hover,
+  .btn-subscribe:hover,
+  .btn-white-solid:hover,
+  .auth-submit-btn:hover,
+  .verify-quick-btn:hover,
+  .btn-outline-ivory:hover,
+  .btn-seller-login:hover,
+  .btn-user-login:hover {
+    transform: none;
+  }
+}
