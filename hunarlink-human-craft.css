@@ -1,0 +1,242 @@
+/* ==========================================================================
+   HUMAN CRAFT — shared polish layer for the secondary surfaces
+   --------------------------------------------------------------------------
+   Dropped into the user portal, the wholesale portal, the seller workspace and
+   the admin console. Nothing here changes layout, structure, copy or brand
+   colour; it only fixes the things that make an interface read as assembled
+   rather than designed:
+
+     1. Numbers are tabular, so nothing jitters as values update.
+     2. Transitions name their properties instead of "all", and the timing
+        follows the curve the storefront already uses.
+     3. Focus rings are visible and consistent instead of the browser default.
+     4. Nothing is perfectly black: text is warm ink, never #000.
+     5. Buttons share one material — same radius family, same elevation, same
+        press response — whilst each portal keeps its own accent colour.
+     6. Scrollbars, selection, tap highlights and small-caps eyebrows get the
+        same care.
+
+   Every rule is additive. If a portal had no opinion, it now shares ours; if
+   it had one, it keeps it.
+   ========================================================================== */
+
+/* ---- 1. numerals ---------------------------------------------------------
+   Every figure in these panels is money, a count or a date. Proportional
+   digits shift width as they change, which reads as a glitch. */
+:root {
+  --craft-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --craft-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --craft-fast: 140ms;
+  --craft-base: 220ms;
+  --craft-slow: 360ms;
+  --craft-focus: 0 0 0 3px rgba(180, 71, 31, 0.22);
+}
+
+body {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* dates and figures inside tables and stat blocks especially */
+table,
+.stat-value,
+.stat-number,
+.metric-value,
+.kpi-value,
+td,
+th,
+.amount,
+.price,
+.order-id,
+.gi-id {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- 2. transitions ------------------------------------------------------
+   "transition: all" animates layout properties too, so a hover can trigger a
+   reflow and a frame drop. Retarget the common offenders to the properties
+   that actually move. */
+.card,
+.panel,
+.tile,
+.stat-card,
+.table-wrap,
+.modal,
+.drawer,
+[class*="card"],
+[class*="panel"] {
+  transition:
+    box-shadow var(--craft-base) var(--craft-ease),
+    border-color var(--craft-base) var(--craft-ease),
+    transform var(--craft-base) var(--craft-ease);
+}
+
+/* ---- 3. focus -----------------------------------------------------------
+   One ring everywhere, in the accent the portals already use, offset so it
+   never sits on top of a border. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--btn-ink, var(--color-gold, #B4471F));
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* the storefront-grade ring on filled controls, where an outline looks bolted on */
+button:not([disabled]):focus-visible {
+  box-shadow: var(--craft-focus);
+}
+
+/* ---- 4. text is warm ink, never pure black ------------------------------
+   Pure black on a warm cream ground reads as an unthemed default. Lift any
+   stray #000 to the nearest brand ink. */
+body {
+  color: #1C2420;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+  letter-spacing: -0.011em;
+}
+
+p, li {
+  text-wrap: pretty;
+}
+
+/* ---- 5. button material -------------------------------------------------
+   Same radius family, same elevation, same press. Each portal keeps its own
+   background and text colour — this only unifies the substance. */
+button:not([disabled]),
+input[type="button"],
+input[type="submit"],
+a[class*="btn"],
+[role="button"] {
+  transition:
+    background-color var(--craft-base) var(--craft-ease),
+    border-color var(--craft-base) var(--craft-ease),
+    color var(--craft-base) var(--craft-ease),
+    box-shadow var(--craft-base) var(--craft-ease),
+    transform var(--craft-fast) var(--craft-ease);
+}
+
+button:not([disabled]):active,
+input[type="submit"]:active,
+[role="button"]:active {
+  transform: translateY(1px);
+}
+
+button[disabled],
+input[disabled],
+.btn-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+/* a press should feel like it meets the surface, not like it bounces */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- 6. the small stuff -------------------------------------------------
+   These are the details nobody names but everybody feels. */
+
+/* selection takes the accent instead of the OS blue */
+::selection {
+  background: rgba(180, 71, 31, 0.16);
+  color: inherit;
+}
+
+/* no grey flash on tap for touch users */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* a scrollbar that belongs to the page */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 42, 32, 0.24) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(17, 42, 32, 0.22);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 42, 32, 0.36);
+  background-clip: content-box;
+}
+
+/* inputs should not zoom on iOS, and fieldsets should read as labelled groups */
+input,
+select,
+textarea {
+  font-size: max(16px, 1rem);
+}
+
+@media (min-width: 641px) {
+  input,
+  select,
+  textarea {
+    font-size: inherit;
+  }
+}
+
+/* the eyebrow label above a panel title — the storefront sets these in
+   letterspaced small caps, the portals were using plain small text */
+.eyebrow,
+.portal-eyebrow,
+.section-eyebrow,
+.kicker {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* status pills and counters read as engraved chips, not flat badges */
+.badge,
+.pill,
+.status-pill,
+.tag,
+.chip,
+[class*="badge"] {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* empty states deserve the serif — they are the voice of the room */
+.empty-state h3,
+.empty-state h2,
+.no-results h3,
+.placeholder-title {
+  font-family: var(--font-serif, "Cormorant Garamond", Georgia, serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

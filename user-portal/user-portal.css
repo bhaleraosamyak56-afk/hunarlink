@@ -1,6 +1,6 @@
 /* ==========================================================================
    HunarLink — User Account, Profile & Flipkart-Style Order Tracking Styles
-   Saffron Orange Buttons (#E05A17) • Terracotta Headings (#9A3412)
+   Saffron Orange Buttons (#B4471F) • Terracotta Headings (#8A3418)
    Auto-Adaptive Screen Size & Ratio System
    ========================================================================== */
 :root {
@@ -10,12 +10,12 @@
   --forest-950: #081711;
   --forest-900: #0D2B1D;
   --forest-800: #163C2A;
-  --btn-orange: #E05A17;
-  --btn-orange-hover: #C2480C;
-  --btn-orange-soft: #FFF2E8;
-  --btn-orange-border: #F4C4A1;
-  --heading-color: #9A3412;
-  --heading-accent: #C84B11;
+  --btn-orange: #B4471F;
+  --btn-orange-hover: #A03C19;
+  --btn-orange-soft: #FBEFE9;
+  --btn-orange-border: #EBD2C5;
+  --heading-color: #8A3418;
+  --heading-accent: #AD4313;
   --heading-on-dark: #FFB46B;
   --text-900: #15231C;
   --text-700: #3E5046;

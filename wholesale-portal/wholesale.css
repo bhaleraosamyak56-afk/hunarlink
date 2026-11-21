@@ -4,10 +4,10 @@
    ========================================================================== */
 
 :root {
-  --btn-orange: #E05A17;
-  --btn-orange-hover: #C2480C;
-  --btn-orange-soft: #FFF1E6;
-  --heading-color: #9A3412;
+  --btn-orange: #B4471F;
+  --btn-orange-hover: #A03C19;
+  --btn-orange-soft: #FBEFE9;
+  --heading-color: #8A3418;
   --heading-on-dark: #FFB46B;
   --forest-950: #0C1F17;
   --forest-900: #112A20;
@@ -494,7 +494,7 @@ button {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #9A3412;
+  color: #8A3418;
   background: #FFEDD5;
   padding: 4px 10px;
   border-radius: 999px;
@@ -835,7 +835,7 @@ button {
   padding: 7px 10px;
   border-radius: 6px;
   background: #FFF7ED;
-  color: #9A3412;
+  color: #8A3418;
   margin-top: 8px;
 }
 
