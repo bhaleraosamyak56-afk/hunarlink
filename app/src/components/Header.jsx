@@ -50,6 +50,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
     catalogue,
     openDrawer,
     setFilters,
+    openModal,
     user
   } = useStore();
 
@@ -262,37 +263,20 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
               </span>
             </button>
 
+            {/* One way in, was three. The role question is asked once, by the
+                modal, and each answer routes to the page that already owns
+                that job: /login for a collector, /auth for an artisan. */}
             <button
               type="button"
-              className={`btn-user-login${user ? ' logged-in' : ''}`}
-              id="user-login-btn"
-              title="User & Collector Profile"
-              onClick={() => navigate('/profile')}
+              className="btn-login"
+              id="login-btn"
+              title="Sign in as a collector or an artisan"
+              data-testid="login-btn"
+              onClick={() => openModal('loginChoice')}
             >
-              <span id="user-login-text">{user?.isLoggedIn === false ? 'User Login' : user?.name || 'Priya'}</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn-seller-login"
-              id="seller-login-btn"
-              title="Artisan Login — Artisan & Seller Portal"
-              onClick={() => navigate('/login')}
-            >
-              <span id="seller-login-text">Artisan Login</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn-artisan-studio"
-              id="artisan-studio-btn"
-              aria-label="Open Artisan Studio"
-              onClick={() => navigate('/seller')}
-            >
-              <span className="btn-spark" aria-hidden="true">
-                &#10022;
-              </span>{' '}
-              <span className="btn-label">ARTISAN STUDIO</span>
+              {/* Always reads LOGIN. Who you are is answered in the modal and
+                  shown by the avatar beside it, not by relabelling this. */}
+              <span className="btn-login-label" id="login-btn-text">LOGIN</span>
             </button>
 
             <div className="profile-dropdown-wrap">

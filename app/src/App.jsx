@@ -10,6 +10,7 @@ import CompareBar from './components/CompareBar.jsx';
 import Toasts from './components/Toasts.jsx';
 import ChatWidget from './components/ChatWidget.jsx';
 import GiVerifyModal from './components/modals/GiVerifyModal.jsx';
+import LoginChoiceModal from './components/modals/LoginChoiceModal.jsx';
 import CompareModal from './components/modals/CompareModal.jsx';
 import CheckoutModal from './components/modals/CheckoutModal.jsx';
 import OrdersModal from './components/modals/OrdersModal.jsx';
@@ -121,6 +122,7 @@ export default function App() {
       <CartDrawer />
       <WishlistDrawer />
       <CompareBar />
+      {ui.modal?.type === 'loginChoice' && <LoginChoiceModal />}
       {ui.modal?.type === 'giVerify' && <GiVerifyModal />}
       {ui.modal?.type === 'compare' && <CompareModal />}
       {ui.modal?.type === 'checkout' && <CheckoutModal />}

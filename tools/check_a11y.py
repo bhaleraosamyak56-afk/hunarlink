@@ -29,4 +29,20 @@ with sync_playwright() as p:
             .filter(i=>!i.labels?.length && !i.getAttribute('aria-label') && !i.getAttribute('aria-labelledby'))
             .filter(i=>!i.closest('#hunarsathi-window, .hs-window')).length""")
         print(f"{r:26s} {h1:3d} {title[:36]:38s} {unl:10d}")
+
+    # ---- the single login entry point -------------------------------------
+    # One LOGIN button replaces the old user / artisan-login / studio trio, and
+    # it must offer both roles and route each to the page that owns the job.
+    pg.goto(B + "/", wait_until="networkidle")
+    pg.wait_for_timeout(900)
+    legacy = pg.evaluate(
+        "()=>['#user-login-btn','#seller-login-btn','#artisan-studio-btn']"
+        ".filter(s=>document.querySelector(s))")
+    has_login = pg.evaluate("()=>!!document.querySelector('#login-btn')")
+    pg.click("#login-btn")
+    pg.wait_for_timeout(500)
+    roles = pg.evaluate(
+        "()=>[...document.querySelectorAll('.login-choice-card')].map(e=>e.dataset.role)")
+    print()
+    print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles}")
     br.close()
