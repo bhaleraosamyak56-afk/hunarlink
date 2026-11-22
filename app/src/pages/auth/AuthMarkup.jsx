@@ -21,12 +21,48 @@ export default function AuthMarkup(props) {
     updateSkillCount, flash, quickFill,
     submitLogin, submitRegister, submitForgot,
     submitBtnText = 'Sign In to Workspace \u2192',
-    reg = {}, setRegField, login = {}, setLoginField
+    reg = {}, setRegField, login = {}, setLoginField,
+    /* capture state, rendered instead of written to the DOM */
+    captureUI = { cert: {}, video: {}, passport: {} },
+    shots = {}, recSeconds = 0,
+    setVideoEl, setFileEl, files,
+    /* form visibility + controlled fields */
+    showLogin = true, showRegister = false, showForgot = false,
+    pwType = () => 'password',
+    forgotEmail = '', setForgotEmail
   } = props;
+
+  const cam = (type) => captureUI[type] || {};
+  const isLive = (type) => cam(type).phase === 'live';
+  const isCaptured = (type) => cam(type).phase === 'captured';
+  /* while the camera is live the card offers snap/cancel; once something is
+     captured it offers retake/upload. Never both. */
+  const btn = (type) => {
+    const c = cam(type);
+    /* v1 revealed the "no camera" fallback proactively when the browser has no
+       camera API at all, instead of waiting for a failed getUserMedia */
+    const noCameraApi =
+      typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia;
+    if (noCameraApi && c.phase !== 'captured' && c.phase !== 'live') {
+      return { open: true, snap: false, cancel: false, retake: false, upload: true };
+    }
+    if (c.phase === 'captured') return { open: false, snap: false, cancel: false, retake: true, upload: true };
+    if (c.phase === 'live') return { open: false, snap: true, cancel: true, retake: false, upload: true };
+    return { open: true, snap: false, cancel: false, retake: false, upload: false };
+  };
+  const show = (on) => ({ display: on ? 'inline-flex' : 'none' });
+  const formatTimer = (secs) => {
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const sec = String(secs % 60).padStart(2, '0');
+    return `${m}:${sec}`;
+  };
+  /* clicking a hidden file input is the one thing that stays imperative:
+     it is a browser gesture, not a state change */
+  const fileEls = { click: (type) => { const el = files && files[type]; if (el) el.click(); } };
 
   return (
     <>
-        <form id="form-login" onSubmit={submitLogin}>
+        <form id="form-login" style={{display: showLogin ? 'block' : 'none'}} onSubmit={submitLogin}>
           {/* Email Address */}
           <div className="form-group">
             <label className="form-label">Email Address</label>
@@ -54,7 +90,7 @@ export default function AuthMarkup(props) {
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
               </span>
-              <input type="password" id="login-password" className="input-field" placeholder="Enter your password" required
+              <input type={pwType('login-password')} id="login-password" className="input-field" placeholder="Enter your password" required
                 value={login.password || ''} onChange={setLoginField('password')} />
               <button type="button" className="input-btn-eye" onClick={() => togglePw('login-password')}
                 aria-label="Toggle password visibility">
@@ -85,7 +121,7 @@ export default function AuthMarkup(props) {
         {/* ====================================================================
              FORM 2: CREATE ARTISAN ACCOUNT (GI-CERTIFIED OR STANDARD SELLER)
              ==================================================================== */}
-        <form id="form-artisan-register" style={{display: 'none'}} onSubmit={submitRegister}>
+        <form id="form-artisan-register" style={{display: showRegister ? 'block' : 'none'}} onSubmit={submitRegister}>
 
           {/* Info Banner for Standard Seller (No GI Certification) */}
           <div className="no-gi-info-banner" id="no-gi-info-banner" style={{display: giMode === 'no_gi' ? 'flex' : 'none'}}>
@@ -150,7 +186,7 @@ export default function AuthMarkup(props) {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
                 </span>
-                <input type="password" id="artisan-reg-password" className="input-field" placeholder="Create strong password"
+                <input type={pwType('artisan-reg-password')} id="artisan-reg-password" className="input-field" placeholder="Create strong password"
                   required value={reg.password || ''} onChange={setRegField('password')} />
                 <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-password')}
                   aria-label="Toggle password">
@@ -176,7 +212,7 @@ export default function AuthMarkup(props) {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
                 </span>
-                <input type="password" id="artisan-reg-cpassword" className="input-field" placeholder="Re-enter password"
+                <input type={pwType('artisan-reg-cpassword')} id="artisan-reg-cpassword" className="input-field" placeholder="Re-enter password"
                   required value={reg.cpassword || ''} onChange={setRegField('cpassword')} />
                 <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-cpassword')}
                   aria-label="Toggle password">
@@ -287,40 +323,51 @@ export default function AuthMarkup(props) {
                   <div className="capture-card-hint">Hold your physical GI Certificate in front of your camera. If no webcam is
                     available on this device, a secure gallery-upload fallback appears automatically.</div>
                 </div>
-                <span className="capture-status-pill" id="cert-status-pill">Required</span>
+                <span className={`capture-status-pill${isCaptured('cert') ? ' is-done' : ''}`} id="cert-status-pill">
+                  {isCaptured('cert') ? '\u2713 Captured' : 'Required'}
+                </span>
               </div>
 
-              <div className="camera-stage" id="cert-camera-stage">
-                <video id="cert-camera-video" autoplay playsinline muted></video>
+              <div className="camera-stage" id="cert-camera-stage" style={{display: isLive('cert') ? 'block' : 'none'}}>
+                <video
+                  id="cert-camera-video" autoplay playsInline muted
+                  ref={(el) => setVideoEl && setVideoEl('cert', el)}
+                ></video>
                 <div className="cert-guide-overlay">
                   <span className="passport-guide-caption">ALIGN GI CERTIFICATE INSIDE FRAME</span>
                 </div>
               </div>
 
-              <div className="capture-preview-wrap" id="cert-preview-wrap">
-                <img loading="lazy" decoding="async" id="cert-preview-img" className="capture-preview-img" alt="Captured Live GI Certificate" />
-                <div className="capture-meta-stamp" id="cert-meta-stamp"></div>
+              <div className="capture-preview-wrap" id="cert-preview-wrap" style={{display: isCaptured('cert') ? 'block' : 'none'}}>
+                <img loading="lazy" decoding="async" id="cert-preview-img" className="capture-preview-img" src={shots.cert || undefined} alt="Captured Live GI Certificate" />
+                <div className="capture-meta-stamp" id="cert-meta-stamp">
+                  {isCaptured('cert') ? `${cam('cert').label} \u2022 ${cam('cert').capturedAt}` : ''}
+                </div>
               </div>
 
               <div className="capture-actions-row">
-                <button type="button" className="btn-cam primary" id="btn-cert-open" onClick={() => openCamera('cert')}>
+                <button type="button" className="btn-cam primary" id="btn-cert-open" style={show(btn('cert').open)} onClick={() => openCamera('cert')}>
                   📷 Open Camera
                 </button>
-                <button type="button" className="btn-cam primary" id="btn-cert-snap" style={{display: 'none'}} onClick={() => capturePhoto('cert')}>
+                <button type="button" className="btn-cam primary" id="btn-cert-snap" style={show(btn('cert').snap)} onClick={() => capturePhoto('cert')}>
                   📸 Capture Certificate Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-cert-cancel" style={{display: 'none'}} onClick={stopAllCameras}>
+                <button type="button" className="btn-cam" id="btn-cert-cancel" style={show(btn('cert').cancel)} onClick={stopAllCameras}>
                   Cancel
                 </button>
-                <button type="button" className="btn-cam" id="btn-cert-retake" style={{display: 'none'}} onClick={() => openCamera('cert')}>
+                <button type="button" className="btn-cam" id="btn-cert-retake" style={show(btn('cert').retake)} onClick={() => openCamera('cert')}>
                   ↺ Retake Live Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-cert-upload" style={{display: 'none'}} onClick={() => document.getElementById('cert-file-input')?.click()}>
+                <button type="button" className="btn-cam" id="btn-cert-upload" style={show(btn('cert').upload)} onClick={() => fileEls.click('cert')}>
                   📁 Upload Certificate Photo (No Camera)
                 </button>
-                <input type="file" id="cert-file-input" accept="image/*" style={{display: 'none'}} onChange={(e) => handleCaptureFile('cert', e)} />
+                <input
+                  type="file" id="cert-file-input" accept="image/*" style={{display: 'none'}}
+                  ref={(el) => setFileEl && setFileEl('cert', el)}
+                  onChange={(e) => handleCaptureFile('cert', e)}
+                />
               </div>
-              <div className="cam-error-msg" id="cert-cam-error"></div>
+              <div className="cam-error-msg" id="cert-cam-error" style={{display: cam('cert').error ? 'flex' : 'none'}}>{cam('cert').error}</div>
             </div>
 
             {/* 3. Live Video of Product or Workshop / Warehouse */}
@@ -332,41 +379,57 @@ export default function AuthMarkup(props) {
                   <div className="capture-card-hint">Record a live video (3–30 sec) showing your handmade craft, loom, or
                     workshop directly from your camera. No camera detected? Use the upload fallback below.</div>
                 </div>
-                <span className="capture-status-pill" id="video-status-pill">Required</span>
+                <span
+                  className={`capture-status-pill${cam('video').recording ? ' recording' : isCaptured('video') ? ' is-done' : ''}`}
+                  id="video-status-pill"
+                >
+                  {cam('video').recording ? '● Recording...' : isCaptured('video') ? '\u2713 Recorded' : 'Required'}
+                </span>
               </div>
 
-              <div className="camera-stage" id="video-camera-stage">
-                <video id="video-camera-stream" autoplay playsinline muted></video>
-                <span className="rec-timer-pill" id="video-rec-timer">● REC 00:00 / 00:30</span>
+              <div className="camera-stage" id="video-camera-stage" style={{display: isLive('video') ? 'block' : 'none'}}>
+                <video
+                  id="video-camera-stream" autoplay playsInline muted
+                  ref={(el) => setVideoEl && setVideoEl('video', el)}
+                ></video>
+                <span className={`rec-timer-pill${cam('video').recording ? ' active' : ''}`} id="video-rec-timer">
+                  ● REC {formatTimer(recSeconds)} / 00:30
+                </span>
               </div>
 
-              <div className="capture-preview-wrap" id="video-preview-wrap">
-                <video id="video-preview-player" className="capture-preview-video" controls playsinline></video>
-                <div className="capture-meta-stamp" id="video-meta-stamp"></div>
+              <div className="capture-preview-wrap" id="video-preview-wrap" style={{display: isCaptured('video') ? 'block' : 'none'}}>
+                <video id="video-preview-player" className="capture-preview-video" controls playsInline src={shots.video || undefined}></video>
+                <div className="capture-meta-stamp" id="video-meta-stamp">
+                  {isCaptured('video') ? `${cam('video').label} \u2022 ${cam('video').capturedAt}` : ''}
+                </div>
               </div>
 
               <div className="capture-actions-row">
-                <button type="button" className="btn-cam primary" id="btn-video-open" onClick={() => openCamera('video')}>
+                <button type="button" className="btn-cam primary" id="btn-video-open" style={show(btn('video').open)} onClick={() => openCamera('video')}>
                   🎥 Open Camera
                 </button>
-                <button type="button" className="btn-cam danger" id="btn-video-start" style={{display: 'none'}} onClick={startRecording}>
+                <button type="button" className="btn-cam danger" id="btn-video-start" style={show(isLive('video') && !cam('video').recording)} onClick={startRecording}>
                   ⏺ Start Live Recording
                 </button>
-                <button type="button" className="btn-cam primary" id="btn-video-stop" style={{display: 'none'}} onClick={stopRecording}>
+                <button type="button" className="btn-cam primary" id="btn-video-stop" style={show(isLive('video') && !!cam('video').recording)} onClick={stopRecording}>
                   ⏹ Stop &amp; Save Video
                 </button>
-                <button type="button" className="btn-cam" id="btn-video-cancel" style={{display: 'none'}} onClick={stopAllCameras}>
+                <button type="button" className="btn-cam" id="btn-video-cancel" style={show(btn('video').cancel)} onClick={stopAllCameras}>
                   Cancel
                 </button>
-                <button type="button" className="btn-cam" id="btn-video-retake" style={{display: 'none'}} onClick={() => openCamera('video')}>
+                <button type="button" className="btn-cam" id="btn-video-retake" style={show(btn('video').retake)} onClick={() => openCamera('video')}>
                   ↺ Re-record Live Video
                 </button>
-                <button type="button" className="btn-cam" id="btn-video-upload" style={{display: 'none'}} onClick={() => document.getElementById('video-file-input')?.click()}>
+                <button type="button" className="btn-cam" id="btn-video-upload" style={show(btn('video').upload)} onClick={() => fileEls.click('video')}>
                   📁 Upload Workshop Video (No Camera)
                 </button>
-                <input type="file" id="video-file-input" accept="video/*" style={{display: 'none'}} onChange={(e) => handleCaptureFile('video', e)} />
+                <input
+                  type="file" id="video-file-input" accept="video/*" style={{display: 'none'}}
+                  ref={(el) => setFileEl && setFileEl('video', el)}
+                  onChange={(e) => handleCaptureFile('video', e)}
+                />
               </div>
-              <div className="cam-error-msg" id="video-cam-error"></div>
+              <div className="cam-error-msg" id="video-cam-error" style={{display: cam('video').error ? 'flex' : 'none'}}>{cam('video').error}</div>
             </div>
 
             {/* 4. Live Passport-Size Photo of Seller */}
@@ -378,42 +441,54 @@ export default function AuthMarkup(props) {
                   <div className="capture-card-hint">Center your face inside the passport guide (35×45 mm portrait ratio).
                     Captured live via front camera — with upload fallback when no camera is present.</div>
                 </div>
-                <span className="capture-status-pill" id="passport-status-pill">Required</span>
+                <span className={`capture-status-pill${isCaptured('passport') ? ' is-done' : ''}`} id="passport-status-pill">
+                  {isCaptured('passport') ? '\u2713 Captured' : 'Required'}
+                </span>
               </div>
 
-              <div className="camera-stage" id="passport-camera-stage">
-                <video id="passport-camera-video" autoplay playsinline muted></video>
+              <div className="camera-stage" id="passport-camera-stage" style={{display: isLive('passport') ? 'block' : 'none'}}>
+                <video
+                  id="passport-camera-video" autoplay playsInline muted
+                  ref={(el) => setVideoEl && setVideoEl('passport', el)}
+                ></video>
                 <div className="passport-guide-overlay">
                   <div className="passport-guide-oval"></div>
                   <span className="passport-guide-caption">PASSPORT SIZE (35×45 MM)</span>
                 </div>
               </div>
 
-              <div className="capture-preview-wrap" id="passport-preview-wrap">
+              <div className="capture-preview-wrap" id="passport-preview-wrap" style={{display: isCaptured('passport') ? 'block' : 'none'}}>
                 <img loading="lazy" decoding="async" id="passport-preview-img" className="capture-preview-img passport-frame"
+                  src={shots.passport || undefined}
                   alt="Captured Live Seller Passport Photo" />
-                <div className="capture-meta-stamp" id="passport-meta-stamp"></div>
+                <div className="capture-meta-stamp" id="passport-meta-stamp">
+                  {isCaptured('passport') ? `${cam('passport').label} \u2022 ${cam('passport').capturedAt}` : ''}
+                </div>
               </div>
 
               <div className="capture-actions-row">
-                <button type="button" className="btn-cam primary" id="btn-passport-open" onClick={() => openCamera('passport')}>
+                <button type="button" className="btn-cam primary" id="btn-passport-open" style={show(btn('passport').open)} onClick={() => openCamera('passport')}>
                   🤳 Open Front Camera
                 </button>
-                <button type="button" className="btn-cam primary" id="btn-passport-snap" style={{display: 'none'}} onClick={() => capturePhoto('passport')}>
+                <button type="button" className="btn-cam primary" id="btn-passport-snap" style={show(btn('passport').snap)} onClick={() => capturePhoto('passport')}>
                   📸 Capture Passport Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-passport-cancel" style={{display: 'none'}} onClick={stopAllCameras}>
+                <button type="button" className="btn-cam" id="btn-passport-cancel" style={show(btn('passport').cancel)} onClick={stopAllCameras}>
                   Cancel
                 </button>
-                <button type="button" className="btn-cam" id="btn-passport-retake" style={{display: 'none'}} onClick={() => openCamera('passport')}>
+                <button type="button" className="btn-cam" id="btn-passport-retake" style={show(btn('passport').retake)} onClick={() => openCamera('passport')}>
                   ↺ Retake Passport Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-passport-upload" style={{display: 'none'}} onClick={() => document.getElementById('passport-file-input')?.click()}>
+                <button type="button" className="btn-cam" id="btn-passport-upload" style={show(btn('passport').upload)} onClick={() => fileEls.click('passport')}>
                   📁 Upload Passport Photo (No Camera)
                 </button>
-                <input type="file" id="passport-file-input" accept="image/*" style={{display: 'none'}} onChange={(e) => handleCaptureFile('passport', e)} />
+                <input
+                  type="file" id="passport-file-input" accept="image/*" style={{display: 'none'}}
+                  ref={(el) => setFileEl && setFileEl('passport', el)}
+                  onChange={(e) => handleCaptureFile('passport', e)}
+                />
               </div>
-              <div className="cam-error-msg" id="passport-cam-error"></div>
+              <div className="cam-error-msg" id="passport-cam-error" style={{display: cam('passport').error ? 'flex' : 'none'}}>{cam('passport').error}</div>
             </div>
 
             {/* 5. Artisan Skill Description Box */}
@@ -449,7 +524,7 @@ export default function AuthMarkup(props) {
         {/* ====================================================================
              FORM 4: FORGOT PASSWORD
              ==================================================================== */}
-        <div id="form-forgot" style={{display: 'none'}}>
+        <div id="form-forgot" style={{display: showForgot ? 'block' : 'none'}}>
           {/* Center Illustration */}
           <div className="forgot-illustration-wrap">
             <img loading="lazy" decoding="async" src="assets/auth/forgot_illustration.png" alt="Reset Password Security" className="forgot-illustration-img" />
@@ -468,7 +543,7 @@ export default function AuthMarkup(props) {
                   </svg>
                 </span>
                 <input type="email" id="forgot-email" className="input-field" placeholder="Enter your registered email"
-                  required />
+                  value={forgotEmail} onChange={setForgotEmail} required />
               </div>
             </div>
 

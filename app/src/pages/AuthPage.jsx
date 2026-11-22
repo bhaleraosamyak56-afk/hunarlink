@@ -54,22 +54,44 @@ export default function AuthPage() {
   const setRegField = (key) => (e) =>
     setReg((r) => ({ ...r, [key]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
   const [flashMsg, setFlashMsg] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
 
-  /* capture state — kept in a ref because the camera stream is not rendering
-     data and putting it in state would churn the tree on every frame */
-  const capture = useRef({
+  /* ======================================================== capture suite
+     The static build drove all of this through getElementById: it set
+     video.srcObject, flipped .is-done on status pills, wrote timer text and
+     toggled button display by id. Every one of those nodes is React-owned now,
+     so the same job is done with refs (the parts that are imperative by nature
+     — MediaStream, MediaRecorder, <video> elements) and state (the parts that
+     are rendered: stage visibility, preview, pill text, button row).
+
+     Refs hold only what React must not re-render on: the live stream, the
+     recorder, the chunk buffer and the elapsed-seconds counter.
+     ========================================================== */
+  const media = useRef({
     stream: null,
     recorder: null,
     chunks: [],
     seconds: 0,
     timer: null,
-    activeType: null,
-    cert: null,
-    video: null,
-    passport: null
+    activeType: null
   });
+
+  /* one <video> per capture card, so the stream can be attached directly */
+  const videoEls = useRef({ cert: null, video: null, passport: null });
+  const fileEls = useRef({ cert: null, video: null, passport: null });
+
+  /* rendered state: 'idle' -> stage hidden, 'live' -> camera stage visible */
+  const [captureUI, setCaptureUI] = useState({
+    cert: { phase: 'idle', error: '', label: '', capturedAt: '' },
+    video: { phase: 'idle', error: '', label: '', capturedAt: '', recording: false },
+    passport: { phase: 'idle', error: '', label: '', capturedAt: '' }
+  });
+  /* the captured media itself, as a data URL (images) or object URL (video) */
   const [shots, setShots] = useState({ cert: null, video: null, passport: null });
   const [recSeconds, setRecSeconds] = useState(0);
+
+  const patchUI = (type, patch) =>
+    setCaptureUI((ui) => ({ ...ui, [type]: { ...ui[type], ...patch } }));
 
   const conf =
     mode === 'forgot' ? AUTH_CONFIG.forgot : AUTH_CONFIG[`${mode}_artisan`];
@@ -91,87 +113,92 @@ export default function AuthPage() {
   }, []);
 
   /* ------------------------------------------------------------- messaging */
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastTimer = useRef(null);
+
   const flash = (msg) => {
     setFlashMsg(msg);
     toast(msg, msg.startsWith('\u26a0') ? 'error' : 'default');
-    const box = document.getElementById('auth-toast');
-    if (box) {
-      box.textContent = msg;
-      box.classList.add('show');
-      setTimeout(() => box.classList.remove('show'), 3200);
-    }
+    setToastVisible(true);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastVisible(false), 3200);
   };
 
-  /* ------------------------------------------------------------- passwords */
-  const togglePw = (id) => {
-    setPwShown((p) => ({ ...p, [id]: !p[id] }));
-  };
-  useEffect(() => {
-    Object.entries(pwShown).forEach(([id, shown]) => {
-      const el = document.getElementById(id);
-      if (el) el.type = shown ? 'text' : 'password';
-    });
-  }, [pwShown]);
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
+
+  /* ------------------------------------------------------------- passwords
+     Controlled: the input's type is derived from state instead of being
+     rewritten on the node after render. */
+  const togglePw = (id) => setPwShown((p) => ({ ...p, [id]: !p[id] }));
+  const pwType = (id) => (pwShown[id] ? 'text' : 'password');
 
   /* --------------------------------------------------------- camera suite */
   function stopAllCameras() {
-    const c = capture.current;
-    if (c.timer) clearInterval(c.timer);
-    if (c.recorder && c.recorder.state !== 'inactive') {
+    const m = media.current;
+    if (m.timer) clearInterval(m.timer);
+    if (m.recorder && m.recorder.state !== 'inactive') {
       try {
-        c.recorder.stop();
-      } catch (e) {}
+        m.recorder.stop();
+      } catch (e) {
+        /* already stopped */
+      }
     }
-    if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
-    c.stream = null;
-    c.recorder = null;
-    c.chunks = [];
-    c.activeType = null;
-    c.timer = null;
-    c.seconds = 0;
+    if (m.stream) m.stream.getTracks().forEach((t) => t.stop());
+    m.stream = null;
+    m.recorder = null;
+    m.chunks = [];
+    m.activeType = null;
+    m.timer = null;
+    m.seconds = 0;
     setRecSeconds(0);
+    /* put every card back to idle, keeping anything already captured */
+    setCaptureUI((ui) => ({
+      cert: { ...ui.cert, phase: ui.cert.phase === 'captured' ? 'captured' : 'idle' },
+      video: {
+        ...ui.video,
+        phase: ui.video.phase === 'captured' ? 'captured' : 'idle',
+        recording: false
+      },
+      passport: { ...ui.passport, phase: ui.passport.phase === 'captured' ? 'captured' : 'idle' }
+    }));
   }
 
   useEffect(() => stopAllCameras, []);
 
   async function openCamera(type) {
     stopAllCameras();
-    const c = capture.current;
-    c.activeType = type;
-    const stage = document.getElementById(`${type}-camera-stage`);
-    const err = document.getElementById(`${type}-cam-error`);
-    const video = document.getElementById(`${type}-camera-video`);
+    media.current.activeType = type;
+    patchUI(type, { phase: 'live', error: '' });
+
+    /* the stage has to be mounted before the stream can be attached to it */
+    await new Promise((r) => requestAnimationFrame(r));
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: type === 'passport' ? { facingMode: 'user' } : { facingMode: 'environment' },
         audio: type === 'video'
       });
-      c.stream = stream;
-      if (video) {
-        video.srcObject = stream;
-        await video.play().catch(() => {});
+      media.current.stream = stream;
+      const el = videoEls.current[type];
+      if (el) {
+        el.srcObject = stream;
+        await el.play().catch(() => {});
       }
-      if (stage) stage.style.display = 'block';
-      if (err) err.style.display = 'none';
     } catch (e) {
       /* no camera, or the visitor declined — the upload path stays available */
-      if (stage) stage.style.display = 'block';
-      if (err) {
-        err.style.display = 'flex';
-        err.textContent =
-          '\u26a0\ufe0f Camera unavailable or permission denied. Use the upload button instead.';
-      }
-      if (video) {
-        video.style.display = 'none';
-      }
+      patchUI(type, {
+        phase: 'live',
+        error:
+          '\u26a0\ufe0f Camera unavailable or permission denied. Use the upload button instead.'
+      });
     }
   }
 
   function capturePhoto(type) {
-    const c = capture.current;
-    const video = document.getElementById(`${type}-camera-video`);
-    if (!video || !video.videoWidth) {
+    const el = videoEls.current[type];
+    if (!el || !el.videoWidth) {
       flash('\u26a0\ufe0f Start the camera first, then capture.');
       return;
     }
@@ -182,130 +209,106 @@ export default function AuthPage() {
       canvas.width = 413;
       canvas.height = 531;
     } else {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = el.videoWidth;
+      canvas.height = el.videoHeight;
     }
     const ctx = canvas.getContext('2d');
     if (type === 'passport') {
-      const min = Math.min(video.videoWidth, video.videoHeight * (413 / 531));
-      const sx = (video.videoWidth - min) / 2;
-      const sy = (video.videoHeight - min * (531 / 413)) / 2;
-      ctx.drawImage(video, sx, sy, min, min * (531 / 413), 0, 0, canvas.width, canvas.height);
+      const min = Math.min(el.videoWidth, el.videoHeight * (413 / 531));
+      const sx = (el.videoWidth - min) / 2;
+      const sy = (el.videoHeight - min * (531 / 413)) / 2;
+      ctx.drawImage(el, sx, sy, min, min * (531 / 413), 0, 0, canvas.width, canvas.height);
     } else {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
     }
     const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
-    c[type] = dataUrl;
     setShots((s) => ({ ...s, [type]: dataUrl }));
-    showShot(type, dataUrl, 'Live capture');
     stopAllCameras();
-  }
-
-  function showShot(type, url, label) {
-    const wrap = document.getElementById(`${type}-preview-wrap`);
-    const img = document.getElementById(`${type}-preview-img`);
-    const stage = document.getElementById(`${type}-camera-stage`);
-    const pill = document.getElementById(`${type}-status-pill`);
-    const stamp = document.getElementById(`${type}-meta-stamp`);
-    if (stage) stage.style.display = 'none';
-    if (wrap) {
-      wrap.style.display = 'block';
-      if (img) img.src = url;
-    }
-    if (pill) {
-      pill.textContent = '\u2713 Captured';
-      pill.classList.add('is-done');
-    }
-    if (stamp) stamp.textContent = `${label} \u2022 ${new Date().toLocaleString('en-IN')}`;
-    ['open', 'retake', 'snap', 'cancel'].forEach((k) => {
-      const b = document.getElementById(`btn-${type}-${k}`);
-      if (b) b.style.display = k === 'retake' ? 'inline-flex' : 'none';
+    patchUI(type, {
+      phase: 'captured',
+      error: '',
+      label: 'Live capture',
+      capturedAt: new Date().toLocaleString('en-IN')
     });
   }
 
   function handleCaptureFile(type, ev) {
     const file = ev.target.files && ev.target.files[0];
     if (!file) return;
+
     if (type === 'video') {
-      capture.current.video = URL.createObjectURL(file);
-      const player = document.getElementById('video-preview-player');
-      const wrap = document.getElementById('video-preview-wrap');
-      if (player) player.src = capture.current.video;
-      if (wrap) wrap.style.display = 'block';
-      const pill = document.getElementById('video-status-pill');
-      if (pill) {
-        pill.textContent = '\u2713 Uploaded';
-        pill.classList.add('is-done');
-      }
-      setShots((s) => ({ ...s, video: capture.current.video }));
+      const url = URL.createObjectURL(file);
+      setShots((s) => ({ ...s, video: url }));
+      stopAllCameras();
+      patchUI('video', {
+        phase: 'captured',
+        error: '',
+        label: 'Uploaded from this device',
+        capturedAt: new Date().toLocaleString('en-IN'),
+        recording: false
+      });
       flash('Workshop video attached from this device.');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = () => {
-      capture.current[type] = reader.result;
       setShots((s) => ({ ...s, [type]: reader.result }));
-      showShot(type, reader.result, 'Uploaded from this device');
+      stopAllCameras();
+      patchUI(type, {
+        phase: 'captured',
+        error: '',
+        label: 'Uploaded from this device',
+        capturedAt: new Date().toLocaleString('en-IN')
+      });
     };
     reader.readAsDataURL(file);
   }
 
   function startRecording() {
-    const c = capture.current;
-    if (!c.stream) {
+    const m = media.current;
+    if (!m.stream) {
       flash('\u26a0\ufe0f Start the camera first.');
       return;
     }
-    const rec = new MediaRecorder(c.stream);
-    c.chunks = [];
+    const rec = new MediaRecorder(m.stream);
+    m.chunks = [];
     rec.ondataavailable = (e) => {
-      if (e.data.size) c.chunks.push(e.data);
+      if (e.data.size) m.chunks.push(e.data);
     };
     rec.onstop = () => {
-      const blob = new Blob(c.chunks, { type: 'video/webm' });
-      c.video = URL.createObjectURL(blob);
-      const player = document.getElementById('video-preview-player');
-      const wrap = document.getElementById('video-preview-wrap');
-      if (player) player.src = c.video;
-      if (wrap) wrap.style.display = 'block';
-      const pill = document.getElementById('video-status-pill');
-      if (pill) {
-        pill.textContent = '\u2713 Recorded';
-        pill.classList.add('is-done');
-      }
-      const stamp = document.getElementById('video-meta-stamp');
-      if (stamp)
-        stamp.textContent = `Live recording \u2022 ${c.seconds}s \u2022 ${new Date().toLocaleString('en-IN')}`;
-      setShots((s) => ({ ...s, video: c.video }));
+      const blob = new Blob(m.chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const secs = m.seconds;
+      setShots((s) => ({ ...s, video: url }));
+      patchUI('video', {
+        phase: 'captured',
+        error: '',
+        label: `Live recording \u2022 ${secs}s`,
+        capturedAt: new Date().toLocaleString('en-IN'),
+        recording: false
+      });
     };
-    c.recorder = rec;
+    m.recorder = rec;
     rec.start();
-    c.seconds = 0;
+    m.seconds = 0;
     setRecSeconds(0);
-    c.timer = setInterval(() => {
-      c.seconds += 1;
-      setRecSeconds(c.seconds);
-      const t = document.getElementById('video-rec-timer');
-      if (t) t.textContent = `REC ${String(c.seconds).padStart(2, '0')}s`;
-      if (c.seconds >= 30 && c.recorder && c.recorder.state === 'recording') stopRecording();
+    patchUI('video', { recording: true });
+    m.timer = setInterval(() => {
+      m.seconds += 1;
+      setRecSeconds(m.seconds);
+      if (m.seconds >= 30 && m.recorder && m.recorder.state === 'recording') stopRecording();
     }, 1000);
-    document.getElementById('btn-video-start')?.style &&
-      (document.getElementById('btn-video-start').style.display = 'none');
-    const stopBtn = document.getElementById('btn-video-stop');
-    if (stopBtn) stopBtn.style.display = 'inline-flex';
   }
 
   function stopRecording() {
-    const c = capture.current;
-    if (c.timer) clearInterval(c.timer);
-    c.timer = null;
-    if (c.recorder && c.recorder.state !== 'inactive') c.recorder.stop();
-    const stopBtn = document.getElementById('btn-video-stop');
-    if (stopBtn) stopBtn.style.display = 'none';
-    const startBtn = document.getElementById('btn-video-start');
-    if (startBtn) startBtn.style.display = 'inline-flex';
-    if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
-    c.stream = null;
+    const m = media.current;
+    if (m.timer) clearInterval(m.timer);
+    m.timer = null;
+    if (m.recorder && m.recorder.state !== 'inactive') m.recorder.stop();
+    if (m.stream) m.stream.getTracks().forEach((t) => t.stop());
+    m.stream = null;
+    patchUI('video', { recording: false });
   }
 
   function updateSkillCount(e) {
@@ -510,7 +513,7 @@ export default function AuthPage() {
 
   function submitForgot(e) {
     e.preventDefault();
-    const email = document.getElementById('forgot-email')?.value?.trim();
+    const email = String(forgotEmail || '').trim();
     if (!email) return;
     flash(`\u2709\ufe0f Password reset link dispatched to ${email}! Check inbox & spam.`);
     setTimeout(() => setMode('login'), 2000);
@@ -668,7 +671,7 @@ export default function AuthPage() {
             </div>
 
             {/* The forms themselves are the original markup. */}
-            <AuthFormShell mode={mode}>
+            <AuthFormShell mode={mode} visible={mode}>
               <AuthMarkup
                 giMode={giMode}
                 setGiMode={setGiMode}
@@ -695,6 +698,15 @@ export default function AuthPage() {
                 updateSkillCount={updateSkillCount}
                 flash={flash}
                 quickFill={quickFill}
+                forgotEmail={forgotEmail}
+                setForgotEmail={(e) => setForgotEmail(e.target.value)}
+                captureUI={captureUI}
+                shots={shots}
+                recSeconds={recSeconds}
+                setVideoEl={(type, el) => { videoEls.current[type] = el; }}
+                setFileEl={(type, el) => { fileEls.current[type] = el; }}
+                files={fileEls.current}
+                pwType={pwType}
               />
             </AuthFormShell>
 
@@ -782,30 +794,33 @@ export default function AuthPage() {
         </main>
       </div>
 
-      <div className="auth-toast" id="auth-toast">
+      <div className={`auth-toast${toastVisible ? ' show' : ''}`} id="auth-toast">
         {flashMsg}
       </div>
     </>
   );
 }
 
-/* The three forms live in the generated markup and are shown/hidden by mode.
-   This wrapper keeps that contract explicit instead of leaving orphaned
-   display:none rules in three places. */
-function AuthFormShell({ mode, children }) {
-  useEffect(() => {
-    ['form-login', 'form-artisan-register', 'form-forgot'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-    const map = {
-      login: 'form-login',
-      register: 'form-artisan-register',
-      forgot: 'form-forgot'
-    };
-    const active = document.getElementById(map[mode]);
-    if (active) active.style.display = 'block';
-  }, [mode]);
+/* The three forms are separate <form> elements. Which one is on screen is a
+   property of the route, so the shell sets each one's display from `mode` in
+   the markup. The previous version hid all three and then un-hid one by id in
+   an effect, which left the forms invisible for a frame on every mode change
+   and depended on nodes it did not own. */
+const FORM_FOR_MODE = { login: 'form-login', register: 'form-artisan-register', forgot: 'form-forgot' };
 
-  return children;
+function AuthFormShell({ mode, children }) {
+  const active = FORM_FOR_MODE[mode] || 'form-login';
+  return (
+    <div data-active-form={active}>
+      {React.Children.map(children, (child) => {
+        if (!React.isValidElement(child)) return child;
+        /* AuthMarkup owns the three <form> nodes; tell it which to show */
+        return React.cloneElement(child, {
+          showLogin: active === 'form-login',
+          showRegister: active === 'form-artisan-register',
+          showForgot: active === 'form-forgot'
+        });
+      })}
+    </div>
+  );
 }
