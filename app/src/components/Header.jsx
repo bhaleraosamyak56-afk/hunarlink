@@ -24,7 +24,7 @@ const SEALS = (
 const NAV = [
   { id: 'home', label: 'Home', to: '/#hero-section', section: 'hero-section' },
   { id: 'verify', label: 'Valley Verification Flow', to: '/#verification-section', section: 'verification-section' },
-  { id: 'artisans', label: 'Our Artisans', to: '/#craft-guilds-section', section: 'craft-guilds-section' },
+  { id: 'artisans', label: 'Our Artisans', to: '/#artisan-showcase-section', section: 'artisan-showcase-section' },
   { id: 'store', label: 'J&K Heritage Store', to: '/#marketplace-section', section: 'marketplace-section' },
   { id: 'wholesale', label: 'Wholesale', to: '/#b2b-wholesale-section', section: 'b2b-wholesale-section' }
 ];

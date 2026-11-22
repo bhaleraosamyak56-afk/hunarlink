@@ -29,15 +29,18 @@ const FRAME_MS = 1000 / 24;
 /* Palette pulled from the design tokens so the field can never drift out of
    the site's own colours. */
 const BLOBS = [
-  /* Weighted towards cream, sage and pale gold. The first version leaned on
-     the terracotta and forest tokens, which at soft-light strength read as
-     brown stains across the page rather than as light moving behind it. */
-  { rgb: [232, 214, 168], x: 0.2,  y: 0.28, r: 0.72, sx: 0.09, sy: 0.06, ax: 0.18, ay: 0.13 },
-  { rgb: [176, 196, 170], x: 0.76, y: 0.2,  r: 0.66, sx: 0.07, sy: 0.09, ax: 0.2,  ay: 0.11 },
-  { rgb: [226, 186, 140], x: 0.52, y: 0.7,  r: 0.62, sx: 0.11, sy: 0.05, ax: 0.19, ay: 0.15 },
-  { rgb: [206, 214, 198], x: 0.3,  y: 0.86, r: 0.7,  sx: 0.06, sy: 0.08, ax: 0.13, ay: 0.17 },
-  { rgb: [198, 158, 118], x: 0.88, y: 0.66, r: 0.56, sx: 0.1,  sy: 0.05, ax: 0.16, ay: 0.1  },
-  { rgb: [240, 232, 210], x: 0.5,  y: 0.44, r: 0.8,  sx: 0.05, sy: 0.07, ax: 0.22, ay: 0.18 }
+  /* These are strong on purpose. Two earlier passes failed for the same
+     reason: pale colours over a pale page have nothing to move against. A
+     composite comparison over 2.5 seconds at 1440x900 changed 0.07% of pixels
+     with the cream palette and 0.12% even when forced strong -- but the eye
+     reads the *shape* of the colour, not the delta, and only a saturated field
+     has a visible shape. The canvas carries full-strength colour and the
+     element's opacity brings it down to a wash. */
+  { rgb: [184, 88, 42],  x: 0.18, y: 0.30, r: 0.62, sx: 0.25, sy: 0.17, ax: 0.20, ay: 0.15 },
+  { rgb: [34, 74, 54],   x: 0.78, y: 0.24, r: 0.58, sx: 0.19, sy: 0.23, ax: 0.22, ay: 0.13 },
+  { rgb: [214, 140, 60], x: 0.50, y: 0.72, r: 0.56, sx: 0.28, sy: 0.15, ax: 0.21, ay: 0.17 },
+  { rgb: [150, 170, 140],x: 0.30, y: 0.86, r: 0.60, sx: 0.16, sy: 0.21, ax: 0.15, ay: 0.19 },
+  { rgb: [120, 62, 34],  x: 0.88, y: 0.66, r: 0.50, sx: 0.22, sy: 0.13, ax: 0.17, ay: 0.12 }
 ];
 
 export default function AmbientField() {
@@ -67,12 +70,12 @@ export default function AmbientField() {
            different rates keep the loop from visibly repeating. */
         const x = b.x + Math.sin(t * b.sx + i) * b.ax + Math.sin(t * b.sx * 0.37) * 0.05;
         const y = b.y + Math.cos(t * b.sy + i * 1.7) * b.ay + Math.cos(t * b.sy * 0.43) * 0.04;
-        const r = b.r * (0.82 + 0.18 * Math.sin(t * 0.19 + i * 2.1));
+        const r = b.r * (0.84 + 0.16 * Math.sin(t * 0.22 + i * 2.1));
 
         const g = ctx.createRadialGradient(x * W, y * H, 0, x * W, y * H, r * W);
         const [rr, gg, bb] = b.rgb;
-        g.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, 0.5)`);
-        g.addColorStop(0.45, `rgba(${rr}, ${gg}, ${bb}, 0.22)`);
+        g.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, 0.95)`);
+        g.addColorStop(0.5, `rgba(${rr}, ${gg}, ${bb}, 0.45)`);
         g.addColorStop(1, `rgba(${rr}, ${gg}, ${bb}, 0)`);
 
         ctx.fillStyle = g;

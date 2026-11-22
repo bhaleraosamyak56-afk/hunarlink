@@ -5566,28 +5566,24 @@ html {
    behind them, which is why neither needs a card of its own.
    ========================================================================== */
 
-/* The hero has TWO grid children: the copy block and the bento collage. The
-   portrait therefore lives *inside* the copy block, which becomes its own
-   two-column grid -- a fixed 300px portrait and a flexible text column.
-   Making .hero-grid three columns instead put the copy in a 300px cell and
-   pushed the collage into the middle, leaving the right third empty. */
-.hero-grid {
-  grid-template-columns: 1.38fr 0.92fr;
-  gap: clamp(24px, 3vw, 48px);
-  align-items: center;
+/* The hero has TWO grid children: the copy block and the bento collage.
+   This override MUST stay inside a min-width query. Written bare it sits
+   later in the file than the `@media (max-width: 1180px)` rule that collapses
+   .hero-grid to one column, so it silently won over it and the hero stayed
+   two-up on a 390px phone, clipping every bento card. */
+@media (min-width: 1181px) {
+  .hero-grid {
+    grid-template-columns: 1.38fr 0.92fr;
+    gap: clamp(24px, 3vw, 48px);
+    align-items: center;
+  }
 }
 
 .hero-left {
-  display: grid;
-  grid-template-columns: clamp(240px, 22vw, 306px) minmax(0, 1fr);
-  column-gap: clamp(20px, 2.4vw, 34px);
-  align-items: stretch;
+  display: block;
+  min-width: 0;
 }
 
-/* Two explicit columns rather than a spanning child: a `grid-row: 1 / -1`
-   child only spans the rows that exist, and with implicit rows it collapsed
-   to the height of the ribbon. The copy is now a single wrapper, so it is
-   one grid item and behaves. */
 .hero-copy {
   display: flex;
   flex-direction: column;
@@ -5832,24 +5828,24 @@ body {
 .hero-section {
   background:
     radial-gradient(circle at 82% 22%, rgba(212, 175, 55, 0.11), transparent 48%),
-    linear-gradient(180deg, rgba(247, 245, 238, 0.88) 0%, rgba(243, 240, 230, 0.9) 100%);
+    linear-gradient(180deg, rgba(247, 245, 238, 0.76) 0%, rgba(243, 240, 230, 0.8) 100%);
 }
 
 .verification-section {
-  background-color: rgba(250, 249, 245, 0.88);
+  background-color: rgba(250, 249, 245, 0.74);
 }
 
 .marketplace-section {
-  background-color: rgba(250, 249, 245, 0.88);
+  background-color: rgba(250, 249, 245, 0.74);
 }
 
 .guilds-section,
 .artisans-section {
-  background-color: rgba(247, 245, 238, 0.88);
+  background-color: rgba(247, 245, 238, 0.76);
 }
 
 .site-footer {
-  background-color: rgba(239, 236, 226, 0.9);
+  background-color: rgba(239, 236, 226, 0.82);
 }
 
 /* The utility strip and header must stay opaque: text sits directly on them
@@ -5872,9 +5868,136 @@ body {
    an opaque wall. Combined with mix-blend-mode it reads through the section
    surfaces even where they are nearly opaque, which is what makes it feel
    like a living background rather than a colour wallpaper. */
-@supports (mix-blend-mode: soft-light) {
-  .ambient-field {
-    mix-blend-mode: soft-light;
-    opacity: 0.72;
+/* Soft-light was the wrong tool. Blending a soft-light layer over a surface
+   that is already near-white returns something very close to the base colour:
+   measured across a 1440x900 viewport, 2.5 seconds of animation changed 963
+   pixels out of 1,296,000 -- 0.07%, i.e. invisible. The field now composites
+   normally, and the sections above it are genuinely translucent so the colour
+   itself shows through rather than being filtered by a blend mode. */
+.ambient-field {
+  opacity: 0.30;
+  mix-blend-mode: normal;
+}
+
+
+/* ==========================================================================
+   Hero atmosphere — craftsmen behind the hero, at low opacity
+   --------------------------------------------------------------------------
+   Replaces the framed portrait that used to sit in its own column. Three
+   photographs, offset and cropped, at 0.16 opacity, under a wash that is
+   heaviest where the headline sits. The effect is texture and silhouette
+   rather than a picture you look at: at this strength the faces read as
+   shapes, which is what makes it read as a background instead of a gallery.
+
+   Decorative only: aria-hidden on the wrapper, empty alt on every image.
+   ========================================================================== */
+
+.hero-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* the wash: creamy at the text column, thinning to the right */
+  background:
+    linear-gradient(90deg, rgba(247, 245, 238, 0.94) 0%, rgba(247, 245, 238, 0.8) 34%, rgba(247, 245, 238, 0.5) 62%, rgba(247, 245, 238, 0.62) 100%),
+    linear-gradient(180deg, rgba(247, 245, 238, 0.6) 0%, rgba(247, 245, 238, 0.18) 42%, rgba(247, 245, 238, 0.85) 100%);
+}
+
+.ha-img {
+  position: absolute;
+  object-fit: cover;
+  opacity: 0.2;
+  filter: saturate(0.68) contrast(1.04);
+
+  /* Feathering is what stops these reading as pasted rectangles. Without a
+     mask the object-fit box has hard vertical edges, and at 0.2 opacity those
+     edges are the most visible thing on the page. The mask fades every edge
+     into nothing, so what is left is a shape rather than a photograph. */
+  -webkit-mask-image: radial-gradient(
+    ellipse 62% 58% at 50% 48%,
+    #000 0%,
+    rgba(0, 0, 0, 0.85) 42%,
+    rgba(0, 0, 0, 0) 78%
+  );
+  mask-image: radial-gradient(
+    ellipse 62% 58% at 50% 48%,
+    #000 0%,
+    rgba(0, 0, 0, 0.85) 42%,
+    rgba(0, 0, 0, 0) 78%
+  );
+
+  animation: ha-drift 34s ease-in-out infinite alternate;
+}
+
+.ha-1 {
+  left: 30%;
+  top: -12%;
+  width: 26vw;
+  height: 118%;
+  object-position: 50% 30%;
+}
+
+.ha-2 {
+  left: 55%;
+  top: -18%;
+  width: 24vw;
+  height: 122%;
+  object-position: 50% 34%;
+  opacity: 0.13;
+  animation-delay: -9s;
+  animation-duration: 41s;
+}
+
+.ha-3 {
+  left: 84%;
+  top: -14%;
+  width: 22vw;
+  height: 116%;
+  object-position: 50% 28%;
+  opacity: 0.1;
+  animation-delay: -18s;
+  animation-duration: 47s;
+}
+
+@keyframes ha-drift {
+  from { transform: translate3d(0, -1.6%, 0) scale(1.02); }
+  to   { transform: translate3d(0, 1.6%, 0) scale(1.06); }
+}
+
+/* the content column must sit above the atmosphere layer */
+.hero-section .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* the copy panels are translucent so the photograph passes behind them
+   without ever putting text on a busy area */
+.hero-section .cred-ribbon,
+.hero-section .hero-artisan-proof {
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ha-img {
+    animation: none;
   }
+}
+
+@media (max-width: 900px) {
+  /* stack the three photographs horizontally as one band rather than three
+     overlapping columns, which is unreadable at this width */
+  .ha-1 { left: 0;   width: 40vw; opacity: 0.14; }
+  .ha-2 { left: 32%; width: 40vw; opacity: 0.12; }
+  .ha-3 { left: 64%; width: 40vw; opacity: 0.14; }
+}
+
+@media (max-width: 680px) {
+  .ha-img { opacity: 0.1; }
+  .ha-2 { display: none; }
 }

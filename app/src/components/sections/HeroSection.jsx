@@ -71,34 +71,17 @@ export default function HeroSection() {
 
   return (
     <section className="hero-section" id="hero-section">
+      {/* Craftsmen at work, low opacity, behind the whole hero. Decorative
+          only: aria-hidden, and the hero copy sits on translucent panels so
+          the only thing the photograph touches directly is empty margin. */}
+      <div className="hero-atmosphere" aria-hidden="true">
+        <img className="ha-img ha-1" src={`${import.meta.env.BASE_URL}img/artisans/artisan-02.jpg`} alt="" />
+        <img className="ha-img ha-2" src={`${import.meta.env.BASE_URL}img/artisans/artisan-03.jpg`} alt="" />
+        <img className="ha-img ha-3" src={`${import.meta.env.BASE_URL}img/artisans/artisan-05.jpg`} alt="" />
+      </div>
       <div className="container">
         <div className="hero-grid">
           <div className="hero-left">
-            {/* The weaver. Deliberately visible -- this is the one photograph
-                on the page at full strength, not a background wash, because
-                the claim above it is "direct from artisan looms". */}
-            <div className="hero-craftsman">
-              <img
-                src={`${import.meta.env.BASE_URL}img/artisans/artisan-01.jpg`}
-                alt="Ustad Nazir Ahmad Bhat at his kani pit-loom in Srinagar"
-                width="1024"
-                height="1536"
-                fetchPriority="high"
-              />
-              <div className="hero-craftsman-caption">
-                <span className="hcc-kicker">Srinagar &middot; Kani pit-loom</span>
-                <span className="hcc-name">Ustad Nazir Ahmad Bhat</span>
-              </div>
-              <div className="hero-craftsman-badge">
-                <span className="hcb-num">45</span>
-                <span className="hcb-label">
-                  years
-                  <br />
-                  at the loom
-                </span>
-              </div>
-            </div>
-
             <div className="hero-copy">
             <div className="cred-ribbon">
               <span className="cr-dot" aria-hidden="true" />
@@ -209,7 +192,7 @@ export default function HeroSection() {
           <button
             type="button"
             className="trust-item"
-            onClick={() => scrollTo('craft-guilds-section')}
+            onClick={() => scrollTo('artisan-showcase-section')}
           >
             <div className="trust-icon-box"><IconBadgeCheck size={16} /></div>
             <div>
