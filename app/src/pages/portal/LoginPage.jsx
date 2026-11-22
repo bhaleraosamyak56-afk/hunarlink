@@ -143,7 +143,7 @@ const DEFAULT_PROFILE = {
   phone: '+91 98112 77420',
   gender: 'Female',
   dob: '1996-05-14',
-  bio: 'Collector of GI-certified Kashmiri Pashmina, Kani shawls, and hand-carved walnut woodcraft.',
+  bio: 'Buyer of GI-certified Kashmiri Pashmina, Kani shawls, and hand-carved walnut woodcraft.',
   preferredUpi: 'priya.sharma@okaxis',
   preferredPayment: 'UPI Verified Escrow',
   avatarColor: '#E05A17',
@@ -200,7 +200,7 @@ export default function LoginPage() {
         email: updated.email,
         phone: updated.phone,
         role: 'buyer',
-        title: 'Verified Valley Collector \u2022 J&K',
+        title: 'Verified Valley Buyer \u2022 J&K',
         badge: updated.badge,
         isLoggedIn: updated.isLoggedIn
       }, { silent: true });
@@ -254,7 +254,7 @@ export default function LoginPage() {
       fullName: p.fullName,
       email: p.email,
       role: 'buyer',
-      title: 'Verified Valley Collector \u2022 J&K',
+      title: 'Verified Valley Buyer \u2022 J&K',
       badge: p.badge,
       isLoggedIn: p.isLoggedIn
     }, { silent: true });
@@ -270,7 +270,7 @@ export default function LoginPage() {
       fullName: profile.fullName,
       email: profile.email,
       role: 'buyer',
-      title: 'Verified Valley Collector \u2022 J&K',
+      title: 'Verified Valley Buyer \u2022 J&K',
       badge: profile.badge,
       isLoggedIn: true
     }, { silent: true });
@@ -637,7 +637,7 @@ export default function LoginPage() {
               <div className="up-brand-title">HunarLink</div>
               <div className="up-brand-sub">
                 {signedIn
-                  ? isArtisanSession ? 'Artisan Workspace' : 'Collector Account'
+                  ? isArtisanSession ? 'Artisan Workspace' : 'User Account'
                   : 'My Account'}
               </div>
             </div>
@@ -685,7 +685,7 @@ export default function LoginPage() {
             <div>
               <div className="login-pill" id="left-pill">
                 <IconSpark size={11} />
-                {role === 'artisan' ? 'Artisan account' : 'Collector account'}
+                {role === 'artisan' ? 'Artisan account' : 'User account'}
               </div>
               <h1 id="left-heading">
                 {role === 'artisan'
@@ -754,7 +754,7 @@ export default function LoginPage() {
                   onClick={() => switchRole('user')}
                 >
                   <IconUser size={14} />
-                  Collector
+                  User
                 </button>
                 <button
                   type="button"

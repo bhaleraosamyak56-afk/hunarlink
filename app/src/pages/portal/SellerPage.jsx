@@ -347,7 +347,7 @@ export default function SellerPage() {
           sourceKey: prodId,
           sourceIndex: i,
           type: 'Verified Buyer Review',
-          author: rev.author || 'Verified Collector',
+          author: rev.author || 'Verified Buyer',
           productTitle: title,
           date: rev.date || 'Recent',
           rating: rev.rating || 5,
@@ -902,7 +902,7 @@ export default function SellerPage() {
                   ) : (
                     orders.slice(0, 2).map((o) => {
                       const buyerName =
-                        o.buyer?.name || (o.address || '').split(',')[0] || 'HunarLink Collector';
+                        o.buyer?.name || (o.address || '').split(',')[0] || 'HunarLink User';
                       const stageLbl = TRACKING_STAGES[(o.stage || 1) - 1] || TRACKING_STAGES[0];
                       return (
                         <div
@@ -1317,7 +1317,7 @@ export default function SellerPage() {
                     visibleOrders.map((o) => {
                       const stage = o.stage || 1;
                       const buyer = o.buyer || {};
-                      const name = buyer.name || (o.address || '').split(',')[0] || 'HunarLink Collector';
+                      const name = buyer.name || (o.address || '').split(',')[0] || 'HunarLink User';
                       const phone = buyer.phone || '+91 98110 44210';
                       const email = buyer.email || 'collector@hunarlink.in';
                       const locality = buyer.locality || o.address || 'Verified Delivery Address';
@@ -1432,7 +1432,7 @@ export default function SellerPage() {
                       <span className="kpi-icon">♡</span>
                     </div>
                     <div className="kpi-value">{products.filter((p) => wishlist.includes(p.id)).length}</div>
-                    <div className="kpi-sub">Collectors watching your crafts</div>
+                    <div className="kpi-sub">Users watching your crafts</div>
                   </div>
                   <div className="kpi-card">
                     <div className="kpi-top">

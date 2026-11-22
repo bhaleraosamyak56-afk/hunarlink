@@ -7,6 +7,7 @@ import {
   pushRecentlyViewed,
   readRecentlyViewed
 } from '../utils/legacy.js';
+import { SEED_PRODUCTS } from '../data/products.js';
 
 /* ==========================================================================
    Store
@@ -62,7 +63,7 @@ const DEFAULT_BUYER = {
   fullName: 'Priya Sharma',
   email: 'priya.sharma@valleycollector.in',
   role: 'buyer',
-  title: 'Verified Valley Collector \u2022 J&K',
+  title: 'Verified Valley Buyer \u2022 J&K',
   badge: 'PS',
 
   isLoggedIn: true
@@ -70,13 +71,28 @@ const DEFAULT_BUYER = {
 
 const DEFAULT_ADDRESS = {
   id: 'addr-1',
-  name: 'Demo Collector',
+  name: 'Demo User',
   phone: '0000000000',
   line1: 'Houseboat Road, Dal Gate',
   city: 'Srinagar',
   state: 'Jammu & Kashmir',
   pin: '190001'
 };
+
+/* ------------------------------------------------------------ price bounds
+
+   The slider used to be hard-wired to 500-220000 while the catalogue's real
+   spread was 450-210000, so the left third of the track did nothing and the
+   top was unreachable. Both ends are now measured from the catalogue itself:
+   the cheapest listed piece and the dearest one.
+
+   MAX_PRICE is the slider's *unfiltered* value. A slider has to have a
+   numeric position for "show everything", and setting it to the dearest
+   listing is what makes the whole catalogue visible at rest. */
+
+const PRICE_MIN = Math.floor(Math.min(...SEED_PRODUCTS.map((p) => p.price)) / 50) * 50;
+const PRICE_MAX = Math.ceil(Math.max(...SEED_PRODUCTS.map((p) => p.price)) / 50) * 50;
+export const PRICE_BOUNDS = { min: PRICE_MIN, max: PRICE_MAX };
 
 /* Filter defaults, matching the static build's AppState.filters exactly. The
    keys differ on purpose: the static one called search "search", this one
@@ -85,7 +101,7 @@ const DEFAULT_FILTERS = {
   query: '',
   guild: 'all',
   artisan: '',
-  maxPrice: 220000,
+  maxPrice: PRICE_MAX,
   minRating: 0,
   giTier: 0,
   district: 'all',

@@ -12,7 +12,8 @@ import Modal from '../Modal.jsx';
 
 const ROWS = [
   ['Direct Artisan Price', (p) => formatINR(p.price)],
-  ['Listed MRP', (p) => formatINR(p.mrp)],
+  ['Original Market Price', (p) => formatINR(p.originalPrice ?? p.mrp)],
+  ['Store MRP', (p) => formatINR(p.mrp)],
   ['Guild', (p) => p.guildLabel],
   ['Master Artisan', (p) => p.artisan],
   ['Valley Cluster', (p) => p.district],
@@ -20,7 +21,7 @@ const ROWS = [
   ['Lab Purity', (p) => p.purityMetric],
   ['GI Level', (p) => `Level ${p.giLevel}`],
   ['GI ID', (p) => p.giId],
-  ['Collector Rating', (p) => `${p.rating.toFixed(1)} \u2605 (${p.reviewCount})`]
+  ['User Rating', (p) => `${p.rating.toFixed(1)} \u2605 (${p.reviewCount})`]
 ];
 
 export default function CompareModal() {

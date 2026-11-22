@@ -6,7 +6,7 @@ import Modal from '../Modal.jsx';
 /* ==========================================================================
    CheckoutModal — four-step acquisition wizard
    --------------------------------------------------------------------------
-   1. Collector identity
+   1. User identity
    2. Delivery address (saved, or add a new one)
    3. Order summary with the GI certificate preview
    4. Simulated escrow payment
@@ -16,7 +16,7 @@ import Modal from '../Modal.jsx';
    ========================================================================== */
 
 const STEPS = [
-  '1. Collector ID',
+  '1. User ID',
   '2. Delivery Address',
   '3. GI Certificate & Summary',
   '4. Escrow Payment'
@@ -41,7 +41,7 @@ export default function CheckoutModal() {
 
   const [step, setStep] = useState(1);
   const [buyer, setBuyer] = useState({
-    name: user?.name || 'Demo Collector',
+    name: user?.name || 'Demo User',
     phone: user?.phone || '+91 0000000000'
   });
   const [addressId, setAddressId] = useState(addresses[0]?.id);
@@ -180,7 +180,7 @@ export default function CheckoutModal() {
         {step === 1 && (
           <div style={{ background: 'var(--bg-ivory)', padding: 18, borderRadius: 10 }}>
             <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.35rem', marginBottom: 10 }}>
-              Step 1: Collector Identity &amp; GI Ownership Registration
+              Step 1: User Identity &amp; GI Ownership Registration
             </h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-500)', marginBottom: 14 }}>
               Your name is cryptographically bound to the Digital GI Ownership Passport upon
@@ -188,7 +188,7 @@ export default function CheckoutModal() {
             </p>
             <div className="form-grid">
               <div className="form-field">
-                <label htmlFor="chk-buyer-name">Collector Full Name</label>
+                <label htmlFor="chk-buyer-name">Full Name</label>
                 <input
                   type="text"
                   id="chk-buyer-name"

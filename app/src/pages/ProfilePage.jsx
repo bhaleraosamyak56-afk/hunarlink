@@ -19,7 +19,7 @@ const DEFAULT_PROFILE = {
   phone: '+91 98112 77420',
   gender: 'Female',
   dob: '1996-05-14',
-  bio: 'Collector of GI-certified Kashmiri Pashmina, Kani shawls, and hand-carved walnut woodcraft.',
+  bio: 'Buyer of GI-certified Kashmiri Pashmina, Kani shawls, and hand-carved walnut woodcraft.',
   preferredUpi: 'priya.sharma@okaxis',
   preferredPayment: 'UPI Verified Escrow',
   avatarColor: '#E05A17',
@@ -120,7 +120,7 @@ export default function ProfilePage() {
         fullName: profile.fullName,
         email: profile.email,
         role: 'buyer',
-        title: 'Verified Valley Collector \u2022 J&K',
+        title: 'Verified Valley Buyer \u2022 J&K',
         badge: profile.badge,
         isLoggedIn: profile.isLoggedIn
       });
@@ -273,7 +273,7 @@ export default function ProfilePage() {
         <span className="up-emblem">H</span>
         <div>
           <div className="up-brand-title">HunarLink</div>
-          <div className="up-brand-sub">Collector Account &amp; Profile</div>
+          <div className="up-brand-sub">User Account &amp; Profile</div>
         </div>
       </a>
       <nav className="up-nav-links">
@@ -295,7 +295,7 @@ export default function ProfilePage() {
   <main className="up-container">
     {/* the page had no h1 at all — every section started at h2, so assistive
         tech had no page name to announce */}
-    <h1 className="up-page-h1">Collector Account &amp; Profile</h1>
+    <h1 className="up-page-h1">User Account &amp; Profile</h1>
     <div className="fk-account-grid">
 
       {/* LEFT SIDEBAR */}
@@ -438,7 +438,7 @@ export default function ProfilePage() {
               </div>
 
               <div style={{marginBottom: '14px'}}>
-                <label className="up-label" htmlFor="prof-bio">Collector Bio &amp; Craft Preferences</label>
+                <label className="up-label" htmlFor="prof-bio">User Bio &amp; Craft Preferences</label>
                 <textarea id="prof-bio" className="up-textarea" rows="2"
                   placeholder="Tell artisans about your favorite Kashmiri crafts..."
                   disabled={personalLocked} value={profile.bio || ''}

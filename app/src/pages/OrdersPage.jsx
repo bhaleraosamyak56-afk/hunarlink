@@ -22,7 +22,7 @@ const ORDER_STAGES = [
   { label: 'GI Seal Verified', desc: 'Lab purity & laser QR sealed' },
   { label: 'Packed at Loom', desc: 'Insured Kashmiri heirloom box' },
   { label: 'Out for Delivery', desc: 'Tracked insured transit' },
-  { label: 'Delivered', desc: 'Verified by Collector' }
+  { label: 'Delivered', desc: 'Verified by Buyer' }
 ];
 
 /* Image paths arrive from three places — seeded orders, the checkout wizard and
@@ -179,7 +179,7 @@ export default function OrdersPage() {
                   marginBottom: 6
                 }}
               >
-                Collector Account
+                User Account
               </div>
 
               {signedIn ? (

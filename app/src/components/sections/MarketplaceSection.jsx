@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useStore } from '../../state/StoreContext.jsx';
+import { useStore, PRICE_BOUNDS } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
 import ProductCard from '../ProductCard.jsx';
 
@@ -118,7 +118,7 @@ export default function MarketplaceSection() {
   if (f.guild !== 'all') chips.push(`Guild: ${f.guild.toUpperCase()}`);
   if (f.artisan) chips.push(`Artisan: ${f.artisan}`);
   if (f.query) chips.push(`Search: "${f.query}"`);
-  if (f.maxPrice < 220000) chips.push(`Max: ${formatINR(f.maxPrice)}`);
+  if (f.maxPrice < PRICE_BOUNDS.max) chips.push(`Max: ${formatINR(f.maxPrice)}`);
   if (f.district !== 'all') chips.push(`Cluster: ${f.district}`);
 
   return (
@@ -153,23 +153,31 @@ export default function MarketplaceSection() {
             <label className="filter-label" htmlFor="price-range-slider">
               <span>Max Price</span>
               <span id="price-slider-val">
-                {f.maxPrice >= 220000 ? 'Any price' : formatINR(f.maxPrice)}
+                {f.maxPrice >= PRICE_BOUNDS.max
+                  ? 'Any price'
+                  : formatINR(f.maxPrice)}
               </span>
             </label>
             <input
               type="range"
               id="price-range-slider"
               className="filter-range"
-              min="500"
-              max="220000"
-              step="500"
+              min={PRICE_BOUNDS.min}
+              max={PRICE_BOUNDS.max}
+              /* The step has to divide (max - min) exactly or the browser
+                 snaps both ends inward: with step=500 and a 450-210000 range
+                 the dearest piece (exactly 210000) was unreachable, so the
+                 grid showed 95 of 96 at full extension. Both bounds are
+                 multiples of 50, so 50 is always exact. */
+              step="50"
               value={f.maxPrice}
               aria-describedby="price-match-count"
               onChange={(e) => {
-                const v = Number(e.target.value);
-                /* dragging the slider must not thrash the veil, so it commits
-                   on the same debounce path as everything else */
-                runFilter({ maxPrice: v }, `Filtering under ${formatINR(v)}\u2026`);
+                /* The slider commits on every pixel of travel. Routing it
+                   through the veil made the grid sit still for 900ms after
+                   each drag, which is the opposite of what a slider is for.
+                   Everything else still gets the veil. */
+                setFilters({ maxPrice: Number(e.target.value) });
               }}
             />
             <div
@@ -258,7 +266,7 @@ export default function MarketplaceSection() {
               <option value="featured">Featured Heirloom Curations</option>
               <option value="price-asc">Price: Low to High</option>
               <option value="price-desc">Price: High to Low</option>
-              <option value="rating-desc">Collector Rating: High to Low</option>
+              <option value="rating-desc">User Rating: High to Low</option>
               <option value="hours-desc">Loom Hours: Most Intricate</option>
             </select>
           </div>

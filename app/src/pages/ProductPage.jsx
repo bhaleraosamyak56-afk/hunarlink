@@ -92,7 +92,8 @@ export default function ProductPage() {
   }
 
   const wished = wishlist.includes(product.id);
-  const discountPct = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+  const retailPrice = product.originalPrice ?? product.mrp;
+  const discountPct = Math.round(((retailPrice - product.price) / retailPrice) * 100);
 
   const buyNow = () => {
     addToCart(product.id, 1);
@@ -188,11 +189,16 @@ export default function ProductPage() {
                   {formatINR(product.price)}
                 </span>
                 <span className="pdp-price-mrp" id="pdp-price-mrp">
-                  {formatINR(product.mrp)}
+                  {formatINR(retailPrice)}
                 </span>
                 <span className="pdp-price-discount" id="pdp-price-discount">
-                  Save {formatINR(product.mrp - product.price)} ({discountPct}% Off)
+                  Save {formatINR(retailPrice - product.price)} ({discountPct}% Off)
                 </span>
+              </div>
+              <div className="pdp-price-note" id="pdp-price-note">
+                Original market price {formatINR(retailPrice)} &middot; retail
+                galleries typically list this piece higher because of two or
+                three middlemen. Here the artisan is paid directly.
               </div>
             </div>
 

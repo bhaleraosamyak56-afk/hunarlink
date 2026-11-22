@@ -28,7 +28,7 @@ const ROLES = [
   {
     id: 'collector',
     to: '/login',
-    title: 'Collector',
+    title: 'User',
     sub: 'Buy and collect',
     body: 'Track orders, keep a wishlist, save delivery addresses and follow the artisans you buy from.',
     cta: 'Continue as collector',

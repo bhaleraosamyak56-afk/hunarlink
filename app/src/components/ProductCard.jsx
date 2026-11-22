@@ -19,7 +19,11 @@ function ProductCard({ product: p, onBuyNow }) {
 
   const isWished = wishlist.includes(p.id);
   const isCompared = compareList.includes(p.id);
-  const discountPct = Math.round(((p.mrp - p.price) / p.mrp) * 100);
+  /* The percentage is measured against the ORIGINAL market price, not the
+     store's own MRP — that is the saving a collector would actually make
+     against buying the same piece elsewhere. */
+  const retail = p.originalPrice ?? p.mrp;
+  const discountPct = Math.round(((retail - p.price) / retail) * 100);
 
   const open = () => navigate(`/product?id=${encodeURIComponent(p.id)}`);
 
@@ -83,10 +87,14 @@ function ProductCard({ product: p, onBuyNow }) {
 
         <div className="product-footer-row">
           <div>
-            <div className="price-kicker">Direct Artisan Price ({discountPct}% Off)</div>
+            <div className="price-kicker">
+              Direct Artisan Price &bull; {discountPct}% below retail
+            </div>
             <div>
               <span className="price-main">{formatINR(p.price)}</span>
-              <span className="price-mrp">{formatINR(p.mrp)}</span>
+              <span className="price-mrp" title="Original market price">
+                {formatINR(p.originalPrice ?? p.mrp)}
+              </span>
             </div>
           </div>
         </div>

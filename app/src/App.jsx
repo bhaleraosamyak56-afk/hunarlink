@@ -9,6 +9,7 @@ import WishlistDrawer from './components/WishlistDrawer.jsx';
 import CompareBar from './components/CompareBar.jsx';
 import Toasts from './components/Toasts.jsx';
 import ChatWidget from './components/ChatWidget.jsx';
+import AmbientField from './components/AmbientField.jsx';
 import GiVerifyModal from './components/modals/GiVerifyModal.jsx';
 import LoginChoiceModal from './components/modals/LoginChoiceModal.jsx';
 import CompareModal from './components/modals/CompareModal.jsx';
@@ -85,6 +86,10 @@ export default function App() {
 
   return (
     <>
+      {/* Fixed, aria-hidden, sits behind every page. Storefront only: the
+          portal pages carry their own full-bleed surfaces and the login page
+          already has a photograph behind it. */}
+      {!isAuth && !isPortal && <AmbientField />}
       <SpaRedirect />
       <LegacyRoutes />
       {!isAuth && !isPortal && <UtilityBar />}

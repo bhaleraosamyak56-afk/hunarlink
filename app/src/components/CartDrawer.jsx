@@ -130,7 +130,7 @@ export default function CartDrawer() {
                     <span className="wl-meta">{p.giId}</span>
                     <span className="wl-price">
                       {formatINR(p.price * qty)}
-                      <s>{formatINR(p.mrp * qty)}</s>
+                      <s>{formatINR((p.originalPrice ?? p.mrp) * qty)}</s>
                     </span>
                   </span>
                 </button>

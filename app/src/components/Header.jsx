@@ -285,7 +285,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
                 className="profile-avatar-btn"
                 id="profile-menu-btn"
                 ref={profileBtnRef}
-                aria-label="Collector Profile Menu"
+                aria-label="User Profile Menu"
                 aria-expanded={profileOpen}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -300,7 +300,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
                     {user?.fullName || user?.name || 'Priya Sharma'}
                   </div>
                   <div className="profile-menu-role">
-                    {user?.title || 'Verified Valley Collector \u2022 J&K'}
+                    {user?.title || 'Verified Valley Buyer \u2022 J&K'}
                   </div>
                 </div>
                 <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); navigate('/profile'); }}>

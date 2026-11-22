@@ -18,7 +18,7 @@ import '../styles/auth.css';
    gallery upload is only the fallback when no camera exists. Nothing is faked:
    if getUserMedia is unavailable or denied, the file input is what you get.
 
-   Signed-in artisans land on the seller workspace. Collectors are handled on
+   Signed-in artisans land on the seller workspace. Buyers are handled on
    /login, which shares the same profile key.
    ========================================================================== */
 

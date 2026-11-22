@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
-import { asset } from '../../utils/legacy.js';
+import { asset, formatINR } from '../../utils/legacy.js';
 
 /* ==========================================================================
    HeroSection
@@ -28,7 +28,7 @@ const BENTO = [
     img: 'image_2.jpg',
     alt: 'Jamawar Heirloom Stole',
     main: true,
-    pill: '\u2713 GI Certified Loom #108 \u2022 \u20b91,850',
+    pill: '\u2713 GI Certified Loom #108',
     kicker: 'Kani Masterweave \u2022 Srinagar',
     name: 'Jamawar Heirloom Stole'
   },
@@ -52,7 +52,12 @@ const BENTO = [
 
 export default function HeroSection() {
   const navigate = useNavigate();
-  const { openModal, openDrawer } = useStore();
+  const { openModal, openDrawer, catalogue } = useStore();
+
+  /* The price on the feature card is read from the live catalogue. It used to
+     be typed into the string above, which left the hero advertising Rs 1,850
+     for a piece the grid below listed at a hundred times that. */
+  const featurePrice = catalogue.find((p) => p.id === BENTO[0].id)?.price;
   const [place, setPlace] = useState(0);
 
   useEffect(() => {
@@ -68,6 +73,32 @@ export default function HeroSection() {
       <div className="container">
         <div className="hero-grid">
           <div className="hero-left">
+            {/* The weaver. Deliberately visible -- this is the one photograph
+                on the page at full strength, not a background wash, because
+                the claim above it is "direct from artisan looms". */}
+            <div className="hero-craftsman">
+              <img
+                src={`${import.meta.env.BASE_URL}img/artisans/artisan-01.jpg`}
+                alt="Ustad Nazir Ahmad Bhat at his kani pit-loom in Srinagar"
+                width="1024"
+                height="1536"
+                fetchPriority="high"
+              />
+              <div className="hero-craftsman-caption">
+                <span className="hcc-kicker">Srinagar &middot; Kani pit-loom</span>
+                <span className="hcc-name">Ustad Nazir Ahmad Bhat</span>
+              </div>
+              <div className="hero-craftsman-badge">
+                <span className="hcb-num">45</span>
+                <span className="hcb-label">
+                  years
+                  <br />
+                  at the loom
+                </span>
+              </div>
+            </div>
+
+            <div className="hero-copy">
             <div className="cred-ribbon">
               <span className="cr-dot" aria-hidden="true" />
               <b>GI-Certified</b>
@@ -86,9 +117,7 @@ export default function HeroSection() {
             </div>
 
             <div className="hero-location-pill">
-              <span className="pill-pin" aria-hidden="true">
-                &#128205;
-              </span>
+              <span className="pill-pin" aria-hidden="true" />
               <span className="loc-rotor" aria-hidden="true">
                 {PLACES.map((p, i) => (
                   <span
@@ -143,6 +172,7 @@ export default function HeroSection() {
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
           <div className="hero-bento">
@@ -160,7 +190,10 @@ export default function HeroSection() {
                   decoding={b.main ? undefined : 'async'}
                 />
                 <div className="bento-overlay">
-                  <span className="bento-top-pill">{b.pill}</span>
+                  <span className="bento-top-pill">
+                    {b.pill}
+                    {b.main && featurePrice ? ` \u2022 ${formatINR(featurePrice)}` : ''}
+                  </span>
                   <div>
                     <span className="bento-kicker">{b.kicker}</span>
                     <div className="bento-name">{b.name}</div>

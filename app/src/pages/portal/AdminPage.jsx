@@ -470,7 +470,7 @@ export default function AdminPage() {
                       <h4>Channel A: Retail Marketplace</h4>
                       <p>Customers purchasing directly from approved Master Artisans. 100% direct remuneration, 0% platform commission on GI heirlooms.</p>
                       <div className="stat-row"><span>Active Products:</span><strong id="stat-retail-prods">{kpis?.catalog.retail_products ?? '—'}</strong></div>
-                      <div className="stat-row"><span>Registered Collectors:</span><strong id="stat-customers">{kpis?.users.total_customers ?? '—'}</strong></div>
+                      <div className="stat-row"><span>Registered Users:</span><strong id="stat-customers">{kpis?.users.total_customers ?? '—'}</strong></div>
                     </div>
                     <div className="channel-box">
                       <h4>Channel B: Wholesale Marketplace</h4>

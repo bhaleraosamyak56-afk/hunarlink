@@ -174,7 +174,7 @@ export default function WholesalePage() {
       sellerDistrict: selected.district,
       buyer: {
         name: buyer.name.trim(),
-        company: buyer.company.trim() || 'Individual Bulk Collector',
+        company: buyer.company.trim() || 'Individual Bulk Buyer',
         phone: buyer.phone.trim(),
         email: buyer.email.trim(),
         city: buyer.city.trim(),
