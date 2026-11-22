@@ -1,53 +1,45 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { StoreProvider } from './state/StoreContext.jsx';
-import { canonicalPath } from './router/legacyMap.js';
 
 import './styles/base.css';
 import './styles/craft.css';
-import './styles/pdp.css';
-import './styles/auth.css';
-import './styles/react-overrides.css';
-
-import './legacy/hunarlink-controller.js';
-import './legacy/pdp-legacy.js';
+import './styles/widget.css';
 
 /* ==========================================================================
-   Router base
+   Entry point
    --------------------------------------------------------------------------
-   Vite bakes in "/hunarlink/react/". Using it verbatim as the router basename
-   breaks any URL that names a file explicitly — /react/index.html leaves the
-   router with "/index.html", which matches no route and renders the 404 page.
-
-   The base is therefore resolved from what the browser actually reports, and
-   whenever the request included a filename the URL is rewritten to the clean
-   directory form before the router mounts. Visitors land on the same page
-   either way, and the address bar ends up tidy.
+   GitHub Pages serves this from /hunarlink/ (or /hunarlink/react/ during the
+   staged rollout), and users reach it through file-style URLs like
+   /product.html?id=.... The router basename is therefore derived from the
+   document's own path rather than hard-coded, which is the bug that broke the
+   previous attempt on /react/index.html.
    ========================================================================== */
+
 function resolveBasename() {
-  const baked = import.meta.env.BASE_URL;            // "/hunarlink/react/"
-  const base = baked.replace(/\/$/, '');             // "/hunarlink/react"
-  const here = location.pathname.replace(/\/index\.html$/, '/').replace(/\/$/, '');
-  return here.startsWith(base) ? here : base;
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+  const path = window.location.pathname;
+
+  /* BASE_URL already knows which prefix we are served under. If the live path
+     starts with it, that prefix is the basename. */
+  if (base && path.startsWith(base)) return base;
+
+  /* Otherwise fall back to the directory of the current document, so a copy
+     opened from disk or a proxy still routes. */
+  const dir = path.replace(/[^/]*$/, '').replace(/\/$/, '');
+  return dir || '';
 }
 
 const basename = resolveBasename();
 
-/* Canonicalise a legacy file-style URL before the router mounts, so an old
-   bookmark or a link from the static site keeps working. */
-(function normaliseUrl() {
-  const clean = canonicalPath(location.pathname);
-  if (clean !== null) {
-    window.history.replaceState({}, '', clean + location.search + location.hash);
-  }
-})();
-
-ReactDOM.createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
     <BrowserRouter basename={basename}>
       <StoreProvider>
         <App />
       </StoreProvider>
     </BrowserRouter>
+  </React.StrictMode>
 );

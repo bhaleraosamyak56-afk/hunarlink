@@ -1,81 +1,811 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useStore } from '../state/StoreContext.jsx';
+import { AUTH_CONFIG, DEMO_ARTISANS } from '../data/authConfig.js';
+import AuthMarkup from './auth/AuthMarkup.jsx';
+import '../styles/auth.css';
 
-/* Converted mechanically from auth.html.
-   Review hand-ported handlers marked data-needs-port. */
+/* ==========================================================================
+   AuthPage — Artisan login, registration and password reset
+   --------------------------------------------------------------------------
+   Three states in one surface: login, register (with GI certification or as a
+   standard seller), and forgot-password. The state lives in the URL as well as
+   in React, so a shared link opens the same pane.
+
+   The live-camera verification suite is ported with the same rules the static
+   build enforced — a GI-registered artisan must capture a certificate photo, a
+   workshop video and a passport photo before the account is created, and a
+   gallery upload is only the fallback when no camera exists. Nothing is faked:
+   if getUserMedia is unavailable or denied, the file input is what you get.
+
+   Signed-in artisans land on the seller workspace. Collectors are handled on
+   /login, which shares the same profile key.
+   ========================================================================== */
+
+const AUTOFILL_CREDS = {
+  artisan_mir: ['ghulam.mir@zadibalpashmina.com', 'SozniLoom100%'],
+  artisan_wani: ['fayaz.wani@anantnagcrafts.org', 'WalnutArtisan#1']
+};
+
 export default function AuthPage() {
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const { setUser, toast, catalogue } = useStore();
+
+  const mode = ['login', 'register', 'forgot'].includes(params.get('mode'))
+    ? params.get('mode')
+    : 'login';
+  const [giMode, setGiMode] = useState('with_gi');
+  const [pwShown, setPwShown] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [skillCount, setSkillCount] = useState(0);
+  /* Register fields are controlled here rather than read back off the DOM.
+     Reading by id worked in the static build because the DOM was the state; in
+     React it silently produced empty values whenever the node had been
+     re-rendered. */
+  const [reg, setReg] = useState({
+    name: '', phone: '', email: '', password: '', cpassword: '',
+    craft: 'pashmina', business: '', district: 'Srinagar',
+    giId: '', skill: '', terms: false
+  });
+  const [login, setLogin] = useState({ email: '', password: '' });
+  const setLoginField = (key) => (e) =>
+    setLogin((l) => ({ ...l, [key]: e.target.value }));
+  const setRegField = (key) => (e) =>
+    setReg((r) => ({ ...r, [key]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
+  const [flashMsg, setFlashMsg] = useState('');
+
+  /* capture state — kept in a ref because the camera stream is not rendering
+     data and putting it in state would churn the tree on every frame */
+  const capture = useRef({
+    stream: null,
+    recorder: null,
+    chunks: [],
+    seconds: 0,
+    timer: null,
+    activeType: null,
+    cert: null,
+    video: null,
+    passport: null
+  });
+  const [shots, setShots] = useState({ cert: null, video: null, passport: null });
+  const [recSeconds, setRecSeconds] = useState(0);
+
+  const conf =
+    mode === 'forgot' ? AUTH_CONFIG.forgot : AUTH_CONFIG[`${mode}_artisan`];
+
+  const setMode = useCallback(
+    (next) => {
+      if (next !== 'register') stopAllCameras();
+      setParams({ mode: next, role: 'artisan' }, { replace: true });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setParams]
+  );
+
+  /* The page was authored against its own root scale; claim it while mounted
+     and hand it back on the way out. */
+  useEffect(() => {
+    document.documentElement.classList.add('auth-route');
+    return () => document.documentElement.classList.remove('auth-route');
+  }, []);
+
+  /* ------------------------------------------------------------- messaging */
+  const flash = (msg) => {
+    setFlashMsg(msg);
+    toast(msg, msg.startsWith('\u26a0') ? 'error' : 'default');
+    const box = document.getElementById('auth-toast');
+    if (box) {
+      box.textContent = msg;
+      box.classList.add('show');
+      setTimeout(() => box.classList.remove('show'), 3200);
+    }
+  };
+
+  /* ------------------------------------------------------------- passwords */
+  const togglePw = (id) => {
+    setPwShown((p) => ({ ...p, [id]: !p[id] }));
+  };
+  useEffect(() => {
+    Object.entries(pwShown).forEach(([id, shown]) => {
+      const el = document.getElementById(id);
+      if (el) el.type = shown ? 'text' : 'password';
+    });
+  }, [pwShown]);
+
+  /* --------------------------------------------------------- camera suite */
+  function stopAllCameras() {
+    const c = capture.current;
+    if (c.timer) clearInterval(c.timer);
+    if (c.recorder && c.recorder.state !== 'inactive') {
+      try {
+        c.recorder.stop();
+      } catch (e) {}
+    }
+    if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
+    c.stream = null;
+    c.recorder = null;
+    c.chunks = [];
+    c.activeType = null;
+    c.timer = null;
+    c.seconds = 0;
+    setRecSeconds(0);
+  }
+
+  useEffect(() => stopAllCameras, []);
+
+  async function openCamera(type) {
+    stopAllCameras();
+    const c = capture.current;
+    c.activeType = type;
+    const stage = document.getElementById(`${type}-camera-stage`);
+    const err = document.getElementById(`${type}-cam-error`);
+    const video = document.getElementById(`${type}-camera-video`);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: type === 'passport' ? { facingMode: 'user' } : { facingMode: 'environment' },
+        audio: type === 'video'
+      });
+      c.stream = stream;
+      if (video) {
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+      }
+      if (stage) stage.style.display = 'block';
+      if (err) err.style.display = 'none';
+    } catch (e) {
+      /* no camera, or the visitor declined — the upload path stays available */
+      if (stage) stage.style.display = 'block';
+      if (err) {
+        err.style.display = 'flex';
+        err.textContent =
+          '\u26a0\ufe0f Camera unavailable or permission denied. Use the upload button instead.';
+      }
+      if (video) {
+        video.style.display = 'none';
+      }
+    }
+  }
+
+  function capturePhoto(type) {
+    const c = capture.current;
+    const video = document.getElementById(`${type}-camera-video`);
+    if (!video || !video.videoWidth) {
+      flash('\u26a0\ufe0f Start the camera first, then capture.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    if (type === 'passport') {
+      /* 35 x 45 mm at 300dpi, centre-cropped — the passport size the copy
+         promises */
+      canvas.width = 413;
+      canvas.height = 531;
+    } else {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+    const ctx = canvas.getContext('2d');
+    if (type === 'passport') {
+      const min = Math.min(video.videoWidth, video.videoHeight * (413 / 531));
+      const sx = (video.videoWidth - min) / 2;
+      const sy = (video.videoHeight - min * (531 / 413)) / 2;
+      ctx.drawImage(video, sx, sy, min, min * (531 / 413), 0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+    c[type] = dataUrl;
+    setShots((s) => ({ ...s, [type]: dataUrl }));
+    showShot(type, dataUrl, 'Live capture');
+    stopAllCameras();
+  }
+
+  function showShot(type, url, label) {
+    const wrap = document.getElementById(`${type}-preview-wrap`);
+    const img = document.getElementById(`${type}-preview-img`);
+    const stage = document.getElementById(`${type}-camera-stage`);
+    const pill = document.getElementById(`${type}-status-pill`);
+    const stamp = document.getElementById(`${type}-meta-stamp`);
+    if (stage) stage.style.display = 'none';
+    if (wrap) {
+      wrap.style.display = 'block';
+      if (img) img.src = url;
+    }
+    if (pill) {
+      pill.textContent = '\u2713 Captured';
+      pill.classList.add('is-done');
+    }
+    if (stamp) stamp.textContent = `${label} \u2022 ${new Date().toLocaleString('en-IN')}`;
+    ['open', 'retake', 'snap', 'cancel'].forEach((k) => {
+      const b = document.getElementById(`btn-${type}-${k}`);
+      if (b) b.style.display = k === 'retake' ? 'inline-flex' : 'none';
+    });
+  }
+
+  function handleCaptureFile(type, ev) {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    if (type === 'video') {
+      capture.current.video = URL.createObjectURL(file);
+      const player = document.getElementById('video-preview-player');
+      const wrap = document.getElementById('video-preview-wrap');
+      if (player) player.src = capture.current.video;
+      if (wrap) wrap.style.display = 'block';
+      const pill = document.getElementById('video-status-pill');
+      if (pill) {
+        pill.textContent = '\u2713 Uploaded';
+        pill.classList.add('is-done');
+      }
+      setShots((s) => ({ ...s, video: capture.current.video }));
+      flash('Workshop video attached from this device.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      capture.current[type] = reader.result;
+      setShots((s) => ({ ...s, [type]: reader.result }));
+      showShot(type, reader.result, 'Uploaded from this device');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function startRecording() {
+    const c = capture.current;
+    if (!c.stream) {
+      flash('\u26a0\ufe0f Start the camera first.');
+      return;
+    }
+    const rec = new MediaRecorder(c.stream);
+    c.chunks = [];
+    rec.ondataavailable = (e) => {
+      if (e.data.size) c.chunks.push(e.data);
+    };
+    rec.onstop = () => {
+      const blob = new Blob(c.chunks, { type: 'video/webm' });
+      c.video = URL.createObjectURL(blob);
+      const player = document.getElementById('video-preview-player');
+      const wrap = document.getElementById('video-preview-wrap');
+      if (player) player.src = c.video;
+      if (wrap) wrap.style.display = 'block';
+      const pill = document.getElementById('video-status-pill');
+      if (pill) {
+        pill.textContent = '\u2713 Recorded';
+        pill.classList.add('is-done');
+      }
+      const stamp = document.getElementById('video-meta-stamp');
+      if (stamp)
+        stamp.textContent = `Live recording \u2022 ${c.seconds}s \u2022 ${new Date().toLocaleString('en-IN')}`;
+      setShots((s) => ({ ...s, video: c.video }));
+    };
+    c.recorder = rec;
+    rec.start();
+    c.seconds = 0;
+    setRecSeconds(0);
+    c.timer = setInterval(() => {
+      c.seconds += 1;
+      setRecSeconds(c.seconds);
+      const t = document.getElementById('video-rec-timer');
+      if (t) t.textContent = `REC ${String(c.seconds).padStart(2, '0')}s`;
+      if (c.seconds >= 30 && c.recorder && c.recorder.state === 'recording') stopRecording();
+    }, 1000);
+    document.getElementById('btn-video-start')?.style &&
+      (document.getElementById('btn-video-start').style.display = 'none');
+    const stopBtn = document.getElementById('btn-video-stop');
+    if (stopBtn) stopBtn.style.display = 'inline-flex';
+  }
+
+  function stopRecording() {
+    const c = capture.current;
+    if (c.timer) clearInterval(c.timer);
+    c.timer = null;
+    if (c.recorder && c.recorder.state !== 'inactive') c.recorder.stop();
+    const stopBtn = document.getElementById('btn-video-stop');
+    if (stopBtn) stopBtn.style.display = 'none';
+    const startBtn = document.getElementById('btn-video-start');
+    if (startBtn) startBtn.style.display = 'inline-flex';
+    if (c.stream) c.stream.getTracks().forEach((t) => t.stop());
+    c.stream = null;
+  }
+
+  function updateSkillCount(e) {
+    setSkillCount((e?.target?.value || '').trim().length);
+  }
+
+  /* --------------------------------------------------------------- sign in */
+  function signInArtisan(profile) {
+    const authUser = {
+      ...profile,
+      role: 'artisan',
+      giCertified: !!profile.giId,
+      verified: true,
+      isLoggedIn: true,
+      loginTime: new Date().toISOString()
+    };
+    setUser(authUser);
+    flash(`\u2713 Welcome ${authUser.name}! Verified Artisan Session Active. Opening Seller Portal...`);
+    setTimeout(() => navigate('/seller'), 900);
+  }
+
+  function submitLogin(e) {
+    e.preventDefault();
+    const email = String(login.email || '').trim();
+    const pwd = login.password;
+
+    if (!email || !pwd) {
+      flash('\u26a0\ufe0f Please enter both your email address and password.');
+      return;
+    }
+
+    let accounts = [];
+    try {
+      accounts = JSON.parse(localStorage.getItem('hunarlink_platform_users') || '[]');
+    } catch (err) {
+      accounts = [];
+    }
+    const known = accounts.find(
+      (a) => String(a.email || '').toLowerCase() === email.toLowerCase()
+    );
+
+    if (!known) {
+      flash(
+        `\u26a0\ufe0f No artisan account found for "${email}". Please register first, or use a Quick Evaluator Demo pill below.`
+      );
+      return;
+    }
+    if (known.role && known.role !== 'artisan') {
+      flash(
+        `\u26a0\ufe0f "${email}" is a Buyer account. Please use the User Login portal instead.`
+      );
+      return;
+    }
+    if (String(known.password || '') !== pwd) {
+      flash(
+        `\u26a0\ufe0f Incorrect password for "${email}". Try again or use a Quick Evaluator Demo pill.`
+      );
+      return;
+    }
+
+    signInArtisan({
+      name: known.name || 'Verified Artisan',
+      email: known.email || email,
+      phone: known.phone || '+91 00000 00000',
+      business: known.business || 'Kashmir Heritage Atelier',
+      craft: known.craft || 'pashmina',
+      district: known.district || 'Srinagar',
+      cluster: known.district || 'Srinagar',
+      giCertified: !!known.giCertified,
+      giId: known.giId || null,
+      badge: known.badge || 'AR',
+      title: known.title || 'Verified Artisan \u2022 Kashmir Heritage Guild'
+    });
+  }
+
+  function quickFill(which) {
+    const demo = DEMO_ARTISANS[which] || {};
+    setMode('login');
+    setLogin({ email: demo.email || '', password: AUTOFILL_CREDS[which]?.[1] || '' });
+    signInArtisan({ ...demo });
+  }
+
+  /* -------------------------------------------------------------- register */
+  function submitRegister(e) {
+    e.preventDefault();
+    const val = (key) => String(reg[key] || '').trim();
+    const name = val('name');
+    const phone = val('phone');
+    const email = val('email');
+    const pwd = reg.password;
+    const cpwd = reg.cpassword;
+    const craft = val('craft');
+    const business = val('business');
+    const district = val('district');
+
+    if (!name || !phone || !email) {
+      flash('\u26a0\ufe0f Name, mobile number and email are required.');
+      return;
+    }
+    if (!reg.terms) {
+      flash('\u26a0\ufe0f Please accept the artisan charter to continue.');
+      return;
+    }
+
+    if (pwd !== cpwd) {
+      flash('\u26a0\ufe0f Passwords do not match. Please verify.');
+      return;
+    }
+
+    let giId = null;
+    let skillDescription = null;
+
+    if (giMode === 'with_gi') {
+      giId = val('giId');
+      skillDescription = val('skill');
+      if (!giId) {
+        flash('\u26a0\ufe0f Please enter your official GI Certification / Tag ID.');
+        return;
+      }
+      if (!capture.current.cert) {
+        flash('\u26a0\ufe0f Please capture a live camera photo of your GI Certificate.');
+        document.getElementById('live-cert-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (!capture.current.video) {
+        flash('\u26a0\ufe0f Please record a live video of your product or workshop/warehouse.');
+        document.getElementById('live-video-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (!capture.current.passport) {
+        flash('\u26a0\ufe0f Please capture your live passport-size seller photo.');
+        document.getElementById('live-passport-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (skillDescription.length < 20) {
+        flash('\u26a0\ufe0f Please describe your craft & skill in at least 20 characters.');
+        return;
+      }
+    }
+
+    stopAllCameras();
+
+    let accounts = [];
+    try {
+      accounts = JSON.parse(localStorage.getItem('hunarlink_platform_users') || '[]');
+    } catch (err) {
+      accounts = [];
+    }
+    if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
+      flash('\u26a0\ufe0f An artisan account with this email already exists. Please sign in instead.');
+      return;
+    }
+
+    const initials =
+      name
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || 'AR';
+
+    accounts.push({
+      email,
+      phone: `+91 ${phone}`,
+      password: pwd,
+      role: 'artisan',
+      name,
+      business,
+      craft,
+      district,
+      giCertified: giMode === 'with_gi',
+      giId,
+      title:
+        giMode === 'with_gi'
+          ? `GI-Verified Artisan (${giId}) \u2022 ${district} Cluster`
+          : `Standard Artisan \u2022 ${district} Cluster`,
+      badge: initials
+    });
+    try {
+      localStorage.setItem('hunarlink_platform_users', JSON.stringify(accounts));
+    } catch (err) {
+      flash('\u26a0\ufe0f Browser storage is full — cannot save this account.');
+      return;
+    }
+
+    signInArtisan({
+      name,
+      email,
+      phone: `+91 ${phone}`,
+      business,
+      craft,
+      district,
+      giId,
+      skillDescription,
+      badge: initials,
+      title:
+        giMode === 'with_gi'
+          ? `GI-Verified Artisan (${giId}) \u2022 ${district} Cluster`
+          : `Standard Artisan \u2022 ${district} Cluster`
+    });
+  }
+
+  function submitForgot(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email')?.value?.trim();
+    if (!email) return;
+    flash(`\u2709\ufe0f Password reset link dispatched to ${email}! Check inbox & spam.`);
+    setTimeout(() => setMode('login'), 2000);
+  }
+
+  function socialAuth(provider) {
+    flash(`Connecting to ${provider} Secure Identity Gateway...`);
+    setTimeout(() => {
+      signInArtisan({
+        ...DEMO_ARTISANS.artisan_mir,
+        name: 'Master Ghulam Qadir Mir',
+        email: 'ustad.mir@gmail.com',
+        title: 'Master Artisan \u2022 Srinagar Pashmina Guild',
+        socialProvider: provider
+      });
+    }, 600);
+  }
+
+  function footerPrompt() {
+    handleFooterAction(conf.footerAction);
+  }
+
+  function handleFooterAction(action) {
+    setMode(action === 'register' ? 'register' : 'login');
+  }
+
+  /* ------------------------------------------------------------ hero pane */
+  const cards = conf.cards;
+
   return (
     <>
-      <div className="auth-container">{/* ========================================================================
-               LEFT HERO PANE: DYNAMIC CRAFT NARRATIVE & FEATURE BADGES
-               ======================================================================== */}<aside className="auth-hero-pane" id="auth-hero-pane"><div className="auth-hero-content">{/* Top Brand Title & Authenticity Pill */}<div className="hero-top-bar"><a href="index.html" className="hero-brand-logo">HunarLink</a><div className="hero-badge-pill"><span className="pill-dot">✺</span> AUTHENTIC • TRACEABLE • ARTISAN-CENTRIC
-                </div></div>{/* Center Dynamic Headline & Narrative */}<div className="hero-middle-body"><h1 className="hero-headline" id="hero-headline">
-                  Your Craft.<br /><span className="accent-gold">Your Identity.</span><br />Your Marketplace.
-                </h1><div className="hero-divider-bar"></div><p className="hero-subtext" id="hero-subtext">
-                  Take your traditional craftsmanship beyond borders. Build your digital storefront, connect with buyers and grow your business.
-                </p></div>{/* Bottom Dynamic Feature Cards (4 Cards for Artisan, 3 for Forgot) */}<div className="hero-cards-grid" id="hero-cards-grid">{/* Dynamic cards injected by JS */}</div></div></aside>{/* ========================================================================
-               RIGHT FORM PANE: ARTISAN AUTHENTICATION INTERFACE
-               ======================================================================== */}<main className="auth-form-pane"><div className="form-inner-wrap">{/* Top Navigation (Back to Home / Back to Login) */}<div className="auth-back-nav"><a href="index.html" className="auth-back-link" id="auth-back-link">
-                  ← Back to Home
-                </a></div>{/* Header Title & Subtitle */}<div className="form-heading-group"><h2 className="form-title" id="form-title">Welcome, Artisan</h2><p className="form-subtitle" id="form-subtitle">Access to your HunarLink Artisan Workspace</p></div>{/* Artisan Login Indicator (Shown ONLY in Login mode) */}<div className="auth-pill-switcher" id="auth-pill-switcher"><div className="auth-pill-btn active" id="pill-artisan" style={{ cursor: 'default' }}><span className="pill-icon">🔨</span><span id="pill-artisan-text">Artisan Login</span></div></div>{/* Two Seller Registration Type Buttons (Replaces "Artisan Register" button) */}<div className="gi-choice-switcher" id="gi-register-switcher" style={{ display: 'none' }} role="tablist" aria-label="Seller GI Certification Status"><button type="button" className="gi-choice-btn active" id="btn-has-gi" role="tab" aria-selected="true" onClick={() => { setGiRegistrationMode('with_gi'); }}><span className="gi-choice-title">🛡️ Have GI Certification / Tag</span><span className="gi-choice-sub">Enter GI ID + live camera & skill verification</span></button><button type="button" className="gi-choice-btn" id="btn-no-gi" role="tab" aria-selected="false" onClick={() => { setGiRegistrationMode('no_gi'); }}><span className="gi-choice-title">📝 No GI Certification / Tag</span><span className="gi-choice-sub">Standard seller account registration</span></button></div>{/* ====================================================================
-                   FORM 1: ARTISAN LOGIN FORM
-                   ==================================================================== */}<form id="form-login" onSubmit={() => { submitLoginForm(event); }}>{/* Email Address */}<div className="form-group"><label className="form-label">Email Address</label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span><input type="email" id="login-email" className="input-field" placeholder="Enter your email" required /></div></div>{/* Password */}<div className="form-group"><label className="form-label">Password</label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><input type="password" id="login-password" className="input-field" placeholder="Enter your password" required /><button type="button" className="input-btn-eye" onClick={() => { togglePasswordVisibility('login-password'); }} aria-label="Toggle password visibility"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></div>{/* Options: Remember Me & Forgot Password */}<div className="form-options-row"><label className="checkbox-label"><input type="checkbox" id="login-remember" checked /><span>Remember me</span></label><a href="#" className="link-forgot" data-needs-port="onclick">Forgot Password?</a></div>{/* Primary Submit Button */}<button type="submit" className="btn-submit-auth" id="login-submit-btn">
-                  Sign In to Workspace →
-                </button></form>{/* ====================================================================
-                   FORM 2: CREATE ARTISAN ACCOUNT (GI-CERTIFIED OR STANDARD SELLER)
-                   ==================================================================== */}<form id="form-artisan-register" style={{ display: 'none' }} onSubmit={() => { submitArtisanRegister(event); }}>{/* Info Banner for Standard Seller (No GI Certification) */}<div className="no-gi-info-banner" id="no-gi-info-banner" style={{ display: 'none' }}><span style={{ fontSize: '1rem', lineHeight: '1' }}>ℹ️</span><div><strong>Standard Seller Account:</strong> Enter your basic artisan details below to create your account
-                    right away. You can apply for GI Certification anytime later from your Artisan Studio.
-                  </div></div>{/* Row 1: Full Name & Phone */}<div className="form-grid-2col"><div className="form-group"><label className="form-label">Full Name <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span><input type="text" id="artisan-reg-name" className="input-field" placeholder="Enter your full name" required /></div></div><div className="form-group"><label className="form-label">Phone Number <span className="req">*</span></label><div className="input-wrapper phone-wrap"><div className="phone-prefix-box"><span className="phone-prefix">🇮🇳 +91</span></div><input type="tel" id="artisan-reg-phone" className="input-field" placeholder="Enter mobile number" required /></div></div></div>{/* Row 2: Email & Password */}<div className="form-grid-2col"><div className="form-group"><label className="form-label">Email Address <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span><input type="email" id="artisan-reg-email" className="input-field" placeholder="Enter your email" required /></div></div><div className="form-group"><label className="form-label">Password <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><input type="password" id="artisan-reg-password" className="input-field" placeholder="Create strong password" required /><button type="button" className="input-btn-eye" onClick={() => { togglePasswordVisibility('artisan-reg-password'); }} aria-label="Toggle password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></div></div>{/* Row 3: Confirm Password & Craft Category */}<div className="form-grid-2col"><div className="form-group"><label className="form-label">Confirm Password <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><input type="password" id="artisan-reg-cpassword" className="input-field" placeholder="Re-enter password" required /><button type="button" className="input-btn-eye" onClick={() => { togglePasswordVisibility('artisan-reg-cpassword'); }} aria-label="Toggle password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></div><div className="form-group"><label className="form-label">Craft Category <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></span><select id="artisan-reg-craft" className="input-field" required><option value="" disabled selected>Select Craft Discipline</option><option value="walnut">Walnut Woodcarving</option><option value="pashmina">Pashmina & Cashmere Weaving</option><option value="papier-mache">Papier-Mâché Naqash Art</option><option value="silk-rugs">Silk Rugs & Hand-Knotted Carpets</option><option value="kani-sozni">Kani Loom & Sozni Needlework</option></select></div></div></div>{/* Row 4: Business / Workshop Name & City/District */}<div className="form-grid-2col"><div className="form-group"><label className="form-label">Business / Atelier Name <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span><input type="text" id="artisan-reg-business" className="input-field" placeholder="e.g. Wani Woodcraft Atelier" required /></div></div><div className="form-group"><label className="form-label">City / District Cluster <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span><select id="artisan-reg-district" className="input-field" required><option value="" disabled selected>Select J&K Cluster</option><option value="Srinagar">Srinagar (Old City Craft Corridor)</option><option value="Anantnag">Anantnag (Mattan Wood & Loom Cluster)</option><option value="Budgam">Budgam (Kanihama Loom Cluster)</option><option value="Baramulla">Baramulla (North Valley Guild)</option><option value="Bandipora">Bandipora (Wular Heritage Guild)</option><option value="Ganderbal">Ganderbal (Sindh River Loom Cluster)</option></select></div></div></div>{/* ================================================================
-                     GI-CERTIFIED SELLER VERIFICATION SUITE (LIVE CAMERA ONLY)
-                     ================================================================ */}<div className="gi-verification-section" id="gi-verification-section"><div className="gi-section-header"><div className="gi-section-title">🛡️ GI Certification & Live Verification</div><span className="gi-live-only-badge">● Live Camera • Auto Gallery Fallback</span></div>{/* 1. GI Certification / Tag ID */}<div className="form-group"><label className="form-label" htmlFor="artisan-gi-id">GI Certification / Tag ID <span className="req">*</span></label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg></span><input type="text" id="artisan-gi-id" className="input-field" placeholder="Enter your official GI ID (e.g. GI-JK-PASH-8821)" required /></div></div>{/* 2. Live Photo of GI Certificate (No Gallery / Folder Upload) */}<div className="live-capture-card" id="live-cert-card"><div className="capture-card-head"><div><div className="capture-card-label">1. Live Photo of GI Certificate <span className="req">*</span></div><div className="capture-card-hint">Hold your physical GI Certificate in front of your camera. If no webcam is
-                          available on this device, a secure gallery-upload fallback appears automatically.</div></div><span className="capture-status-pill" id="cert-status-pill">Required</span></div><div className="camera-stage" id="cert-camera-stage"><video id="cert-camera-video" autoplay playsinline muted></video><div className="cert-guide-overlay"><span className="passport-guide-caption">ALIGN GI CERTIFICATE INSIDE FRAME</span></div></div><div className="capture-preview-wrap" id="cert-preview-wrap"><img loading="lazy" decoding="async" id="cert-preview-img" className="capture-preview-img" alt="Captured Live GI Certificate" /><div className="capture-meta-stamp" id="cert-meta-stamp"></div></div><div className="capture-actions-row"><button type="button" className="btn-cam primary" id="btn-cert-open" onClick={() => { openLiveCamera('cert'); }}>
-                        📷 Open Camera
-                      </button><button type="button" className="btn-cam primary" id="btn-cert-snap" style={{ display: 'none' }} onClick={() => { captureLivePhoto('cert'); }}>
-                        📸 Capture Certificate Photo
-                      </button><button type="button" className="btn-cam" id="btn-cert-cancel" style={{ display: 'none' }} onClick={() => { stopAllCameras(); }}>
-                        Cancel
-                      </button><button type="button" className="btn-cam" id="btn-cert-retake" style={{ display: 'none' }} onClick={() => { openLiveCamera('cert'); }}>
-                        ↺ Retake Live Photo
-                      </button><button type="button" className="btn-cam" id="btn-cert-upload" style={{ display: 'none' }} onClick={() => { document.getElementById('cert-file-input').click(); }}>
-                        📁 Upload Certificate Photo (No Camera)
-                      </button><input type="file" id="cert-file-input" accept="image/*" style={{ display: 'none' }} onChange={() => { handleLiveCaptureFile('cert', this); }} /></div><div className="cam-error-msg" id="cert-cam-error"></div></div>{/* 3. Live Video of Product or Workshop / Warehouse */}<div className="live-capture-card" id="live-video-card"><div className="capture-card-head"><div><div className="capture-card-label">2. Live Video of Product or Warehouse / Workshop <span className="req">*</span></div><div className="capture-card-hint">Record a live video (3–30 sec) showing your handmade craft, loom, or
-                          workshop directly from your camera. No camera detected? Use the upload fallback below.</div></div><span className="capture-status-pill" id="video-status-pill">Required</span></div><div className="camera-stage" id="video-camera-stage"><video id="video-camera-stream" autoplay playsinline muted></video><span className="rec-timer-pill" id="video-rec-timer">● REC 00:00 / 00:30</span></div><div className="capture-preview-wrap" id="video-preview-wrap"><video id="video-preview-player" className="capture-preview-video" controls playsinline></video><div className="capture-meta-stamp" id="video-meta-stamp"></div></div><div className="capture-actions-row"><button type="button" className="btn-cam primary" id="btn-video-open" onClick={() => { openLiveCamera('video'); }}>
-                        🎥 Open Camera
-                      </button><button type="button" className="btn-cam danger" id="btn-video-start" style={{ display: 'none' }} onClick={() => { startLiveVideoRecording(); }}>
-                        ⏺ Start Live Recording
-                      </button><button type="button" className="btn-cam primary" id="btn-video-stop" style={{ display: 'none' }} onClick={() => { stopLiveVideoRecording(); }}>
-                        ⏹ Stop & Save Video
-                      </button><button type="button" className="btn-cam" id="btn-video-cancel" style={{ display: 'none' }} onClick={() => { stopAllCameras(); }}>
-                        Cancel
-                      </button><button type="button" className="btn-cam" id="btn-video-retake" style={{ display: 'none' }} onClick={() => { openLiveCamera('video'); }}>
-                        ↺ Re-record Live Video
-                      </button><button type="button" className="btn-cam" id="btn-video-upload" style={{ display: 'none' }} onClick={() => { document.getElementById('video-file-input').click(); }}>
-                        📁 Upload Workshop Video (No Camera)
-                      </button><input type="file" id="video-file-input" accept="video/*" style={{ display: 'none' }} onChange={() => { handleLiveCaptureFile('video', this); }} /></div><div className="cam-error-msg" id="video-cam-error"></div></div>{/* 4. Live Passport-Size Photo of Seller */}<div className="live-capture-card" id="live-passport-card"><div className="capture-card-head"><div><div className="capture-card-label">3. Live Passport-Size Photo of Seller <span className="req">*</span></div><div className="capture-card-hint">Center your face inside the passport guide (35×45 mm portrait ratio).
-                          Captured live via front camera — with upload fallback when no camera is present.</div></div><span className="capture-status-pill" id="passport-status-pill">Required</span></div><div className="camera-stage" id="passport-camera-stage"><video id="passport-camera-video" autoplay playsinline muted></video><div className="passport-guide-overlay"><div className="passport-guide-oval"></div><span className="passport-guide-caption">PASSPORT SIZE (35×45 MM)</span></div></div><div className="capture-preview-wrap" id="passport-preview-wrap"><img loading="lazy" decoding="async" id="passport-preview-img" className="capture-preview-img passport-frame" alt="Captured Live Seller Passport Photo" /><div className="capture-meta-stamp" id="passport-meta-stamp"></div></div><div className="capture-actions-row"><button type="button" className="btn-cam primary" id="btn-passport-open" onClick={() => { openLiveCamera('passport'); }}>
-                        🤳 Open Front Camera
-                      </button><button type="button" className="btn-cam primary" id="btn-passport-snap" style={{ display: 'none' }} onClick={() => { captureLivePhoto('passport'); }}>
-                        📸 Capture Passport Photo
-                      </button><button type="button" className="btn-cam" id="btn-passport-cancel" style={{ display: 'none' }} onClick={() => { stopAllCameras(); }}>
-                        Cancel
-                      </button><button type="button" className="btn-cam" id="btn-passport-retake" style={{ display: 'none' }} onClick={() => { openLiveCamera('passport'); }}>
-                        ↺ Retake Passport Photo
-                      </button><button type="button" className="btn-cam" id="btn-passport-upload" style={{ display: 'none' }} onClick={() => { document.getElementById('passport-file-input').click(); }}>
-                        📁 Upload Passport Photo (No Camera)
-                      </button><input type="file" id="passport-file-input" accept="image/*" style={{ display: 'none' }} onChange={() => { handleLiveCaptureFile('passport', this); }} /></div><div className="cam-error-msg" id="passport-cam-error"></div></div>{/* 5. Artisan Skill Description Box */}<div className="form-group" style={{ marginBottom: '0' }}><label className="form-label" htmlFor="artisan-skill-desc">Describe Your Craft & Skill <span className="req">*</span></label><textarea id="artisan-skill-desc" className="skill-textarea" rows="4" maxLength="600" placeholder="Tell buyers and verifiers about your craft specialization, years of experience, traditional techniques (e.g., Kani wooden bobbins, Sozni needlework, deep walnut relief carving), and workshop lineage..." onInput={() => { updateSkillCharCount(); }} required></textarea><div className="skill-char-row"><span>Minimum 20 characters for GI verification review</span><span id="skill-char-count">0 / 600</span></div></div></div>{/* Terms & Policy */}<label className="terms-label"><input type="checkbox" id="artisan-reg-terms" required checked /><span>I agree to the <a href="javascript:void(0)" onClick={() => { showAuthToast('Terms of Service: GI-certified artisan onboarding charter (demo)'); }}>Terms of Service</a> and <a href="javascript:void(0)" onClick={() => { showAuthToast('Privacy Policy: workshop data is verified, never sold (demo)'); }}>Privacy Policy</a></span></label>{/* Submit Button */}<button type="submit" className="btn-submit-auth" id="artisan-register-submit-btn">
-                  Submit GI Verification & Create Account →
-                </button></form>{/* ====================================================================
-                   FORM 4: FORGOT PASSWORD
-                   ==================================================================== */}<div id="form-forgot" style={{ display: 'none' }}>{/* Center Illustration */}<div className="forgot-illustration-wrap"><img loading="lazy" decoding="async" src="assets/auth/forgot_illustration.png" alt="Reset Password Security" className="forgot-illustration-img" /></div><form onSubmit={() => { submitForgotPassword(event); }}>{/* Email Field */}<div className="form-group"><label className="form-label">Email Address</label><div className="input-wrapper"><span className="input-icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span><input type="email" id="forgot-email" className="input-field" placeholder="Enter your registered email" required /></div></div>{/* Submit Button */}<button type="submit" className="btn-submit-auth" style={{ marginTop: '8px' }}>
-                    Send reset link →
-                  </button></form>{/* Golden Info Alert Banner */}<div className="auth-info-alert"><span className="info-icon">ⓘ</span><div>
-                    we'll send a password reset link to your email. please check your inbox (and spam folder) as well
-                  </div></div></div>{/* Social Divider & Buttons (Hidden in Forgot Password state) */}<div id="auth-social-section"><div className="social-divider"><span>or continue with</span></div><div className="social-btns-grid">{/* Google Auth */}<button type="button" className="btn-social" onClick={() => { handleSocialAuth('Google'); }}><svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" /></svg><span>Continue with Google</span></button>{/* Apple Auth */}<button type="button" className="btn-social" onClick={() => { handleSocialAuth('Apple'); }}><svg viewBox="0 0 24 24" fill="#000000"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.63 1.35-.57.66-1.06 1.73-.93 2.76 1 .08 2.03-.51 2.64-1.26z" /></svg><span>Continue with Apple</span></button></div></div>{/* Footer Alternative Prompt */}<div className="auth-footer-prompt" id="auth-footer-prompt"><span>New to HunarLink?</span><a href="#" data-needs-port="onclick">Register as an Artisan</a></div>{/* Quick Evaluator 1-Tap Demo Bar */}<div className="demo-evaluator-card"><div className="demo-evaluator-header"><span className="demo-evaluator-title">⚡ Quick Evaluator Demo Logins</span><span className="demo-evaluator-badge">One-Tap Auth</span></div><div className="demo-pills-row"><button type="button" className="btn-demo-pill" onClick={() => { quickFillDemo('artisan_wani'); }}>
-                    ● Artisan: Fayaz Ahmad (Walnut)
-                  </button><button type="button" className="btn-demo-pill" onClick={() => { quickFillDemo('artisan_mir'); }}>
-                    ● Artisan: Ustad Mir (Pashmina)
-                  </button></div></div></div></main></div>{/* Toast Container */}<div className="auth-toast" id="auth-toast"></div>{/* ========================================================================
-             APPLICATION CONTROLLER SCRIPT (ARTISAN PORTAL ONLY)
-             ======================================================================== */}
+      <div className="auth-container">
+        <aside className="auth-hero-pane" id="auth-hero-pane">
+          <div className="auth-hero-content">
+            <div className="hero-top-bar">
+              <Link to="/" className="hero-brand-logo">
+                HunarLink
+              </Link>
+              <div className="hero-badge-pill">
+                <span className="pill-dot">&#10058;</span> AUTHENTIC &bull; TRACEABLE &bull;
+                ARTISAN-CENTRIC
+              </div>
+            </div>
+
+            <div className="hero-middle-body">
+              <h1 className="hero-headline" id="hero-headline">
+                {conf.headline.map((line, i) => (
+                  <React.Fragment key={line}>
+                    {i > 0 && <br />}
+                    {i === conf.headline.length - 1 && conf.headline.length > 1 ? (
+                      <span className="accent-gold">{line}</span>
+                    ) : (
+                      line
+                    )}
+                  </React.Fragment>
+                ))}
+              </h1>
+              <div className="hero-divider-bar" />
+              <p className="hero-subtext" id="hero-subtext">
+                {conf.subtext}
+              </p>
+            </div>
+
+            <div
+              className={`hero-cards-grid${cards.length === 3 ? ' three-cols' : ''}`}
+              id="hero-cards-grid"
+            >
+              {cards.map((c) => (
+                <div className="hero-card" key={c.title}>
+                  <div className="hero-card-icon">{c.icon}</div>
+                  <div className="hero-card-title">{c.title}</div>
+                  <div className="hero-card-desc">{c.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <main className="auth-form-pane">
+          <div className="form-inner-wrap">
+            <div className="auth-back-nav">
+              {mode === 'forgot' ? (
+                <a
+                  href="#"
+                  className="auth-back-link"
+                  id="auth-back-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMode('login');
+                  }}
+                >
+                  &larr; Back to Login
+                </a>
+              ) : (
+                <Link to="/" className="auth-back-link" id="auth-back-link">
+                  &larr; Back to Home
+                </Link>
+              )}
+            </div>
+
+            <div className="form-heading-group">
+              <h2 className="form-title" id="form-title">
+                {conf.title}
+              </h2>
+              <p className="form-subtitle" id="form-subtitle">
+                {conf.subtitle}
+              </p>
+            </div>
+
+            {/* the mode switchers, restored here as the single copy */}
+            <div
+              className="auth-pill-switcher"
+              id="auth-pill-switcher"
+              style={{ display: mode === 'login' ? 'flex' : 'none' }}
+            >
+              <div className="auth-pill-btn active" id="pill-artisan" style={{ cursor: 'default' }}>
+                <span className="pill-icon">&#128296;</span>{' '}
+                <span id="pill-artisan-text">{conf.artisanPillText}</span>
+              </div>
+            </div>
+
+            <div
+              className="gi-choice-switcher"
+              id="gi-register-switcher"
+              style={{ display: mode === 'register' ? 'grid' : 'none' }}
+              role="tablist"
+              aria-label="Seller GI Certification Status"
+            >
+              <button
+                type="button"
+                className={`gi-choice-btn${giMode === 'with_gi' ? ' active' : ''}`}
+                id="btn-has-gi"
+                role="tab"
+                aria-selected={giMode === 'with_gi'}
+                onClick={() => setGiMode('with_gi')}
+              >
+                <span className="gi-choice-title">
+                  &#128737;&#65039; Have GI Certification / Tag
+                </span>
+                <span className="gi-choice-sub">
+                  Enter GI ID + live camera &amp; skill verification
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`gi-choice-btn${giMode === 'no_gi' ? ' active' : ''}`}
+                id="btn-no-gi"
+                role="tab"
+                aria-selected={giMode === 'no_gi'}
+                onClick={() => setGiMode('no_gi')}
+              >
+                <span className="gi-choice-title">&#128221; No GI Certification / Tag</span>
+                <span className="gi-choice-sub">Standard seller account registration</span>
+              </button>
+            </div>
+
+            {/* The forms themselves are the original markup. */}
+            <AuthFormShell mode={mode}>
+              <AuthMarkup
+                giMode={giMode}
+                setGiMode={setGiMode}
+                mode={mode}
+                formTitle={conf.title}
+                formSubtitle={conf.subtitle}
+                submitBtnText={conf.submitBtnText}
+                submitBtnText={conf.submitBtnText}
+                reg={reg}
+                setRegField={setRegField}
+                login={login}
+                setLoginField={setLoginField}
+                submitLogin={submitLogin}
+                submitRegister={submitRegister}
+                submitForgot={submitForgot}
+                togglePw={togglePw}
+                setMode={setMode}
+                openCamera={openCamera}
+                capturePhoto={capturePhoto}
+                handleCaptureFile={handleCaptureFile}
+                startRecording={startRecording}
+                stopRecording={stopRecording}
+                stopAllCameras={stopAllCameras}
+                updateSkillCount={updateSkillCount}
+                flash={flash}
+                quickFill={quickFill}
+              />
+            </AuthFormShell>
+
+            <div
+              className="auth-social-section"
+              id="auth-social-section"
+              style={{ display: mode === 'forgot' ? 'none' : 'block' }}
+            >
+              <div className="social-divider">
+                <span>or continue with</span>
+              </div>
+              <div className="social-btns-grid">
+                <button
+                  type="button"
+                  className="btn-social"
+                  onClick={() => socialAuth('Google')}
+                >
+                  <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                    <path
+                      fill="#4285F4"
+                      d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1a7 7 0 0 1-6.6-4.8H1.4v3.1A12 12 0 0 0 12 24z"
+                    />
+                    <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1z" />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1A7 7 0 0 1 12 4.8z"
+                    />
+                  </svg>
+                  Google
+                </button>
+                <button
+                  type="button"
+                  className="btn-social"
+                  onClick={() => socialAuth('Apple')}
+                >
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
+                    <path d="M16.4 12.9c0-2.4 2-3.6 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.6.9s-1.9-.9-3.1-.8c-1.6 0-3 .9-3.9 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3.1-.7s1.9.7 3.1.7 2.1-1.1 2.9-2.2c.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.7zM14 5.4c.6-.8 1.1-1.9 1-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z" />
+                  </svg>
+                  Apple
+                </button>
+              </div>
+            </div>
+
+            <div className="auth-footer-prompt" id="auth-footer-prompt">
+              <span>{conf.footerText}</span>{' '}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  footerPrompt();
+                }}
+              >
+                {conf.footerLinkText}
+              </a>
+            </div>
+
+            <div className="demo-evaluator-card">
+              <div className="demo-evaluator-header">
+                <span className="demo-evaluator-title">&#9889; Quick Evaluator Demo Logins</span>
+                <span className="demo-evaluator-badge">One-Tap Auth</span>
+              </div>
+              <div className="demo-pills-row">
+                <button
+                  type="button"
+                  className="btn-demo-pill"
+                  onClick={() => quickFill('artisan_wani')}
+                >
+                  &#9679; Artisan: Fayaz Ahmad (Walnut)
+                </button>
+                <button
+                  type="button"
+                  className="btn-demo-pill"
+                  onClick={() => quickFill('artisan_mir')}
+                >
+                  &#9679; Artisan: Ustad Mir (Pashmina)
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </main>
+      </div>
+
+      <div className="auth-toast" id="auth-toast">
+        {flashMsg}
+      </div>
     </>
   );
+}
+
+/* The three forms live in the generated markup and are shown/hidden by mode.
+   This wrapper keeps that contract explicit instead of leaving orphaned
+   display:none rules in three places. */
+function AuthFormShell({ mode, children }) {
+  useEffect(() => {
+    ['form-login', 'form-artisan-register', 'form-forgot'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const map = {
+      login: 'form-login',
+      register: 'form-artisan-register',
+      forgot: 'form-forgot'
+    };
+    const active = document.getElementById(map[mode]);
+    if (active) active.style.display = 'block';
+  }, [mode]);
+
+  return children;
 }
