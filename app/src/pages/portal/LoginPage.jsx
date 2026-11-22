@@ -197,8 +197,19 @@ export default function LoginPage() {
   const [craftId, setCraftId] = useState('');
   const [shop, setShop] = useState({ shopName: '', craft: '', district: 'Srinagar' });
 
-  /* Keep the storefront header pill in step with whatever session is on disk. */
+  /* Keep the storefront header pill in step with whatever session is on disk.
+     An artisan session is never overwritten from this page: doing so silently
+     signed a maker out of their own workspace just by opening /login. */
   useEffect(() => {
+    const live = (() => {
+      try {
+        return JSON.parse(window.localStorage.getItem(AUTH_KEY) || 'null');
+      } catch {
+        return null;
+      }
+    })();
+    if (live && live.role === 'artisan' && live.isLoggedIn) return;
+
     const p = readProfile(buyerProfile);
     setUser({
       name: p.firstName,
@@ -475,26 +486,72 @@ export default function LoginPage() {
 
   const isSignin = mode === 'signin';
 
+  /* The header must not offer account links before there is a session.
+     storeUser is mirrored from the buyer profile, so an artisan session is
+     read straight off disk as well. */
+  const signedIn = Boolean(
+    (storeUser && storeUser.isLoggedIn) || (buyerProfile && buyerProfile.isLoggedIn)
+  );
+
+  /* Which workspace the header should point at: the live session's role wins. */
+  const liveRole = (() => {
+    try {
+      const raw = JSON.parse(window.localStorage.getItem(AUTH_KEY) || 'null');
+      if (raw && raw.role) return raw.role;
+    } catch {
+      /* fall through to the store copy */
+    }
+    return storeUser?.role || (role === 'artisan' ? 'artisan' : 'buyer');
+  })();
+  const isArtisanSession = liveRole === 'artisan';
+
+  function signOutHere() {
+    try {
+      window.localStorage.removeItem(AUTH_KEY);
+    } catch {
+      /* storage may be unavailable in private mode; the store is the source */
+    }
+    setUser(null);
+    setBuyerProfile(buildProfile(buyerProfile, { isLoggedIn: false }));
+    toast('Signed out.');
+  }
+
   return (
     <>
       <PortalScope family="user" />
-      {/* Shared Top Header */}
-      <header className="up-header">
+      {/* Header. Deliberately a *signed-out* header: offering My Profile or
+          Track Orders to someone with no session sends them to an empty page
+          and reads as confusing. ProfilePage already switches on isLoggedIn;
+          this brings the sign-in screen into line. */}
+      <header className="up-header login-header">
         <div className="up-header-inner">
           <a href={appHref('/')} className="up-brand">
             <span className="up-emblem">H</span>
             <div>
               <div className="up-brand-title">HunarLink</div>
-              <div className="up-brand-sub">User Account Portal</div>
+              <div className="up-brand-sub">
+                {signedIn
+                  ? isArtisanSession ? 'Artisan Workspace' : 'Collector Account'
+                  : 'My Account'}
+              </div>
             </div>
           </a>
           <nav className="up-nav-links">
-            <a href={appHref('/')} className="up-nav-pill">Storefront</a>
-            <a href={appHref('/profile')} className="up-nav-pill">My Profile</a>
-            <a href={appHref('/orders')} className="up-nav-pill">Track Orders</a>
-            <a href={appHref('/login')} className="up-nav-pill active" id="nav-auth-pill">
-              <IconLogin size={13} /> My Account
+            <a href={appHref('/')} className="up-nav-pill">
+              <IconArrowRight size={13} className="login-back-arrow" /> Storefront
             </a>
+            {signedIn && (
+              <a href={appHref(isArtisanSession ? '/seller' : '/profile')} className="up-nav-pill">
+                {isArtisanSession ? 'Workspace' : 'My Profile'}
+              </a>
+            )}
+            {signedIn ? (
+              <button type="button" className="up-nav-pill" onClick={signOutHere}>
+                Sign out
+              </button>
+            ) : (
+              <span className="login-header-hint">New to HunarLink? Pick an account above.</span>
+            )}
           </nav>
         </div>
       </header>

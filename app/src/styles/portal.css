@@ -5433,3 +5433,26 @@ html.portal-wholesale body {
     padding-top: 0;
   }
 }
+
+/* ---- login header: a signed-out bar, not a nav to nowhere ---- */
+.login-header .login-back-arrow {
+  transform: rotate(180deg);
+  margin-right: 2px;
+}
+
+.login-header .login-header-hint {
+  font-size: 0.775rem;
+  color: var(--text-500);
+  padding-left: 2px;
+}
+
+.login-header button.up-nav-pill {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .login-header .login-header-hint {
+    display: none;
+  }
+}
