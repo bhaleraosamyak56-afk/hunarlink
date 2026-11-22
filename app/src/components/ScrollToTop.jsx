@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
 
 /* ==========================================================================
@@ -30,6 +30,16 @@ import { useLocation, useNavigationType } from 'react-router-dom';
    /wholesale. Those are in-page edits, not navigations: resetting would yank
    the viewport out from under someone half way down a form. That is why this
    compares the product id rather than any change to the query string.
+
+   Reload must not restore the old offset
+   --------------------------------------
+   The browser's own scroll restoration ran a race with the reset above and won
+   it on a reload: the reset fired, then Chrome restored the pre-reload offset,
+   and the visitor landed eyes-deep in the marketplace grid with the hero above
+   the fold — Home still highlighted, which reads as "the homepage now starts
+   here". So this component takes ownership of restoration instead of competing
+   with it: the browser is put in 'manual' mode and back/forward is honoured
+   from a per-entry position map, which is what the browser was doing for us.
 
    The scroll is instant, not smooth
    ---------------------------------
@@ -75,6 +85,49 @@ export default function ScrollToTop() {
   const { pathname, search, hash, key } = useLocation();
   const navigationType = useNavigationType();
 
+  /* Where each history entry has been left. React Router's location.key is
+     stable for the life of an entry, so this is a faithful stand-in for what
+     the browser would remember on its own. */
+  const positions = useRef(new Map());
+  const currentKey = useRef(null);
+
+  /* While a back/forward restore is in flight the viewport is passing through
+     intermediate offsets. Recording those would overwrite the entry we are
+     navigating TO with a position it never had — forward then landed at 1535
+     instead of the top. Saves are suspended for the duration. */
+  const lockSaves = useRef(false);
+
+  /* Take restoration off the browser's hands once, before the first navigation
+     is handled. Anything later than this is too late — the restore already
+     happened by the time an effect runs. */
+  useEffect(() => {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  }, []);
+
+  /* Record the offset continuously so a back/forward has something to restore
+     to. Throttled to one write per frame; a scroll listener that assigns on
+     every event is the classic jank source. */
+  useEffect(() => {
+    let raf = null;
+    const save = () => {
+      if (lockSaves.current) return;
+      if (currentKey.current) positions.current.set(currentKey.current, window.scrollY);
+    };
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        save();
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+      save();
+    };
+  }, []);
+
   /* React Router reports the very first render as POP, because the initial
      history entry is a pop in the History API's terms. Treating that as
      "back/forward" made this component skip its work on page load, which
@@ -88,14 +141,66 @@ export default function ScrollToTop() {
      while a filter or tab change does not. */
   const productId = new URLSearchParams(search).get('id');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const firstRun = isFirstRun.current;
     isFirstRun.current = false;
 
-    /* Back and forward: the browser has its own idea of where the user was,
-       and it is a better one than "the top". Not on the first run — see the
-       note on isFirstRun above. */
-    if (!firstRun && navigationType === 'POP') return;
+    /* Back and forward: put the visitor back where they left that entry. The
+       browser used to do this for us, but restoration is in 'manual' mode now
+       — see the note at the top of the file — so this IS the browser's job,
+       performed here. A short retry covers the case where the restored page has
+       not grown back to its full height yet and the offset would otherwise be
+       clamped to a shorter document. */
+    if (!firstRun && navigationType === 'POP') {
+      currentKey.current = key;
+      const target = positions.current.get(key) ?? 0;
+
+      /* No remembered position for this entry means it is new to us — a forward
+         into a page we have not stood on before. The browser then keeps the old
+         offset and clamps it to the new page's height, so forwarding from deep
+         in the marketplace lands at the BOTTOM of a short product page. Send
+         those to the top, and re-assert it once the layout has settled. */
+      if (target <= 0) {
+        lockSaves.current = true;
+        jumpTo(0);
+        const raf = requestAnimationFrame(() => jumpTo(0));
+        const settle = setTimeout(() => jumpTo(0), 120);
+        const unlock = setTimeout(() => {
+          lockSaves.current = false;
+        }, 500);
+        return () => {
+          cancelAnimationFrame(raf);
+          clearTimeout(settle);
+          clearTimeout(unlock);
+          lockSaves.current = false;
+        };
+      }
+
+      lockSaves.current = true;
+      let tries = 0;
+      let timer = null;
+      const restore = () => {
+        jumpTo(target);
+        /* If the document is not tall enough yet, the jump was clamped and the
+           visitor ends up somewhere arbitrary. Try again until it fits. */
+        const maxY = document.documentElement.scrollHeight - window.innerHeight;
+        if (Math.abs(window.scrollY - target) < 2 || maxY >= target || tries >= 10) return;
+        tries += 1;
+        timer = setTimeout(restore, 100);
+      };
+      const raf = requestAnimationFrame(restore);
+      /* Release the lock once the restore has had time to settle, whether it
+         succeeded or ran out of retries. */
+      const unlock = setTimeout(() => {
+        lockSaves.current = false;
+      }, 900);
+      return () => {
+        cancelAnimationFrame(raf);
+        if (timer) clearTimeout(timer);
+        clearTimeout(unlock);
+        lockSaves.current = false;
+      };
+    }
 
     /* A hash means the destination is a section on this page, so honour it.
        If the target has not rendered yet (lazy sections mount shortly after
@@ -156,6 +261,7 @@ export default function ScrollToTop() {
     }
 
     jumpTo(0);
+    currentKey.current = key;
     /* `key` changes on every navigation, so this covers pathname changes and
        product-id changes in one dependency. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
