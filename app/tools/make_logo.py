@@ -26,7 +26,7 @@ from potrace import Bitmap
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.environ.get(
     "LOGO_SRC",
-    os.path.join(HERE, "..", "..", "..", "uploads", "WhatsApp Image 2026-11-22 at 21.33.23.jpeg"),
+    os.path.join(HERE, "logo-source.jpeg"),
 )
 OUT_DIR = os.path.join(HERE, "..", "public", "img", "brand")
 
