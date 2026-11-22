@@ -75,8 +75,11 @@
 
     .pdp-showcase-grid {
       display: grid;
-      grid-template-columns: 1.05fr 1fr;
-      gap: clamp(24px, 3.6vw, 52px);
+      /* the gallery takes a little more of the row than it used to (1.05/1)
+         so the floating magnifier has room to open beside the stage instead of
+         falling back to magnifying in-frame */
+      grid-template-columns: 1.12fr 1fr;
+      gap: clamp(24px, 3.2vw, 44px);
       align-items: start;
     }
 
@@ -123,8 +126,10 @@
       position: fixed;
       top: 0;
       left: 0;
-      width: 460px;
-      height: 460px;
+      /* the exact box is set inline by ProductGallery's panelSize(); this is
+         only the fallback before the first measurement */
+      width: 480px;
+      height: 480px;
       border-radius: 12px;
       border: 1px solid #DCD5C6;
       background-color: #FFFFFF;

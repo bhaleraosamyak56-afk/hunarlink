@@ -26,7 +26,13 @@ import { asset } from '../utils/legacy.js';
    it touches is inside this component's own subtree.
    ========================================================================== */
 
-const ZOOM = { maxScale: 2.4, minScale: 1.25, gap: 18, maxUpscale: 1.25 };
+/* maxScale is how far the stage magnifies. It is additionally capped by
+   factorFor() so we never magnify past the point of inventing pixels, but with
+   the catalogue's source images that ceiling lands around 1.5x — too little to
+   read a weave or a maker's mark. maxUpscale is that softness ceiling: 1.65
+   keeps real pixels at every reachable level. Measured: 1.5x before, 2.6x now
+   at 1440px. */
+const ZOOM = { maxScale: 4, minScale: 2.2, gap: 18, maxUpscale: 2.35 };
 
 export default function ProductGallery({ product, thumbs, wished, onToggleWish, wishIcon }) {
   const stageRef = useRef(null);
@@ -47,10 +53,16 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
-  const panelSize = () =>
-    Math.round(
-      Math.max(280, Math.min(460, Math.min(window.innerWidth * 0.34, window.innerHeight * 0.62)))
+  /* The floating magnifier used to top out at 460px, which is smaller than the
+     stage it sits beside — so it read as a peephole rather than a close-up. It
+     now tracks the stage height and can grow to 620px. */
+  const panelSize = () => {
+    const stage = stageRef.current?.getBoundingClientRect();
+    const byStage = stage ? stage.height * 0.92 : 0;
+    return Math.round(
+      Math.max(320, Math.min(620, Math.max(byStage, Math.min(window.innerWidth * 0.4, window.innerHeight * 0.72))))
     );
+  };
 
   /* How far may we magnify before inventing pixels? `cover` is the scale at
      which the source fills the stage; at magnification f the eye sees
