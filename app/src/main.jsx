@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { StoreProvider } from './state/StoreContext.jsx';
 
 import './styles/base.css';
@@ -37,9 +38,15 @@ const basename = resolveBasename();
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter basename={basename}>
-      <StoreProvider>
-        <App />
-      </StoreProvider>
+      {/* Outermost safety net. This one catches a throw from the provider
+          itself (a broken reducer, a corrupt localStorage value read during
+          initialisation) — the inner boundary in App.jsx cannot, because it
+          sits *inside* the provider. */}
+      <ErrorBoundary>
+        <StoreProvider>
+          <App />
+        </StoreProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>
 );

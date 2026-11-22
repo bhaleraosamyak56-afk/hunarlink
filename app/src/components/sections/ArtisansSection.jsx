@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { srcSetFor } from '../../data/imageVariants.js';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
@@ -140,7 +141,21 @@ export default function ArtisansSection() {
             {/* ---------------------------------------------------- portrait */}
             <div className="artisan-portrait-col">
               <div className="artisan-portrait">
-                <img src={portraitSrc(artisan.portrait)} alt={artisan.name} />
+                <picture>
+                  {srcSetFor(artisan.portrait) && (
+                    <source
+                      type="image/webp"
+                      srcSet={portraitSrc(srcSetFor(artisan.portrait))}
+                      sizes="(max-width: 760px) 88vw, 40vw"
+                    />
+                  )}
+                  <img
+                    src={portraitSrc(artisan.portrait)}
+                    alt={artisan.name}
+                    width="420"
+                    height="525"
+                  />
+                </picture>
                 <div className="artisan-portrait-tag">
                   <span className="artisan-since">At the loom since {artisan.since}</span>
                 </div>
@@ -161,7 +176,23 @@ export default function ArtisansSection() {
                   onClick={() => navigate(`/product?id=${encodeURIComponent(topProduct.id)}`)}
                 >
                   <span className="artisan-product-thumb">
-                    <img src={topProduct.image} alt="" loading="lazy" decoding="async" />
+                    <picture>
+                    {srcSetFor(topProduct.image) && (
+                      <source
+                        type="image/webp"
+                        srcSet={srcSetFor(topProduct.image)}
+                        sizes="160px"
+                      />
+                    )}
+                    <img
+                      src={topProduct.image}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      width="160"
+                      height="120"
+                    />
+                  </picture>
                   </span>
                   <span className="artisan-product-copy">
                     <span className="artisan-product-kicker">Their best-selling piece</span>
@@ -236,7 +267,11 @@ export default function ArtisansSection() {
 
               {artisan.reviews.map((r) => (
                 <figure className="artisan-review" key={r.author + r.city}>
-                  <div className="artisan-review-stars" aria-label={`${r.stars} out of 5`}>
+                  <div
+                    className="artisan-review-stars"
+                    role="img"
+                    aria-label={`${r.stars} out of 5 stars`}
+                  >
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} size={11} />
                     ))}

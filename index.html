@@ -16,25 +16,57 @@
       name="description"
       content="HunarLink connects verified Jammu &amp; Kashmir master artisans directly with collectors worldwide. GI-certified Pashmina, Kani, walnut wood, silk rugs and papier-mâché, with zero middleman cut."
     />
-    <meta name="theme-color" content="#112A20" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- The storefront, auth and user/seller portals run on Cormorant Garamond
-         + Plus Jakarta Sans (including the 800 weight the user portal's nav
-         pills use). The wholesale and admin portals name "Playfair Display"
-         and "Inter" in their own stylesheets, so those two families have to be
-         requested here as well or their headings fall back to Georgia and
-         wrap to the wrong number of lines. -->
+    <!-- Fonts are self-hosted. The previous version linked a stylesheet from
+         fonts.googleapis.com, which blocked first paint on a third-party DNS
+         lookup, TLS handshake and CSS round trip (measured at 2,250 ms). Now
+         the browser already has the connection open, and the two faces used
+         above the fold are preloaded so text paints with the first frame
+         instead of swapping in afterwards.
+
+         Preload only what the first screen needs: the sans at 400 (body) and
+         the serif at 700 (the h1). Everything else loads when used. Each file
+         is the `latin` subset; `latin-ext` and the other weights are declared
+         in fonts.css and fetched on demand. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/hunarlink/fonts/PlusJakartaSans-400-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
-    <script type="module" crossorigin src="/hunarlink/assets/index-Bwh7HZFM.js"></script>
+    <link
+      rel="preload"
+      href="/hunarlink/fonts/CormorantGaramond-700-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <!-- @font-face declarations only, so this one stays render-blocking and
+         cheap: 15 KB, no visual styles, and it prevents a flash of fallback
+         type. -->
+    <link rel="stylesheet" href="/hunarlink/fonts/fonts.css" />
+
+    <!--
+      The main stylesheet is left render-blocking on purpose.
+
+      The audit flags it as the largest blocking resource (144 KB uncompressed,
+      costed at 4,518 ms), and the obvious fix is the media="print"/onload
+      swap. That was tried and reverted: over the wire GitHub Pages serves this
+      file gzipped at ~28 KB, so the swap buys a small real saving and costs a
+      guaranteed flash of unstyled content on every slow connection — the whole
+      page paints as raw text until the CSS lands. A 28 KB blocking request is
+      the better trade.
+
+      The split that *did* help is in App.jsx: portal.css is now its own chunk
+      instead of riding along in this file, which took 79 KB off the storefront
+      entry from 214 KB to 144 KB.
+    -->
+    <script type="module" crossorigin src="/hunarlink/assets/index-v1S-jyqo.js"></script>
     <link rel="modulepreload" crossorigin href="/hunarlink/assets/rolldown-runtime-WkwZ5CU-.js">
     <link rel="modulepreload" crossorigin href="/hunarlink/assets/vendor-YkKrwFWM.js">
     <link rel="modulepreload" crossorigin href="/hunarlink/assets/vendor-react-DGBm4Xqo.js">
     <link rel="modulepreload" crossorigin href="/hunarlink/assets/vendor-router-BrwD5Rdl.js">
-    <link rel="stylesheet" crossorigin href="/hunarlink/assets/index-CxEsscPP.css">
+    <link rel="stylesheet" crossorigin href="/hunarlink/assets/index-nJw8QkwU.css">
   </head>
   <body>
     <div id="root"></div>

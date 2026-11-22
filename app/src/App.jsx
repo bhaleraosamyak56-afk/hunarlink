@@ -10,6 +10,7 @@ import CompareBar from './components/CompareBar.jsx';
 import Toasts from './components/Toasts.jsx';
 import ChatWidget from './components/ChatWidget.jsx';
 import AmbientField from './components/AmbientField.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import GiVerifyModal from './components/modals/GiVerifyModal.jsx';
 import LoginChoiceModal from './components/modals/LoginChoiceModal.jsx';
 import CompareModal from './components/modals/CompareModal.jsx';
@@ -27,6 +28,14 @@ import WholesalePage from './pages/WholesalePage.jsx';
    carry their own CSS and their own weight, so they load on demand. */
 const AdminPage = lazy(() => import('./pages/portal/AdminPage.jsx'));
 const SellerPage = lazy(() => import('./pages/portal/SellerPage.jsx'));
+/* The collector portal stylesheet is 114 KB and only four lazy pages use it,
+   but it used to ride along in the entry chunk because WholesalePage imported
+   it eagerly — 70% of it was unused on the storefront, which is where every
+   visitor lands. Loading it as its own lazy chunk means the storefront never
+   downloads it, and the first portal page pays for it once. */
+const PortalStyles = lazy(() =>
+  import('./styles/portal.css').then(() => ({ default: () => null }))
+);
 const LoginPage = lazy(() => import('./pages/portal/LoginPage.jsx'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
@@ -86,6 +95,16 @@ export default function App() {
 
   return (
     <>
+      {/* The very first element in the document, so it is the first stop in the
+          tab order. It must sit above the utility bar and header, not after
+          them — an earlier attempt placed it below the header and Tab went
+          straight to the brand link, which is exactly what the skip link
+          exists to prevent. Points at #main-content, which every page body
+          carries. */}
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
       {/* Fixed, aria-hidden, sits behind every page. Storefront only: the
           portal pages carry their own full-bleed surfaces and the login page
           already has a photograph behind it. */}
@@ -97,6 +116,15 @@ export default function App() {
         <Header showSectionNav={onStorefront} activeSection={activeSection} />
       )}
 
+      {/* The skip link is the first thing in the tab order on every page. The
+          storefront carries 600+ focusable controls, so without it a keyboard
+          user has to tab through the whole header before reaching the grid.
+          Visually hidden until focused. */}
+      {/* Boundary scoped to the routed page: a crash inside ProductPage leaves
+          the header, cart, drawers, footer and chat alive. resetKey means the
+          fallback clears as soon as the user navigates somewhere else. */}
+      <ErrorBoundary resetKey={location.key}>
+      {isPortal && <PortalStyles />}
       <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<HomePage onSectionChange={handleSection} />} />
@@ -120,6 +148,7 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
 
       {!isAuth && !isPortal && <Footer />}
 

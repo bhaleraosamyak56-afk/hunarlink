@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { srcSetFor } from '../data/imageVariants.js';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { formatINR } from '../utils/legacy.js';
@@ -28,6 +29,10 @@ function ProductCard({ product: p, onBuyNow }) {
 
   const open = () => navigate(`/product?id=${encodeURIComponent(p.id)}`);
 
+  /* Variants come from the generated manifest, so the card only ever asks for
+     files that exist. */
+  const imgSizes = '(max-width: 620px) 92vw, (max-width: 1024px) 46vw, 30vw';
+
   return (
     <article className="product-card" data-product-id={p.id}>
       <div
@@ -42,7 +47,24 @@ function ProductCard({ product: p, onBuyNow }) {
           }
         }}
       >
-        <img loading="lazy" decoding="async" src={p.image} alt={p.title} />
+        {/* <picture> lets the browser choose a 520 or 1040 px WebP by screen
+            size; the <img> is the original JPEG and is what a browser without
+            WebP support falls back to. `sizes` must match the CSS grid width
+            or the browser picks the wrong file. Intrinsic width/height are set
+            so the card reserves its box before the image decodes. */}
+        <picture>
+          {srcSetFor(p.image) && (
+            <source type="image/webp" srcSet={srcSetFor(p.image)} sizes={imgSizes} />
+          )}
+          <img
+            loading="lazy"
+            decoding="async"
+            width="400"
+            height="300"
+            src={p.image}
+            alt={p.title}
+          />
+        </picture>
         <span className="product-gi-pill">
           <ShieldCheck size={12} /> {p.giId}
         </span>

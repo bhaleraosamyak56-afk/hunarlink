@@ -82,6 +82,12 @@ export default function Drawer({ open, onClose, labelledBy, children, footer }) 
         onClick={onClose}
         aria-hidden="true"
       />
+      {/* `aria-hidden` alone removes the panel from the accessibility tree but
+          leaves its buttons in the tab order, so a keyboard user could tab into
+          an invisible cart. `inert` does both jobs. aria-hidden is kept for
+          browsers that predate inert support. It must be a real boolean:
+          React 19 treats `inert` as a boolean attribute, so passing "" is
+          falsy and React silently omits the attribute entirely. */}
       <aside
         ref={panelRef}
         className={`slide-drawer${open ? ' open' : ''}`}
@@ -89,6 +95,7 @@ export default function Drawer({ open, onClose, labelledBy, children, footer }) 
         aria-modal="true"
         aria-labelledby={labelledBy}
         aria-hidden={!open}
+        inert={!open}
       >
         {children}
         {footer ? <div className="drawer-footer">{footer}</div> : null}

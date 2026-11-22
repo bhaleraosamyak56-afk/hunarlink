@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import '../styles/portal.css';
 import PortalScope from '../components/PortalScope.jsx';
 import { useStore } from '../state/StoreContext';
 import { formatINR, loadStorage, saveStorage } from '../utils/legacy';

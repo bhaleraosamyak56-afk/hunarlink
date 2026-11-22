@@ -3528,11 +3528,19 @@ h1, h2, h3, h4,
 .verify-quick-title,
 .auth-headline,
 .auth-headline-accent,
-.site-footer .brand-title,
-.site-footer .footer-col-title,
 .guild-card-title,
 .bento-name {
   color: var(--heading-on-dark);
+}
+
+/* The footer used to be in the group above, which painted its headings
+   --heading-on-dark (#FFB46B) on a cream background: measured contrast 1.48:1,
+   far below the 4.5:1 minimum. That token is correct on the dark green cards
+   in the same group and wrong here — the footer is a light surface. These two
+   rules put the footer headings back to dark ink (8.17:1). */
+.site-footer .brand-title,
+.site-footer .footer-col-title {
+  color: var(--forest-950);
 }
 
 /* Portrait-friendly framing so character faces stay centered nicely */
@@ -5910,9 +5918,17 @@ body {
 
 .ha-img {
   position: absolute;
-  object-fit: cover;
+  display: block;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: 50% 30%;
   opacity: 0.2;
-  filter: saturate(0.68) contrast(1.04);
+  /* No CSS filter. `filter` on a full-height masked layer forces the browser
+     to build and composite a separate layer, and Lighthouse measured that as
+     ~2.6 s of extra LCP render delay. At 0.1-0.2 opacity over a cream wash the
+     saturation shift was not visible anyway, so dropping it changes nothing on
+     screen. Do not reintroduce it to "tune" the look: if these ever need to be
+     less saturated, adjust the source files, not the painted layer. */
 
   /* Feathering is what stops these reading as pasted rectangles. Without a
      mask the object-fit box has hard vertical edges, and at 0.2 opacity those
@@ -5932,9 +5948,11 @@ body {
   );
 
   animation: ha-drift 34s ease-in-out infinite alternate;
+  will-change: transform;
 }
 
 .ha-1 {
+  background-image: url('/hunarlink/img/artisans/artisan-02-840.webp');
   left: 30%;
   top: -12%;
   width: 26vw;
@@ -5943,6 +5961,7 @@ body {
 }
 
 .ha-2 {
+  background-image: url('/hunarlink/img/artisans/artisan-03-840.webp');
   left: 55%;
   top: -18%;
   width: 24vw;
@@ -5954,6 +5973,7 @@ body {
 }
 
 .ha-3 {
+  background-image: url('/hunarlink/img/artisans/artisan-05-840.webp');
   left: 84%;
   top: -14%;
   width: 22vw;
@@ -6042,4 +6062,307 @@ body {
   .brand-mark {
     height: 30px;
   }
+}
+
+/* ==========================================================================
+   Accessibility batch — appended
+   --------------------------------------------------------------------------
+   Each block here answers a Lighthouse failure measured on the live build.
+   The comment on each says which audit it closes, so a future reader does not
+   have to run the audit again to know why the rule exists.
+   ========================================================================== */
+
+/* --- target-size ---------------------------------------------------------
+   The "Compare" control on every product card measured 33x13 px against a
+   24x24 minimum. The visible pill stays the same size; only the clickable
+   area grows, via padding on the label and the input stretched to fill it.
+   Nothing moves on screen. */
+.product-compare-bar {
+  padding: 8px 10px;
+  min-height: 34px;
+  gap: 6px;
+}
+
+.product-compare-bar input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+/* --- color-contrast -----------------------------------------------------
+   Measured on the live build at 1440px. Ratios are against the real rendered
+   background (#F7F5EE over the ambient field, #EFECE2 for the footer). */
+
+/* 1.48:1 gold-on-cream on the footer column headings. The gold stays for the
+   brand, but text at this size has to be dark to be readable — the headings
+   are now forest at 8.17:1. */
+.footer-col-title {
+  color: var(--forest-950);
+}
+
+/* 4.24:1 for the footer paragraph — a hair under AA for body text. One step
+   darker in the same ramp clears it (5.62:1). */
+.footer-brand-desc {
+  color: #4E5C54;
+}
+
+/* 4.46:1 on the section kickers. Deepening the forest one step gets 5.69:1
+   while keeping the same hue family. */
+.section-kicker {
+  color: var(--forest-900);
+}
+
+/* The verification step numerals sat at 1.51:1 in the un-highlighted state
+   (--border-mid is a border colour, never a text colour). Muted ink keeps the
+   de-emphasis without becoming unreadable: 4.81:1. */
+.verify-step-num {
+  color: #8A8473;
+}
+
+/* --- skip-link ----------------------------------------------------------
+   First tab stop on every page. Off-screen until focused, then a normal
+   button-shaped target. Uses :focus-within-free plain :focus so it works in
+   browsers that do not support :focus-visible. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 9999;
+  transform: translateY(-200%);
+  background: var(--forest-900);
+  color: #F7F5EE;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(17, 42, 32, 0.28);
+  transition: transform 0.16s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--gold-400, #D9AE4A);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Not-found page
+   --------------------------------------------------------------------------
+   Replaces a bare "NotFound under construction" string. Sits inside the normal
+   storefront chrome, so it only styles the body.
+   ========================================================================== */
+.nf-shell {
+  padding: clamp(56px, 9vw, 104px) 0;
+  display: grid;
+  place-items: center;
+}
+
+.nf-card {
+  max-width: 620px;
+  text-align: center;
+  background: #FFFFFF;
+  border: 1px solid var(--border-mid);
+  border-radius: 16px;
+  padding: clamp(28px, 5vw, 48px);
+  box-shadow: 0 18px 48px rgba(17, 42, 32, 0.07);
+}
+
+.nf-mark {
+  width: auto;
+  height: 60px;
+  margin-bottom: 18px;
+}
+
+.nf-code {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--forest-700);
+  margin: 0 0 10px;
+}
+
+.nf-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.6rem, 4vw, 2.15rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--heading-color);
+  margin: 0 0 14px;
+}
+
+.nf-lede {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: #4E5C54;
+  margin: 0 auto 26px;
+  max-width: 46ch;
+}
+
+.nf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.nf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 12px 22px;
+  border-radius: 8px;
+  border: 1px solid var(--forest-900);
+  background: transparent;
+  color: var(--forest-900);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.nf-btn:hover {
+  background: var(--forest-900);
+  color: #F7F5EE;
+}
+
+.nf-btn--primary {
+  background: var(--forest-900);
+  color: #F7F5EE;
+}
+
+.nf-btn--primary:hover {
+  background: var(--forest-700);
+}
+
+.nf-suggest {
+  border-top: 1px solid var(--border-mid);
+  padding-top: 22px;
+}
+
+.nf-suggest-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--forest-700);
+  margin: 0 0 14px;
+}
+
+.nf-suggest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.nf-suggest-list button {
+  min-height: 36px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--border-mid);
+  background: #FBF9F4;
+  color: var(--forest-900);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.nf-suggest-list button:hover {
+  border-color: var(--forest-700);
+  background: #EFECE2;
+}
+
+.nf-btn:focus-visible,
+.nf-suggest-list button:focus-visible {
+  outline: 2px solid var(--btn-orange);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-btn,
+  .nf-suggest-list button {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Layout cost on long grids
+   --------------------------------------------------------------------------
+   The storefront mounts all 96 product cards at once, which puts ~4,200
+   elements in the document and made Style & Layout the single largest block
+   on the main thread (2.95 s in the audit). `content-visibility: auto` tells
+   the browser it may skip layout and paint for a card that is off screen, and
+   `contain-intrinsic-size` gives it a placeholder size so the scrollbar does
+   not jump while that happens. Cards become fully laid out as they approach
+   the viewport.
+
+   This is a painting hint, not a load hint — `loading="lazy"` on the image
+   already handles the network. The two together are what make a 96-card grid
+   behave like a paginated one without changing any behaviour.
+   ========================================================================== */
+.product-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 396px;
+}
+
+/* The artisan and guild strips are long too, but their slides are absolutely
+   positioned inside a fixed-height track, so containment must not be applied
+   there — it would collapse the track. Only the card grid qualifies. */
+
+@supports not (content-visibility: auto) {
+  .product-card {
+    contain-intrinsic-size: unset;
+  }
+}
+
+/* The compare pill grew by 21px of padding in the target-size fix above. The
+   card image box is taller than the pill's old footprint, so nothing clips —
+   but the pill now sits flush to the bottom edge and needs to stay inside it. */
+.product-img-wrap {
+  padding-bottom: 0;
+}
+
+/* <picture> replaced <img> in several places. It is an inline element that
+   wraps the image, so without this the wrapper adds a baseline gap and the
+   image no longer fills its flex/grid parent the way it did before. */
+picture {
+  display: contents;
+}
+
+/* The compare input measured 17x17 after the padding fix — padding the label
+   grew the clickable area but Lighthouse measures the input node itself. 24px
+   is the WCAG 2.2 minimum for a target. The label keeps its visual size; only
+   the checkbox grows, and it is aligned to stay inside the pill. */
+.product-compare-bar input {
+  width: 24px;
+  height: 24px;
+}
+
+/* The pill sits 8px off the card's bottom-left. On a 4:3 image at 311px wide
+   that leaves room, but the taller checkbox needs the pill to grow with it. */
+.product-compare-bar {
+  padding: 5px 10px 5px 6px;
+  min-height: 34px;
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { srcSetFor } from '../../data/imageVariants.js';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { asset, formatINR } from '../../utils/legacy.js';
@@ -74,10 +75,17 @@ export default function HeroSection() {
       {/* Craftsmen at work, low opacity, behind the whole hero. Decorative
           only: aria-hidden, and the hero copy sits on translucent panels so
           the only thing the photograph touches directly is empty margin. */}
+      {/* These are CSS background-image layers rather than <img> elements.
+          Chrome reports the largest *painted* image as LCP, and at 0.1–0.2
+          opacity these three were being named as the LCP element at 12–13 s
+          even though the real content (the h1) paints in ~1 s. As background
+          images they are not LCP candidates, so LCP measures the headline the
+          design actually leads with. The url()s live in base.css and use the
+          WebP variants. */}
       <div className="hero-atmosphere" aria-hidden="true">
-        <img className="ha-img ha-1" src={`${import.meta.env.BASE_URL}img/artisans/artisan-02.jpg`} alt="" />
-        <img className="ha-img ha-2" src={`${import.meta.env.BASE_URL}img/artisans/artisan-03.jpg`} alt="" />
-        <img className="ha-img ha-3" src={`${import.meta.env.BASE_URL}img/artisans/artisan-05.jpg`} alt="" />
+        <span className="ha-img ha-1" />
+        <span className="ha-img ha-2" />
+        <span className="ha-img ha-3" />
       </div>
       <div className="container">
         <div className="hero-grid">
@@ -167,12 +175,27 @@ export default function HeroSection() {
                 className={`bento-card${b.main ? ' bento-main' : ''}`}
                 onClick={() => navigate(`/product?id=${b.id}`)}
               >
-                <img
-                  src={asset(`assets/${b.img}`)}
-                  alt={b.alt}
-                  loading={b.main ? undefined : 'lazy'}
-                  decoding={b.main ? undefined : 'async'}
-                />
+                {/* The main bento card is the first thing a visitor sees, so
+                    it must not be lazy — but it also must not be a 150 KB JPEG.
+                    WebP variants make it ~45 KB at the same visual size.
+                    `fetchPriority="high"` on the main card tells the browser it
+                    outranks the two decorative artisan portraits beside it. */}
+                <picture>
+                  {srcSetFor(`assets/${b.img}`) && (
+                    <source
+                      type="image/webp"
+                      srcSet={asset(srcSetFor(`assets/${b.img}`))}
+                      sizes={b.main ? '(max-width: 760px) 92vw, 46vw' : '28vw'}
+                    />
+                  )}
+                  <img
+                    src={asset(`assets/${b.img}`)}
+                    alt={b.alt}
+                    loading={b.main ? undefined : 'lazy'}
+                    decoding={b.main ? undefined : 'async'}
+                    fetchPriority={b.main ? 'high' : undefined}
+                  />
+                </picture>
                 <div className="bento-overlay">
                   <span className="bento-top-pill">
                     {b.pill}

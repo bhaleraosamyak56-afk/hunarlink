@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { asset } from '../utils/legacy.js';
+import { srcSetFor } from '../data/imageVariants.js';
 import { Heart } from './Icons.jsx';
 
 /* ==========================================================================
@@ -258,13 +259,24 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
           <span id="pdp-stage-wish-icon"><Heart filled={wished} size={19} /></span>
         </button>
 
-        <img
-          id="pdp-main-image"
-          ref={imgRef}
-          src={asset(src)}
-          alt={product.title}
-          className="pdp-hero-img"
-        />
+        <picture>
+          {srcSetFor(src) && (
+            <source
+              type="image/webp"
+              srcSet={asset(srcSetFor(src))}
+              sizes="(max-width: 900px) 94vw, 52vw"
+            />
+          )}
+          <img
+            id="pdp-main-image"
+            ref={imgRef}
+            src={asset(src)}
+            alt={product.title}
+            className="pdp-hero-img"
+            width="840"
+            height="1120"
+          />
+        </picture>
 
         <div className="pdp-zoom-marker" id="pdp-zoom-marker" ref={markerRef} aria-hidden="true" />
         <div className="pdp-zoom-badge" id="pdp-zoom-badge" ref={badgeRef} aria-hidden="true">
@@ -300,13 +312,24 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
               }
             }}
           >
-            <img
-              loading="lazy"
-              decoding="async"
-              src={asset(t.img)}
-              alt={t.label}
-              className="pdp-thumb-img"
-            />
+            <picture>
+              {srcSetFor(t.img) && (
+                <source
+                  type="image/webp"
+                  srcSet={asset(srcSetFor(t.img))}
+                  sizes="120px"
+                />
+              )}
+              <img
+                loading="lazy"
+                decoding="async"
+                src={asset(t.img)}
+                alt={t.label}
+                className="pdp-thumb-img"
+                width="120"
+                height="150"
+              />
+            </picture>
             <div className="pdp-thumb-caption">{t.label}</div>
           </div>
         ))}
