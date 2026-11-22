@@ -5,93 +5,113 @@ workshops directly with collectors and B2B hospitality buyers — **zero middlem
 
 > **This is a fully working frontend prototype.** Every page runs with no backend, no
 > API keys and no internet connection. Data is persisted in `localStorage`, so listings
-> created in the storefront appear instantly in the artisan dashboard, orders placed in
-> checkout appear in the collector's order tracker, and so on.
+> created in the artisan dashboard appear in the storefront, orders placed in checkout
+> appear in the collector's order tracker, and so on.
+
+The app is a **single-page React application**. React owns every page; there is no
+static HTML fallback and no page-level controller code.
 
 ---
 
 ## Run it
 
-Any static file server works — there is no build step and no dependencies.
+The built site is committed at the repo root, so any static file server works:
 
 ```bash
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-Or simply open `index.html` in a browser.
+For development with hot reload:
 
-> Opening via `file://` mostly works, but a few cross-page storage checks behave better
-> over `http://`. A local server is recommended for the demo.
+```bash
+cd app
+npm install
+npm run dev          # vite dev server
+```
+
+> The site is deployed under the `/hunarlink/` prefix (a GitHub project page), so the
+> built `index.html` references `/hunarlink/assets/…`. Serving the repo root directly
+> at `/` will 404 on assets — use the dev server, or serve the repo's **parent**
+> directory so the `/hunarlink/` prefix resolves.
+
+---
+
+## Build
+
+```bash
+cd app
+npm run build        # vite build --mode root -> writes to ../dist
+```
+
+Then copy the output to the repo root:
+
+```bash
+cp dist/index.html dist/404.html ./
+cp dist/assets/index-*.js dist/assets/index-*.css ../assets/   # when run from app/
+```
+
+`vite.config.js` sets `base: '/hunarlink/'` for the `root` mode so asset URLs match
+the deployment prefix. There is a second mode (`vite build`) that emits to `react/`
+for the older subpath deployment; the root mode is the one in use.
 
 ---
 
 ## Pages
 
-| Page | What it does |
-|---|---|
-| `index.html` | Storefront — hero, Valley Verification Flow, craft guilds, filterable catalogue, B2B banner |
-| `product.html?id=<id>` | Product detail — gallery, GI passport, add to cart, buy now |
-| `auth.html` | Artisan sign-in / registration + one-tap demo evaluator logins |
-| `user-portal/login.html` | Collector sign-in |
-| `user-portal/profile.html` | Collector profile, addresses, UPI, wishlist |
-| `user-portal/orders.html` | Order tracking with live loom/shipment stages |
-| `seller-portal/dashboard.html` | Artisan Command Center — listings, orders, earnings, responses |
-| `wholesale-portal/wholesale.html` | B2B bulk ordering, live lot estimator, seller routing desk |
-| `admin-portal/index.html` | Master Admin Console — 12 tabs, RBAC, audit trail, GI approvals |
-| `404.html` | Not-found page |
+All routes are client-side. Legacy v1 URLs (`product.html`, `user-portal/login.html`,
+`seller-portal/dashboard.html`, …) still resolve — `src/pages/LegacyRoutes.jsx` maps
+each one to its current route.
+
+| Route | Source | What it does |
+|---|---|---|
+| `/` | `pages/HomePage.jsx` | Storefront — hero, Valley Verification Flow, craft guilds, filterable catalogue, B2B banner |
+| `/product?id=<id>` | `pages/ProductPage.jsx` | Product detail — gallery with hover zoom, GI passport, add to bag |
+| `/auth` | `pages/AuthPage.jsx` | Artisan sign-in / registration, GI verification capture suite, demo evaluator logins |
+| `/login` | `pages/portal/LoginPage.jsx` | Collector sign-in / sign-up, password or 6-digit OTP |
+| `/profile` | `pages/ProfilePage.jsx` | Collector profile, addresses, UPI, wishlist |
+| `/orders` | `pages/OrdersPage.jsx` | Order tracking with live loom/shipment stages |
+| `/seller` | `pages/portal/SellerPage.jsx` | Artisan Command Center — publish, customize, orders, responses |
+| `/wholesale` | `pages/WholesalePage.jsx` | B2B bulk ordering, live lot estimator, seller routing desk |
+| `/admin` | `pages/portal/AdminPage.jsx` | Master admin console — 12 tabs, KPIs, GI audits, dealer matching |
+
+Demo credentials:
+
+* Admin console — `admin@hunarlink.com` / `AdminPass@123` (or the one-tap session)
+* Artisan portal — any demo pill on `/auth`
+* Collector — the "1-Tap Demo Login" on `/login`
 
 ---
 
-## Demo walkthrough (for evaluation)
-
-1. **Storefront** — browse the catalogue, filter by guild/price/rating, sort.
-2. **Valley Verification Flow** — click the three steps, then try a live GI tag lookup
-   (e.g. `GI-JK-PASH-8821`).
-3. **Add to cart → checkout** — 4 steps; pay via UPI. The order is saved and appears in
-   the collector's order tracker.
-4. **Artisan login** — `auth.html` → *Quick Evaluator Demo Logins* → one tap signs in and
-   lands on the real Artisan Command Center.
-5. **Admin console** — opens straight in with demo data; all 12 tabs populated.
-6. **HunarSathi assistant** — bottom-right button; ask about pashmina, GI tags, or pricing.
-
-Credentials for every demo login are pre-filled — nothing needs to be typed.
-
----
-
-## Architecture
-
-Plain HTML + CSS + vanilla JavaScript. No frameworks, no bundler, no npm install.
+## Project layout
 
 ```
-index.html · product.html · auth.html · 404.html
-hunarlink_*.css / hunarlink_*.js     shared design system + storefront logic
-assets/                               craft photography and illustrations
-user-portal/ · seller-portal/ · wholesale-portal/ · admin-portal/
-hunarsathi-chatbot/                   assistant widget + optional Python service
+app/                  Vite + React source
+  src/
+    pages/            route components
+      portal/         seller, admin and collector login
+      auth/           the auth page's static form markup
+    components/       shared UI (header, drawers, modals, sections)
+    state/            StoreContext — the shared store
+    data/             product catalogue, guilds, admin demo dataset
+    styles/           one stylesheet per surface
+  public/             static assets copied into the build (images, chatbot)
+  vite.config.js
+assets/               deployed static assets + the live hashed JS/CSS bundle
+index.html            the built SPA shell (committed)
+404.html              SPA deep-link fallback for GitHub Pages
+hunarsathi-chatbot/   vanilla-JS chat widget (injected by React, builds its own UI)
 ```
-
-**Cross-page state** is shared through `localStorage` under `hunarlink_*` keys —
-`hunarlink_auth_user`, `hunarlink_buyer_profile`, `hunarlink_cart`, `hunarlink_orders`,
-`hunarlink_wishlist`, `hunarlink_custom_products`. This is why a craft listed in the
-Artisan Studio shows up in the seller dashboard and in the storefront catalogue.
-
-### Backend status
-
-The API server is **not part of this submission and is not required**. Two components
-contain optional backend integrations:
-
-| Component | Behaviour without a backend |
-|---|---|
-| `admin-portal/` | Falls back to a deterministic in-memory dataset (`admin-portal/admin-offline-demo.js`). All screens stay populated and a banner states that demo data is in use. If a FastAPI server is later available on `127.0.0.1:8000`, it is used automatically instead. |
-| `hunarsathi-chatbot/widget.js` | Falls back to an on-device knowledge base that answers GI, pricing, verification, wholesale and shipping questions from the live catalogue. The optional Python service (FastAPI + Gemini) adds streaming LLM answers. |
-
-See `hunarsathi-chatbot/README.md` — running that service is **optional**.
 
 ---
 
-## Responsive
+## Notes
 
-Verified at 1440px (desktop), 820px (tablet) and 390px (mobile) across all 10 pages:
-no horizontal overflow, no JS errors, all modals fit the viewport, and the admin
-sidebar collapses into an off-canvas drawer below 900px.
+* **Deep links return HTTP 404.** GitHub Pages serves `404.html` for any path it
+  cannot resolve; that page stashes the requested route and hands it back to the
+  router. Visitors see the right page, but crawlers and link-preview bots see a 404.
+  Fixing that needs a host with SPA rewrites.
+* **Cross-tab sync requires a reload.** Portals write `localStorage` directly, so a
+  change made in one tab shows up in another only after that tab reloads.
+* **The chatbot's backend is not included.** `hunarsathi-chatbot/widget.js` calls
+  `127.0.0.1:5050`; with no backend it falls back to canned responses.
