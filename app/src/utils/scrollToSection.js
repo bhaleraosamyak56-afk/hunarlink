@@ -23,6 +23,17 @@ export function scrollToSection(id, { behavior = 'smooth' } = {}) {
   const target = document.getElementById(id);
   if (!target) return;
 
+  /* A destination at the very top of the document means the top of the page,
+     not the top of that element. The hero starts ~136 px down — above it sit
+     the utility strip and the main header — so aiming at the hero left those
+     two hidden and the page opened with the hero already cropped. Clicking
+     Home should return to HOME. */
+  const TOP_ANCHORS = ['hero-section', 'main-content', 'top'];
+  if (TOP_ANCHORS.includes(id) || target.getBoundingClientRect().top + window.scrollY < 8) {
+    window.scrollTo({ top: 0, behavior });
+    return;
+  }
+
   /* Reduced motion: one jump, no loop. Cheap, and it honours the preference. */
   const reduced =
     typeof window.matchMedia === 'function' &&

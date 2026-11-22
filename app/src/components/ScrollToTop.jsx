@@ -249,6 +249,15 @@ export default function ScrollToTop() {
        navigation) fall back to the top rather than scrolling nowhere. */
     if (hash) {
       const id = hash.replace(/^#/, '');
+      /* #hero-section, #main-content and #top all mean "the top of this page".
+         The hero element begins ~136 px down, below the utility strip and the
+         header, so aiming at the element hides both and opens the home page
+         cropped. */
+      if (['hero-section', 'main-content', 'top'].includes(id)) {
+        jumpTo(0);
+        focusTarget(document.getElementById(id));
+        return;
+      }
       const scrollToHash = () => {
         const target = document.getElementById(id);
         if (!target) return false;
