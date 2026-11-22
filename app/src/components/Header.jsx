@@ -78,12 +78,16 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const profileMenuRef = useRef(null);
+  const profileBtnRef = useRef(null);
+
   /* close the suggestion panel on an outside click */
   useEffect(() => {
     const onClick = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setSuggestOpen(false);
-      const menu = document.getElementById('profile-menu');
-      if (menu && !menu.contains(e.target) && !e.target.closest('#profile-menu-btn')) {
+      const menu = profileMenuRef.current;
+      const trigger = profileBtnRef.current;
+      if (menu && !menu.contains(e.target) && !(trigger && trigger.contains(e.target))) {
         setProfileOpen(false);
       }
     };
@@ -296,6 +300,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
                 type="button"
                 className="profile-avatar-btn"
                 id="profile-menu-btn"
+                ref={profileBtnRef}
                 aria-label="Collector Profile Menu"
                 aria-expanded={profileOpen}
                 onClick={(e) => {
@@ -305,7 +310,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
               >
                 {initialsFor(user)}
               </button>
-              <div className={`profile-menu${profileOpen ? ' open' : ''}`} id="profile-menu">
+              <div className={`profile-menu${profileOpen ? ' open' : ''}`} id="profile-menu" ref={profileMenuRef}>
                 <div className="profile-menu-header">
                   <div className="profile-menu-name">
                     {user?.fullName || user?.name || 'Priya Sharma'}
