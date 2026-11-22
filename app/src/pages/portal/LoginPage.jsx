@@ -96,6 +96,39 @@ const PATHS = {
   }
 };
 
+/* Seed accounts, so an artisan can sign in with a card number on a fresh
+   browser. In a real deployment these come from the guild register. */
+const SEED_ARTISANS = [
+  {
+    email: 'ghulam.mir@zadibalpashmina.com',
+    phone: '+91 94190 88210',
+    password: 'SozniLoom100%',
+    role: 'artisan',
+    name: 'Master Ghulam Qadir Mir',
+    business: 'Mir Heritage Loom Guild',
+    craft: 'Pashmina',
+    district: 'Srinagar',
+    cardNo: 'HL-ART-88210',
+    caseId: 'GI-JK-PASH-8821',
+    trust: 'Guild-Verified \u2022 Pashmina & Kani Weavers Guild',
+    badge: 'GM'
+  },
+  {
+    email: 'fayaz.wani@anantnagcrafts.org',
+    phone: '+91 94190 55218',
+    password: 'WalnutArtisan#1',
+    role: 'artisan',
+    name: 'Fayaz Ahmad Wani',
+    business: 'Wani Woodcraft Atelier',
+    craft: 'Walnut wood',
+    district: 'Anantnag',
+    cardNo: 'HL-ART-11800',
+    caseId: 'GI-JK-WNT-1180',
+    trust: 'Guild-Verified \u2022 Walnut Wood Carving Cooperative',
+    badge: 'FA'
+  }
+];
+
 const DISTRICTS = [
   'Srinagar', 'Baramulla', 'Budgam', 'Anantnag', 'Pulwama', 'Kupwara',
   'Ganderbal', 'Shopian', 'Kulgam', 'Bandipora', 'Doda', 'Kishtwar',
@@ -170,7 +203,7 @@ export default function LoginPage() {
         title: 'Verified Valley Collector \u2022 J&K',
         badge: updated.badge,
         isLoggedIn: updated.isLoggedIn
-      });
+      }, { silent: true });
     }
     return updated;
   };
@@ -195,7 +228,12 @@ export default function LoginPage() {
   const [refCheck, setRefCheck] = useState(null);         // null | 'ok' | 'bad'
   const [refMatch, setRefMatch] = useState(null);
   const [craftId, setCraftId] = useState('');
-  const [shop, setShop] = useState({ shopName: '', craft: '', district: 'Srinagar' });
+  const [shop, setShop] = useState({
+    shopName: '',
+    craft: '',
+    district: 'Srinagar',
+    cardNo: ''
+  });
 
   /* Keep the storefront header pill in step with whatever session is on disk.
      An artisan session is never overwritten from this page: doing so silently
@@ -219,7 +257,7 @@ export default function LoginPage() {
       title: 'Verified Valley Collector \u2022 J&K',
       badge: p.badge,
       isLoggedIn: p.isLoggedIn
-    });
+    }, { silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -235,7 +273,7 @@ export default function LoginPage() {
       title: 'Verified Valley Collector \u2022 J&K',
       badge: profile.badge,
       isLoggedIn: true
-    });
+    }, { silent: true });
     window.setTimeout(() => navigate(target), 750);
   }
 
@@ -315,6 +353,39 @@ export default function LoginPage() {
      platformUsers with role 'artisan' so /auth and /seller can read it.
      --------------------------------------------------------------------- */
 
+  /* One identifier field, three ways to match. Digits-only comparison so
+     "+91 94190 88210" finds a record stored as "919419088210". */
+  const digits = (v) => String(v || '').replace(/\D/g, '');
+
+  function artisanAccounts() {
+    const stored = platformUsers || [];
+    const seen = new Set(stored.map((a) => String(a.email || '').toLowerCase()));
+    return [...stored, ...SEED_ARTISANS.filter((a) => !seen.has(a.email.toLowerCase()))];
+  }
+
+  function findArtisan(identifier) {
+    const raw = String(identifier || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+    const asDigits = digits(raw);
+
+    return (
+      artisanAccounts().find((a) => {
+        if (a.role && a.role !== 'artisan') return false;
+        const email = String(a.email || '').toLowerCase();
+        const card = String(a.cardNo || '').toLowerCase();
+        if (email && email === lower) return true;
+        if (card && card === lower) return true;
+        /* a card typed without its dashes still resolves */
+        if (card && digits(card) && digits(card) === asDigits) return true;
+        /* phone: compare on the last 10 digits so +91 is optional */
+        const phone = digits(a.phone);
+        if (phone && asDigits.length >= 10 && phone.slice(-10) === asDigits.slice(-10)) return true;
+        return false;
+      }) || null
+    );
+  }
+
   function verifyReference(raw) {
     const code = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
     if (!code) {
@@ -367,6 +438,25 @@ export default function LoginPage() {
       return;
     }
 
+    /* The Artisan Card Number is the government craft identity and the handle
+       used to sign in, so it is required and must be unique. */
+    const cardNo = shop.cardNo.trim().toUpperCase();
+    if (!cardNo) {
+      toast('\u26a0\ufe0f Enter your Artisan Card Number.');
+      return;
+    }
+    if (!/^[A-Z0-9-]{6,}$/.test(cardNo)) {
+      toast('\u26a0\ufe0f That Artisan Card Number does not look right \u2014 at least 6 letters, digits or dashes.');
+      return;
+    }
+    const cardTaken = artisanAccounts().some(
+      (a) => String(a.cardNo || '').toUpperCase() === cardNo
+    );
+    if (cardTaken) {
+      toast('\u26a0\ufe0f That Artisan Card Number is already registered. Sign in instead.');
+      return;
+    }
+
     /* each verification path produces a different trust label */
     let trust = 'New Artisan \u2022 Probation';
     let giId = null;
@@ -412,6 +502,7 @@ export default function LoginPage() {
         giId,
         reference,
         trust,
+        cardNo,
         badge: badge.toUpperCase()
       }
     ]);
@@ -425,7 +516,7 @@ export default function LoginPage() {
       title: `${trust}${locality}`,
       badge: badge.toUpperCase(),
       isLoggedIn: true
-    });
+    }, { silent: true });
 
     toast(`\u2726 Shop created for ${name}! Opening your workspace...`, 'success');
     window.setTimeout(() => navigate('/seller'), 800);
@@ -433,24 +524,26 @@ export default function LoginPage() {
 
   function submitArtisanSignin(e) {
     e.preventDefault();
-    const email = signin.identifier.trim().toLowerCase();
-    if (!email) {
-      toast('\u26a0\ufe0f Enter the email you registered your shop with.');
+    const identifier = signin.identifier.trim();
+
+    /* Password is mandatory for artisans on every identifier — there is no
+       OTP branch here, unlike the collector form. */
+    if (!identifier) {
+      toast('\u26a0\ufe0f Enter your email, mobile number or Artisan Card Number.');
       return;
     }
     if (!signin.password) {
-      toast('\u26a0\ufe0f Enter your password.');
+      toast('\u26a0\ufe0f A password is required to sign in as an artisan.');
       return;
     }
-    const match = (platformUsers || []).find(
-      (a) => String(a.email).toLowerCase() === email && a.role === 'artisan'
-    );
+
+    const match = findArtisan(identifier);
     if (!match) {
-      toast('\u26a0\ufe0f No artisan shop found with that email. Register one below.');
+      toast('\u26a0\ufe0f No artisan account matches that email, number or card. Register below.');
       return;
     }
     if (match.password && match.password !== signin.password) {
-      toast('\u26a0\ufe0f That password does not match this shop.');
+      toast('\u26a0\ufe0f That password does not match this account.');
       return;
     }
     setUser({
@@ -462,7 +555,7 @@ export default function LoginPage() {
       title: match.trust || 'Verified Artisan \u2022 J&K',
       badge: match.badge || 'AR',
       isLoggedIn: true
-    });
+    }, { silent: true });
     toast(`\u2713 Welcome back, ${match.name}! Opening your workspace...`, 'success');
     window.setTimeout(() => navigate('/seller'), 800);
   }
@@ -678,16 +771,27 @@ export default function LoginPage() {
               style={{display: isSignin ? 'block' : 'none'}}
             >
               <div className="form-field">
-                <label className="up-label" htmlFor="signin-identifier">Email Address or Mobile Number *</label>
+                <label className="up-label" htmlFor="signin-identifier">
+                  {role === 'artisan'
+                    ? 'Email, Mobile Number or Artisan Card Number *'
+                    : 'Email Address or Mobile Number *'}
+                </label>
                 <input
                   type="text"
                   id="signin-identifier"
                   className="up-input"
-                  placeholder="e.g. priya.sharma@valleycollector.in or +91 98112 77420"
+                  placeholder={role === 'artisan'
+                    ? 'e.g. HL-ART-88210, or your email, or +91 94190 88210'
+                    : 'e.g. priya.sharma@valleycollector.in or +91 98112 77420'}
                   required
                   value={signin.identifier}
                   onChange={(e) => setSignin({ ...signin, identifier: e.target.value })}
                 />
+                {role === 'artisan' && (
+                  <p className="field-hint">
+                    Your Artisan Card Number is the code on your craft identity card.
+                  </p>
+                )}
               </div>
 
               <div
@@ -741,18 +845,25 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '8px', flexWrap: 'wrap'}}>
-                <label style={{display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-700)', cursor: 'pointer'}}>
-                  <input
-                    type="checkbox"
-                    id="toggle-otp-mode"
-                    style={{accentColor: 'var(--btn-orange)'}}
-                    checked={useOtp}
-                    onChange={(e) => setUseOtp(e.target.checked)}
-                  />
-                  <span>Login with 6-Digit OTP instead</span>
-                </label>
-                <button type="button" className="btn-link-edit" onClick={demoLogin}>Use demo account</button>
+              <div className="login-row-help">
+                {/* OTP is a collector convenience. Artisan sign-in always uses a
+                    password, whichever of the three identifiers is typed. */}
+                {role === 'artisan' ? (
+                  <span className="login-row-note">Password required for artisan accounts</span>
+                ) : (
+                  <label className="login-check">
+                    <input
+                      type="checkbox"
+                      id="toggle-otp-mode"
+                      checked={useOtp}
+                      onChange={(e) => setUseOtp(e.target.checked)}
+                    />
+                    <span>Login with 6-Digit OTP instead</span>
+                  </label>
+                )}
+                <button type="button" className="btn-link-edit" onClick={demoLogin}>
+                  Use demo account
+                </button>
               </div>
 
               <button type="submit" className="btn-orange" style={{width: '100%', height: '46px'}}>
@@ -850,6 +961,21 @@ export default function LoginPage() {
                       onChange={(e) => setShop({ ...shop, shopName: e.target.value })}
                     />
                     <p className="field-hint">Buyers see this name, not your legal name.</p>
+                  </div>
+
+                  <div className="form-field">
+                    <label className="up-label" htmlFor="shop-card">Artisan Card Number *</label>
+                    <input
+                      type="text" id="shop-card" className="up-input card-input"
+                      placeholder="e.g. HL-ART-88210"
+                      required
+                      value={shop.cardNo}
+                      onChange={(e) => setShop({ ...shop, cardNo: e.target.value.toUpperCase() })}
+                    />
+                    <p className="field-hint">
+                      The number printed on your craft identity card. You will sign in
+                      with this, and buyers see it on your storefront beside your trust badge.
+                    </p>
                   </div>
 
                   <div className="form-row-2">

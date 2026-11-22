@@ -451,9 +451,14 @@ export function StoreProvider({ children }) {
       resetFilters: () => dispatch({ type: 'ui/filtersReset' }),
       setLoadingProducts: (value) => dispatch({ type: 'ui/loading', value }),
 
-      setUser: (user) => {
+      /* `silent` is for mirroring a session that already exists — syncing the
+         header from disk, or landing after a page that has its own message.
+         Without it every refresh of /login announced "Signed in as Priya". */
+      setUser: (user, opts = {}) => {
         dispatch({ type: 'user/set', user });
-        toast(user ? `Signed in as ${user.name || user.email}` : 'Signed out');
+        if (!opts.silent) {
+          toast(user ? `Signed in as ${user.name || user.email}` : 'Signed out');
+        }
       },
       pushRecent: (id) => dispatch({ type: 'recentlyViewed/push', id }),
       clearRecentlyViewed: () => dispatch({ type: 'recentlyViewed/clear' }),

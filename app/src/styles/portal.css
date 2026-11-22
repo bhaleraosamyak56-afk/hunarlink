@@ -5456,3 +5456,41 @@ html.portal-wholesale body {
     display: none;
   }
 }
+
+/* ---- login helper row + artisan card number ---- */
+.login-card .login-row-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.login-card .login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  color: var(--text-700);
+  cursor: pointer;
+}
+
+.login-card .login-check input {
+  accent-color: var(--btn-orange);
+  width: 14px;
+  height: 14px;
+}
+
+.login-card .login-row-note {
+  font-size: 0.745rem;
+  color: var(--text-500);
+}
+
+/* the card number is a code, so it reads as one */
+.login-card .card-input {
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
