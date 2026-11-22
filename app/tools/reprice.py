@@ -33,6 +33,8 @@ BANDS = {
         "embroidered":(38000, 95000),    # sozni needlework
         "kani":       (60000, 200000),   # kani / jamawar masterweave
     },
+    # Retained for reference only: Sozni is no longer its own guild, it is a
+    # technique inside pashmina. See band_for() below.
     "sozni":       {"base": (9000, 50000)},
     "walnut":      {"base": (1800, 210000)},
     "papier-mache":{"base": (450, 22000)},
@@ -40,9 +42,19 @@ BANDS = {
 }
 
 
-# Loom hours drive position inside the band. The catalogue's least elaborate
-# piece is ~120 hours and its most elaborate is 1400.
-HOURS_MIN, HOURS_MAX = 120, 1400
+# Loom hours drive position inside the band. These MUST span the real catalogue.
+# The old ceiling of 1400 was below the actual maximum, so every piece above it
+# clamped onto the same price: eleven Kani listings all sat at Rs 50,000, and a
+# 2,800-hour dual-technique tapestry cost exactly what a 1,400-hour stole cost.
+# Read the real range from the data, do not restate it by hand.
+HOURS_MIN, HOURS_MAX = 110, 2800
+
+# A band keyed to loom hours does not describe a small gifting object. The
+# miniature Kani coin purse set (110 hours, 12 cm) is priced by hand so the
+# formula does not claim a purse is worth a shawl.
+PRICE_EXCEPTIONS = {
+    "hl-kani-015": 18000,
+}
 
 
 def band_for(guild, title):
@@ -101,7 +113,7 @@ def main():
         lo, hi = band_for(guild, title)
 
         t = curve(hours)
-        price = round_to_50(lo + (hi - lo) * t)
+        price = PRICE_EXCEPTIONS.get(m.group(1)) or round_to_50(lo + (hi - lo) * t)
 
         # Retail / original market price. Real heirloom retail sits 25-45%
         # above a direct-from-artisan price, so the discount a collector sees
