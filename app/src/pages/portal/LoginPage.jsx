@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
@@ -25,6 +25,70 @@ import { appHref } from '../../utils/href.js';
 
 const PROFILE_KEY = 'hunarlink_buyer_profile';
 const AUTH_KEY = 'hunarlink_auth_user';
+
+/* ==========================================================================
+   Artisan registries — how we tell a shop from a buyer WITHOUT a GSTIN
+   --------------------------------------------------------------------------
+   A GSTIN proves a business, not a craft, and it is the wrong door for a
+   weaver in Charar-i-Sharief selling to a diaspora buyer on Instagram.
+   Amazon can demand one because it wants a taxable turnover; a craft
+   marketplace wants *provenance*. So the trust signal here is a Guild
+   Reference Code: an existing guild member or HunarLink artisan vouches for
+   the applicant, and they both get a short numeric code to read out.
+
+   Format: HL-<GUILD PREFIX>-<4 DIGITS>  e.g. HL-PASH-8821
+   The prefix ties the code to the guild that owns it, so a code from one
+   guild cannot vouch for someone claiming another.
+
+   DEMO REGISTRY — a real build verifies against the guild database. These
+   codes are seeded here so the flow can be walked end to end.
+   ========================================================================== */
+
+const GUILD_CODES = {
+  PASH: { guild: 'Pashmina & Kani Weavers Guild', district: 'Srinagar' },
+  WALN: { guild: 'Walnut Wood Carving Cooperative', district: 'Baramulla' },
+  PAPR: { guild: 'Papier-Mach\u00e9 Artisans Trust', district: 'Srinagar' },
+  SOZN: { guild: 'Sozni Embroidery Cluster', district: 'Budgam' },
+  KANI: { guild: 'Kani Shawl Weavers Society', district: 'Anantnag' },
+  CARP: { guild: 'Carpet Weavers Federation', district: 'Pulwama' }
+};
+
+const REFERENCE_REGISTRY = {
+  'HL-PASH-8821': { artisan: 'Ghulam Mir', guild: 'PASH', uses: 0, maxUses: 3 },
+  'HL-WALN-4471': { artisan: 'Fayaz Wani', guild: 'WALN', uses: 0, maxUses: 3 },
+  'HL-SOZN-2093': { artisan: 'Zahoor Bhat', guild: 'SOZN', uses: 0, maxUses: 2 },
+  'HL-KANI-6612': { artisan: 'Nusrat Jan', guild: 'KANI', uses: 0, maxUses: 2 },
+  'HL-CARP-3345': { artisan: 'Mohammad Dar', guild: 'CARP', uses: 0, maxUses: 3 },
+  'HL-PAPR-7708': { artisan: 'Bashir Ahmad', guild: 'PAPR', uses: 0, maxUses: 2 }
+};
+
+/* Three routes into a verified shop, weakest effort first. */
+const PATHS = {
+  reference: {
+    key: 'reference',
+    icon: '\u{1F91D}',
+    title: 'Guild Reference Code',
+    blurb: 'An existing artisan or guild member vouches for you.'
+  },
+  craftmark: {
+    key: 'craftmark',
+    icon: '\u2702\uFE0F',
+    title: 'Craftmark / UID Card',
+    blurb: 'Have a Craft Development Institute identity number?'
+  },
+  new: {
+    key: 'new',
+    icon: '\u{1F331}',
+    title: 'New & Unregistered',
+    blurb: 'First time online. Start on Probation and get verified by video.'
+  }
+};
+
+const DISTRICTS = [
+  'Srinagar', 'Baramulla', 'Budgam', 'Anantnag', 'Pulwama', 'Kupwara',
+  'Ganderbal', 'Shopian', 'Kulgam', 'Bandipora', 'Doda', 'Kishtwar',
+  'Ramban', 'Reasi', 'Udhampur', 'Kathua', 'Jammu', 'Rajouri', 'Poonch', 'Samba'
+];
 
 const DEFAULT_PROFILE = {
   firstName: 'Priya',
@@ -68,8 +132,16 @@ function buildProfile(savedProfile, patch) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const { setUser, user: storeUser, buyerProfile, setBuyerProfile, toast } = useStore();
+  const [params, setParams] = useSearchParams();
+  const {
+    setUser,
+    user: storeUser,
+    buyerProfile,
+    setBuyerProfile,
+    toast,
+    platformUsers,
+    setPlatformUsers
+  } = useStore();
 
   /* Persist a buyer profile through the store — one write path that also
      mirrors the identity onto the storefront session key. */
@@ -103,6 +175,15 @@ export default function LoginPage() {
     gender: 'Female',
     password: ''
   });
+
+  /* ---- who is signing in, and (for artisans) how we verify the shop ---- */
+  const role = params.get('role') === 'artisan' ? 'artisan' : 'user';
+  const [path, setPath] = useState('reference');          // how they prove they are a maker
+  const [refCode, setRefCode] = useState('');
+  const [refCheck, setRefCheck] = useState(null);         // null | 'ok' | 'bad'
+  const [refMatch, setRefMatch] = useState(null);
+  const [craftId, setCraftId] = useState('');
+  const [shop, setShop] = useState({ shopName: '', craft: '', district: 'Srinagar' });
 
   /* Keep the storefront header pill in step with whatever session is on disk. */
   useEffect(() => {
@@ -205,6 +286,176 @@ export default function LoginPage() {
     land(`\u2726 Account created for ${profile.fullName}! Redirecting to Profile...`, profile);
   }
 
+  /* ---------------------------------------------------------------------
+     Artisan verification. Deliberately a separate function from submitSignup
+     because an artisan account is a shop, not a buyer profile: it lands in
+     platformUsers with role 'artisan' so /auth and /seller can read it.
+     --------------------------------------------------------------------- */
+
+  function verifyReference(raw) {
+    const code = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!code) {
+      setRefCheck('bad');
+      setRefMatch({ reason: 'Enter the code your guild member shared with you.' });
+      return false;
+    }
+    const found = REFERENCE_REGISTRY[code];
+    if (!found) {
+      setRefCheck('bad');
+      setRefMatch({
+        reason: 'That code is not in the guild registry. Ask your guild member to re-issue it.'
+      });
+      return false;
+    }
+    if (found.uses >= found.maxUses) {
+      setRefCheck('bad');
+      setRefMatch({ reason: 'This code has already been used the maximum number of times.' });
+      return false;
+    }
+    const g = GUILD_CODES[found.guild];
+    setRefCheck('ok');
+    setRefMatch({
+      artisan: found.artisan,
+      guild: g.guild,
+      district: g.district,
+      remaining: found.maxUses - found.uses
+    });
+    /* the guild owns the district, so prefill it rather than let it drift */
+    setShop((v) => ({ ...v, district: g.district }));
+    return true;
+  }
+
+  function submitArtisanSignup(e) {
+    e.preventDefault();
+    const first = signup.firstName.trim();
+    const last = signup.lastName.trim();
+    const email = signup.email.trim();
+
+    if (!first || !email || !signup.phone.trim()) {
+      toast('\u26a0\ufe0f Please give your name, mobile number and email.');
+      return;
+    }
+    if (!signup.password || signup.password.length < 8) {
+      toast('\u26a0\ufe0f Choose a password of at least 8 characters.');
+      return;
+    }
+    if (!shop.shopName.trim()) {
+      toast('\u26a0\ufe0f Please name your shop \u2014 buyers see this, not your legal name.');
+      return;
+    }
+
+    /* each verification path produces a different trust label */
+    let trust = 'New Artisan \u2022 Probation';
+    let giId = null;
+    let reference = null;
+
+    if (path === 'reference') {
+      if (refCheck !== 'ok' && !verifyReference(refCode)) return;
+      reference = refCode.trim().toUpperCase().replace(/\s+/g, '');
+      const g = GUILD_CODES[REFERENCE_REGISTRY[reference].guild];
+      trust = `Guild-Verified \u2022 ${g.guild}`;
+    } else if (path === 'craftmark') {
+      const id = craftId.trim();
+      if (id.length < 6) {
+        toast('\u26a0\ufe0f Enter your full Craftmark / CDI identity number.');
+        return;
+      }
+      giId = id;
+      trust = 'Craftmark Verified \u2022 CDI';
+    }
+
+    const users = platformUsers || [];
+    if (users.some((a) => String(a.email).toLowerCase() === email.toLowerCase())) {
+      toast('\u26a0\ufe0f An account with that email already exists. Try signing in.');
+      return;
+    }
+
+    const name = `${first} ${last}`.trim();
+    const badge = (first[0] || '') + (last[0] || '') || 'AR';
+    const locality = shop.district ? ` \u2022 ${shop.district}` : '';
+
+    setPlatformUsers([
+      ...users,
+      {
+        email,
+        phone: signup.phone.trim(),
+        password: signup.password,
+        role: 'artisan',
+        name,
+        business: shop.shopName.trim(),
+        craft: shop.craft || '',
+        district: shop.district,
+        giCertified: path !== 'new',
+        giId,
+        reference,
+        trust,
+        badge: badge.toUpperCase()
+      }
+    ]);
+
+    setUser({
+      name: first,
+      fullName: name,
+      email,
+      phone: signup.phone.trim(),
+      role: 'artisan',
+      title: `${trust}${locality}`,
+      badge: badge.toUpperCase(),
+      isLoggedIn: true
+    });
+
+    toast(`\u2726 Shop created for ${name}! Opening your workspace...`, 'success');
+    window.setTimeout(() => navigate('/seller'), 800);
+  }
+
+  function submitArtisanSignin(e) {
+    e.preventDefault();
+    const email = signin.identifier.trim().toLowerCase();
+    if (!email) {
+      toast('\u26a0\ufe0f Enter the email you registered your shop with.');
+      return;
+    }
+    if (!signin.password) {
+      toast('\u26a0\ufe0f Enter your password.');
+      return;
+    }
+    const match = (platformUsers || []).find(
+      (a) => String(a.email).toLowerCase() === email && a.role === 'artisan'
+    );
+    if (!match) {
+      toast('\u26a0\ufe0f No artisan shop found with that email. Register one below.');
+      return;
+    }
+    if (match.password && match.password !== signin.password) {
+      toast('\u26a0\ufe0f That password does not match this shop.');
+      return;
+    }
+    setUser({
+      name: (match.name || '').split(' ')[0] || 'Artisan',
+      fullName: match.name,
+      email: match.email,
+      phone: match.phone,
+      role: 'artisan',
+      title: match.trust || 'Verified Artisan \u2022 J&K',
+      badge: match.badge || 'AR',
+      isLoggedIn: true
+    });
+    toast(`\u2713 Welcome back, ${match.name}! Opening your workspace...`, 'success');
+    window.setTimeout(() => navigate('/seller'), 800);
+  }
+
+  /* Switching role keeps the flow honest: the buyer form and the artisan form
+     write to different stores, so we reset the OTP branch on the way across. */
+  function switchRole(next) {
+    setUseOtp(false);
+    setSignin({ identifier: '', password: '', otp: '' });
+    setMode(params.get('mode') === 'signup' ? 'signup' : 'signin');
+    const nextParams = new URLSearchParams(params);
+    if (next === 'artisan') nextParams.set('role', 'artisan');
+    else nextParams.delete('role');
+    setParams(nextParams, { replace: true });
+  }
+
   function demoLogin() {
     const profile = writeProfile({ ...DEFAULT_PROFILE, isLoggedIn: true });
     land(`\u26a1 Signed in as ${profile.fullName}!`, profile);
@@ -244,12 +495,18 @@ export default function LoginPage() {
                 ✦ HUNARLINK COLLECTOR ACCOUNT
               </div>
               <h1 id="left-heading">
-                {isSignin ? 'Welcome to HunarLink' : 'Create Your HunarLink Account'}
+                {role === 'artisan'
+                  ? (isSignin ? 'Your craft, your storefront.' : 'Open your storefront.')
+                  : (isSignin ? 'Welcome to HunarLink' : 'Create Your HunarLink Account')}
               </h1>
               <p id="left-desc">
-                {isSignin
-                  ? 'Sign in to customize your personal profile, manage saved delivery addresses, track your GI-certified Kashmiri handicraft orders live, and protect every purchase with HunarLink Escrow.'
-                  : 'Join HunarLink to follow every loom hour, verify GI provenance at your doorstep, and keep your acquisition history in one collector archive.'}
+                {role === 'artisan'
+                  ? (isSignin
+                      ? 'Sign in to manage your listings, answer buyer questions and publish new work straight to the storefront.'
+                      : 'List your crafts, get verified against the Valley Verification Flow, and reach connoisseurs without middlemen.')
+                  : (isSignin
+                      ? 'Sign in to customize your personal profile, manage saved delivery addresses, track your GI-certified Kashmiri handicraft orders live, and protect every purchase with HunarLink Escrow.'
+                      : 'Join HunarLink to follow every loom hour, verify GI provenance at your doorstep, and keep your acquisition history in one collector archive.')}
               </p>
             </div>
 
@@ -261,7 +518,42 @@ export default function LoginPage() {
           </div>
 
           <div className="login-right">
-            {/* Switch Between Login & Sign Up */}
+            {/* ---- Step 1: who is signing in (shared by both tabs) ---- */}
+            <p className="role-label" id="role-label">
+              {isSignin ? 'I\u2019m signing in as' : 'I\u2019m registering as'}
+            </p>
+            <div className="role-grid" role="group" aria-labelledby="role-label">
+              <button
+                type="button"
+                className={`role-opt${role === 'user' ? ' is-on' : ''}`}
+                id="role-user"
+                aria-pressed={role === 'user'}
+                onClick={() => switchRole('user')}
+              >
+                <span className="role-tick" aria-hidden="true">&#10003;</span>
+                <span className="role-row">
+                  <span className="role-ico">&#128100;</span>
+                  <span className="role-title">User</span>
+                </span>
+                <span className="role-desc">Buy and collect</span>
+              </button>
+              <button
+                type="button"
+                className={`role-opt${role === 'artisan' ? ' is-on' : ''}`}
+                id="role-artisan"
+                aria-pressed={role === 'artisan'}
+                onClick={() => switchRole('artisan')}
+              >
+                <span className="role-tick" aria-hidden="true">&#10003;</span>
+                <span className="role-row">
+                  <span className="role-ico role-ico-artisan">&#10022;</span>
+                  <span className="role-title">Artisan</span>
+                </span>
+                <span className="role-desc">Sell your craft</span>
+              </button>
+            </div>
+
+            {/* ---- Step 2: sign in or create an account ---- */}
             <div className="login-tabs" role="tablist">
               <button
                 type="button"
@@ -271,7 +563,7 @@ export default function LoginPage() {
                 aria-selected={isSignin}
                 onClick={() => setMode('signin')}
               >
-                🔐 User Login
+                &#128273; Sign In
               </button>
               <button
                 type="button"
@@ -281,14 +573,14 @@ export default function LoginPage() {
                 aria-selected={!isSignin}
                 onClick={() => setMode('signup')}
               >
-                ✨ Create Account
+                &#10024; Create Account
               </button>
             </div>
 
             {/* FORM 1: USER SIGN IN (PASSWORD OR 6-DIGIT OTP) */}
             <form
-              id="user-signin-form"
-              onSubmit={submitSignin}
+              id={role === 'artisan' ? 'artisan-signin-form' : 'user-signin-form'}
+              onSubmit={role === 'artisan' ? submitArtisanSignin : submitSignin}
               style={{display: isSignin ? 'block' : 'none'}}
             >
               <div className="form-field">
@@ -376,8 +668,8 @@ export default function LoginPage() {
 
             {/* FORM 2: CREATE NEW USER ACCOUNT */}
             <form
-              id="user-signup-form"
-              onSubmit={submitSignup}
+              id={role === 'artisan' ? 'artisan-signup-form' : 'user-signup-form'}
+              onSubmit={role === 'artisan' ? submitArtisanSignup : submitSignup}
               style={{display: isSignin ? 'none' : 'block'}}
             >
               <div className="form-row-2">
@@ -418,40 +710,207 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="form-row-2">
-                <div className="form-field">
-                  <label className="up-label" htmlFor="su-gender">Gender</label>
-                  <select
-                    id="su-gender" className="up-select"
-                    value={signup.gender}
-                    onChange={(e) => setSignup({ ...signup, gender: e.target.value })}
-                  >
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label className="up-label" htmlFor="su-password">Create Password *</label>
-                  <input
-                    type="password" id="su-password" className="up-input"
-                    placeholder="Min. 6 characters" minLength="6" required
-                    value={signup.password}
-                    onChange={(e) => setSignup({ ...signup, password: e.target.value })}
-                  />
-                </div>
-              </div>
+              {role === 'user' && (
+                <>
+                  <div className="form-row-2">
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="su-gender">Gender</label>
+                      <select
+                        id="su-gender" className="up-select"
+                        value={signup.gender}
+                        onChange={(e) => setSignup({ ...signup, gender: e.target.value })}
+                      >
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                        <option value="Prefer not to say">Prefer not to say</option>
+                      </select>
+                    </div>
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="su-password">Create Password *</label>
+                      <input
+                        type="password" id="su-password" className="up-input"
+                        placeholder="Min. 6 characters" minLength="6" required
+                        value={signup.password}
+                        onChange={(e) => setSignup({ ...signup, password: e.target.value })}
+                      />
+                    </div>
+                  </div>
 
-              <button type="submit" className="btn-orange" style={{width: '100%', height: '46px', marginTop: '4px'}}>
-                Create User Account &amp; Open Profile →
-              </button>
+                  <button type="submit" className="btn-orange" style={{width: '100%', height: '46px', marginTop: '4px'}}>
+                    Create User Account &amp; Open Profile &#8594;
+                  </button>
+                </>
+              )}
+
+              {/* ================= ARTISAN ONLY ================= */}
+              {role === 'artisan' && (
+                <>
+                  <div className="form-field">
+                    <label className="up-label" htmlFor="shop-name">Shop / Studio Name *</label>
+                    <input
+                      type="text" id="shop-name" className="up-input"
+                      placeholder="e.g. Mir Pashmina Karkhana"
+                      value={shop.shopName}
+                      onChange={(e) => setShop({ ...shop, shopName: e.target.value })}
+                    />
+                    <p className="field-hint">Buyers see this name, not your legal name.</p>
+                  </div>
+
+                  <div className="form-row-2">
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="shop-craft">Craft</label>
+                      <select
+                        id="shop-craft" className="up-select"
+                        value={shop.craft}
+                        onChange={(e) => setShop({ ...shop, craft: e.target.value })}
+                      >
+                        <option value="">Select your craft</option>
+                        <option value="Pashmina">Pashmina</option>
+                        <option value="Kani">Kani shawl</option>
+                        <option value="Sozni">Sozni embroidery</option>
+                        <option value="Walnut wood">Walnut wood carving</option>
+                        <option value="Papier-m&acirc;ch&eacute;">Papier-m&acirc;ch&eacute;</option>
+                        <option value="Carpet">Hand-knotted carpet</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="shop-district">District</label>
+                      <select
+                        id="shop-district" className="up-select"
+                        value={shop.district}
+                        onChange={(e) => setShop({ ...shop, district: e.target.value })}
+                      >
+                        {DISTRICTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* ---- how we verify a maker without a GSTIN ---- */}
+                  <div className="verify-head">
+                    <span className="verify-head-title">How shall we verify your craft?</span>
+                    <span className="verify-head-sub">No GSTIN needed &mdash; we verify provenance, not turnover.</span>
+                  </div>
+
+                  <div className="path-list" role="radiogroup" aria-label="Artisan verification path">
+                    {Object.values(PATHS).map((p) => (
+                      <button
+                        type="button"
+                        key={p.key}
+                        role="radio"
+                        aria-checked={path === p.key}
+                        className={`path-opt${path === p.key ? ' is-on' : ''}`}
+                        id={`path-${p.key}`}
+                        onClick={() => { setPath(p.key); setRefCheck(null); setRefMatch(null); }}
+                      >
+                        <span className="path-ico">{p.icon}</span>
+                        <span className="path-body">
+                          <span className="path-title">{p.title}</span>
+                          <span className="path-blurb">{p.blurb}</span>
+                        </span>
+                        <span className="path-dot" aria-hidden="true" />
+                      </button>
+                    ))}
+                  </div>
+
+                  {path === 'reference' && (
+                    <div className="ref-block">
+                      <label className="up-label" htmlFor="ref-code">Guild Reference Code *</label>
+                      <div className="ref-row">
+                        <input
+                          type="text" id="ref-code" className="up-input ref-input"
+                          placeholder="HL-PASH-8821"
+                          value={refCode}
+                          onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefCheck(null); }}
+                        />
+                        <button
+                          type="button" className="ref-btn"
+                          onClick={() => verifyReference(refCode)}
+                        >
+                          Check
+                        </button>
+                      </div>
+
+                      {refCheck === 'ok' && refMatch && (
+                        <div className="ref-result ok" id="ref-result" role="status">
+                          <strong>&#10003; Vouched for by {refMatch.artisan}</strong>
+                          <span>{refMatch.guild} &middot; {refMatch.district}</span>
+                          <span className="ref-note">
+                            The guild office will ring you to confirm before your shop goes live.
+                          </span>
+                        </div>
+                      )}
+                      {refCheck === 'bad' && (
+                        <div className="ref-result bad" id="ref-result" role="alert">
+                          <strong>&#10007; We could not verify that code</strong>
+                          <span>{refMatch?.reason}</span>
+                        </div>
+                      )}
+
+                      <p className="field-hint">
+                        Ask any HunarLink artisan or your guild office for a code.
+                        Try <strong>HL-PASH-8821</strong> to see how it works.
+                      </p>
+                    </div>
+                  )}
+
+                  {path === 'craftmark' && (
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="craft-id">Craftmark / CDI Identity Number *</label>
+                      <input
+                        type="text" id="craft-id" className="up-input"
+                        placeholder="e.g. CDI-2019-44821"
+                        value={craftId}
+                        onChange={(e) => setCraftId(e.target.value.toUpperCase())}
+                      />
+                      <p className="field-hint">
+                        Issued by the Craft Development Institute, Srinagar. We check it against their register.
+                      </p>
+                    </div>
+                  )}
+
+                  {path === 'new' && (
+                    <div className="probation-note" id="probation-note">
+                      <strong>&#127793; You can start today.</strong>
+                      <span>
+                        Register now and list your work straight away. A verifier books a short
+                        video call to watch you at the loom, and your shop shows a
+                        <em> Verified Artisan </em> badge once that clears. Until then buyers see
+                        &ldquo;New Artisan&rdquo;.
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="form-field" style={{marginTop: '14px'}}>
+                    <label className="up-label" htmlFor="su-password">Create Password *</label>
+                    <input
+                      type="password" id="su-password" className="up-input"
+                      placeholder="At least 8 characters" minLength="8" required
+                      value={signup.password}
+                      onChange={(e) => setSignup({ ...signup, password: e.target.value })}
+                    />
+                  </div>
+
+                  <button type="submit" className="btn-orange" style={{width: '100%', height: '46px', marginTop: '4px'}}>
+                    Create My Shop &#8594;
+                  </button>
+                </>
+              )}
             </form>
 
-            <div
-              style={{marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.78rem', color: 'var(--text-500)'}}>
-              <span>Are you a Kashmiri Artisan / Seller?</span>
-              <a href={appHref('/auth?mode=login&role=artisan')}
-                style={{color: 'var(--btn-orange)', fontWeight: '700', textDecoration: 'none'}}>Open Seller Portal Login →</a>
+            <div className="login-swap">
+              <span>
+                {isSignin ? 'Don\u2019t have an account?' : 'Already have an account?'}
+              </span>
+              <button
+                type="button"
+                className="login-swap-link"
+                onClick={() => setMode(isSignin ? 'signup' : 'signin')}
+              >
+                {isSignin ? 'Create account \u2192' : 'Sign in \u2192'}
+              </button>
             </div>
           </div>
         </section>

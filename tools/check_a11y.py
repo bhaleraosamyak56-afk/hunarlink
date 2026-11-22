@@ -41,9 +41,14 @@ with sync_playwright() as p:
     has_login = pg.evaluate("()=>!!document.querySelector('#login-btn')")
     pg.click("#login-btn")
     pg.wait_for_timeout(500)
+    # LOGIN now goes straight to /login, which offers the two roles as an
+    # always-visible choice above the sign-in / register tabs. Check them there
+    # rather than in the retired #login-choice-modal.
+    pg.goto(B + "/login", wait_until="networkidle")
+    pg.wait_for_timeout(900)
     roles = pg.evaluate(
-        "()=>[...document.querySelectorAll('#login-choice-modal [data-role]')]"
-        ".map(e=>e.dataset.role)")
+        "()=>[...document.querySelectorAll('.role-opt')]"
+        ".map(e=>e.id.replace('role-',''))")
     print()
     print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles}")
     br.close()

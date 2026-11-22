@@ -272,7 +272,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
               id="login-btn"
               title="Sign in as a collector or an artisan"
               data-testid="login-btn"
-              onClick={() => openModal('loginChoice')}
+              onClick={() => navigate('/login')}
             >
               {/* Always reads LOGIN. Who you are is answered in the modal and
                   shown by the avatar beside it, not by relabelling this. */}
