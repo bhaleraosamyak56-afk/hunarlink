@@ -6001,3 +6001,45 @@ body {
   .ha-img { opacity: 0.1; }
   .ha-2 { display: none; }
 }
+
+/* ==========================================================================
+   Brand mark — the real logo
+   --------------------------------------------------------------------------
+   Replaces the placeholder forest square with a gold "H". The artwork is
+   taller than it is wide (about 0.86:1), so the mark is sized by height and
+   allowed to find its own width; forcing a square box would letterbox it.
+   ========================================================================== */
+
+.brand-mark {
+  /* written as an explicit auto so the height attribute cannot win and
+     stretch the artwork into a square */
+  height: 40px;
+  width: auto !important;
+  display: block;
+  flex-shrink: 0;
+  /* the logo already carries its own green and gold; a shadow would only
+     muddy the thin gold strokes at small sizes */
+}
+
+.brand-mark--footer {
+  height: 46px;
+}
+
+.up-emblem-mark {
+  height: 38px;
+  width: auto !important;
+  display: block;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .brand-mark {
+    height: 34px;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand-mark {
+    height: 30px;
+  }
+}

@@ -12,14 +12,6 @@ import { Heart, Bag, Search, Close } from './Icons.jsx';
    render function.
    ========================================================================== */
 
-const SEALS = (
-  <svg className="brand-seal" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
-    <rect x="0.5" y="0.5" width="43" height="43" rx="9" fill="#112A20" stroke="rgba(212,175,55,.30)" />
-    <rect x="4" y="4" width="36" height="36" rx="6.5" fill="none" stroke="#D4AF37" strokeOpacity=".40" strokeWidth=".9" />
-    <path d="M8 32.5c4-6 9-9.5 14-9.5s10 3.5 14 9.5" fill="none" stroke="#E5C453" strokeOpacity=".48" strokeWidth=".9" strokeLinecap="round" />
-    <path d="M8 27.5c4-6 9-9.5 14-9.5s10 3.5 14 9.5" fill="none" stroke="#E5C453" strokeOpacity=".24" strokeWidth=".9" strokeLinecap="round" />
-  </svg>
-);
 
 const NAV = [
   { id: 'home', label: 'Home', to: '/#hero-section', section: 'hero-section' },
@@ -153,10 +145,15 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
             aria-label="HunarLink — back to the top of the store"
             onClick={goHome}
           >
-            <span className="brand-emblem">
-              {SEALS}
-              <span className="brand-glyph">H</span>
-            </span>
+            {/* The real mark, traced to vector. The old forest square with a
+                gold "H" in it was a placeholder standing in for this. */}
+            <img
+              src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+              alt=""
+              className="brand-mark"
+              height="40"
+              fetchPriority="high"
+            />
             <span className="brand-text-wrap">
               <span className="brand-title">HunarLink</span>
               <span className="brand-subtitle">

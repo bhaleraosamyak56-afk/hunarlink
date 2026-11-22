@@ -37,7 +37,13 @@ export default function Footer() {
         <div className="footer-grid">
           <div>
             <div className="brand-logo">
-              <span className="brand-emblem">H</span>
+              <img
+                src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+                alt="HunarLink"
+                className="brand-mark brand-mark--footer"
+                height="46"
+                loading="lazy"
+              />
               <span className="brand-text-wrap">
                 <span className="brand-title">HunarLink</span>
                 <span className="brand-subtitle">Valley Craft Guild</span>
