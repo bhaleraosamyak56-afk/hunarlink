@@ -888,23 +888,43 @@ export default function SellerPage() {
                       appear here instantly!
                     </div>
                   ) : (
-                    orders.slice(0, 3).map((o) => (
-                      <div className="latest-order-row" key={o.id}>
-                        <div>
-                          <div className="latest-order-id">#{o.id}</div>
-                          <div className="latest-order-buyer">
-                            {o.buyer?.name || o.address || 'HunarLink Collector'}
+                    orders.slice(0, 2).map((o) => {
+                      const buyerName =
+                        o.buyer?.name || (o.address || '').split(',')[0] || 'HunarLink Collector';
+                      const stageLbl = TRACKING_STAGES[(o.stage || 1) - 1] || TRACKING_STAGES[0];
+                      return (
+                        <div
+                          key={o.id}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            gap: '14px', flexWrap: 'wrap', padding: '14px',
+                            background: 'var(--ivory-bg)', border: '1px solid var(--border-light)',
+                            borderRadius: '12px', marginBottom: '10px'
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 800, color: 'var(--forest-950)', fontSize: '0.92rem' }}>
+                              {o.id}
+                              {o.isNewForSeller && (
+                                <span className="status-chip new-order" style={{ marginLeft: '6px' }}>
+                                  NEW ORDER
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-700)', marginTop: '2px' }}>
+                              <strong>Buyer:</strong> {buyerName} • {(o.items || []).length} item(s) •{' '}
+                              <strong>{formatINR(o.total)}</strong>
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-500)', marginTop: '2px' }}>
+                              {o.date || 'Recent'} • {o.paymentMethod || 'Escrow'} • Stage: {stageLbl}
+                            </div>
                           </div>
+                          <button type="button" className="btn-forest" onClick={() => switchTab('orders')}>
+                            Inspect Full Order →
+                          </button>
                         </div>
-                        <div className="latest-order-mid">
-                          {(o.items || []).map((i) => i.title).join(' • ') || '—'}
-                        </div>
-                        <div className="latest-order-amt">{formatINR(o.total)}</div>
-                        <span className="status-chip live">
-                          {TRACKING_STAGES[(o.stage || 1) - 1] || TRACKING_STAGES[0]}
-                        </span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
