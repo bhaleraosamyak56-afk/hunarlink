@@ -224,7 +224,7 @@ export default function WholesalePage() {
       discountPct,
       totalLotValue
     });
-    toast(`📤 Bulk request ${reqId} transferred to ${selected.artisan}!`, 'success');
+    toast(`Bulk request ${reqId} transferred to ${selected.artisan}!`, 'success');
   }
 
   function submitLocalSeller(e) {
@@ -259,7 +259,7 @@ export default function WholesalePage() {
     setAdminRequests((list) => [record, ...list]);
     setAdminReceipt(record);
     setSeller(BLANK_SELLER);
-    toast(`🛡️ Local seller submission ${refId} transferred to HunarLink Admin!`, 'success');
+    toast(`Local seller submission ${refId} transferred to HunarLink Admin!`, 'success');
   }
 
   function updateAdminStatus(reqId, newStatus) {
@@ -268,7 +268,7 @@ export default function WholesalePage() {
       saveStorage(WS_KEYS.ADMIN_REQUESTS, next);
       return next;
     });
-    toast(`🛡️ HunarLink Admin updated ${reqId} → ${newStatus}`, 'success');
+    toast(`HunarLink Admin updated ${reqId} → ${newStatus}`, 'success');
   }
 
   return (
@@ -289,14 +289,11 @@ export default function WholesalePage() {
         <a href={appHref('/')} className="wp-nav-btn">
           ← Storefront
         </a>
-        <a href={appHref('/seller')} className="wp-nav-btn">
-          🔨 Seller Portal
+        <a href={appHref('/seller')} className="wp-nav-btn">Seller Portal
         </a>
-        <a href={appHref('/profile')} className="wp-nav-btn">
-          👤 My Profile
+        <a href={appHref('/profile')} className="wp-nav-btn">My Profile
         </a>
-        <button type="button" className="wp-nav-btn primary">
-          📡 Live Routing Desk (<span id="nav-total-requests">{totalRequests}</span>)
+        <button type="button" className="wp-nav-btn primary">Live Routing Desk (<span id="nav-total-requests">{totalRequests}</span>)
         </button>
       </nav>
     </div>
@@ -306,7 +303,7 @@ export default function WholesalePage() {
   <section className="wp-hero">
     <div className="wp-hero-inner">
       <div>
-        <span className="wp-pill">🏛️ Wholesale Trade Portal • Buyers &amp; Sellers</span>
+        <span className="wp-pill">Wholesale Trade Portal • Buyers &amp; Sellers</span>
         <h1>Bulk Sourcing &amp; Wholesale Supply Across Jammu &amp; Kashmir</h1>
         <p className="wp-hero-desc">
           Whether you are a <strong>Bulk Buyer</strong> ordering GI-certified Kashmiri crafts directly from a specific
@@ -317,7 +314,7 @@ export default function WholesalePage() {
 
       <div className="wp-routing-diagram">
         <div className="wp-route-step">
-          <span className="wp-route-icon">🛍️</span>
+          <span className="wp-route-icon">️</span>
           <div>
             <div className="wp-route-title">Bulk Buyer → Specified HunarLink Seller (Artisan)</div>
             <div className="wp-route-sub">Choose any particular product &amp; bulk quantity (MOQ 10+). Your full buyer
@@ -325,7 +322,7 @@ export default function WholesalePage() {
           </div>
         </div>
         <div className="wp-route-step admin">
-          <span className="wp-route-icon">🛡️</span>
+          <span className="wp-route-icon">️</span>
           <div>
             <div className="wp-route-title">Local Seller → HunarLink Admin Trade Desk</div>
             <div className="wp-route-sub">Local artisans, workshops &amp; regional sellers submitting wholesale supply lots
@@ -344,7 +341,7 @@ export default function WholesalePage() {
       <button type="button" className={`wp-tab-btn${tab === 'buyer' ? ' active' : ''}`} id="tab-btn-buyer"
         onClick={() => setTab('buyer')}>
         <div>
-          <span className="wp-tab-title">🛍️ Bulk Buyer — Request Wholesale</span>
+          <span className="wp-tab-title">Bulk Buyer — Request Wholesale</span>
           <span className="wp-tab-sub">Transfers buyer info directly to the specified HunarLink Artisan</span>
         </div>
         <span className="wp-tab-badge">MOQ 10+</span>
@@ -353,7 +350,7 @@ export default function WholesalePage() {
       <button type="button" className={`wp-tab-btn${tab === 'local-seller' ? ' active' : ''}`} id="tab-btn-local-seller"
         onClick={() => setTab('local-seller')}>
         <div>
-          <span className="wp-tab-title">🔨 Local Seller — Wholesale Supply</span>
+          <span className="wp-tab-title">Local Seller — Wholesale Supply</span>
           <span className="wp-tab-sub">Transfers local seller info directly to HunarLink Admin</span>
         </div>
         <span className="wp-tab-badge">Admin</span>
@@ -362,7 +359,7 @@ export default function WholesalePage() {
       <button type="button" className={`wp-tab-btn${tab === 'tracker' ? ' active' : ''}`} id="tab-btn-tracker"
         onClick={() => setTab('tracker')}>
         <div>
-          <span className="wp-tab-title">📡 Live Transfer &amp; Routing Desk</span>
+          <span className="wp-tab-title">Live Transfer &amp; Routing Desk</span>
           <span className="wp-tab-sub">View Seller-routed buyer lots &amp; Admin-routed local sellers</span>
         </div>
         <span className="wp-tab-badge" id="tab-tracker-count">{totalRequests}</span>
@@ -426,7 +423,7 @@ export default function WholesalePage() {
                   <img src={p.image} alt={p.title} className="wp-prod-thumb" />
                   <div className="wp-prod-meta">
                     <div className="wp-prod-title">{p.title}</div>
-                    <div className="wp-prod-artisan">🔨 Artisan: {p.artisan} ({p.district})</div>
+                    <div className="wp-prod-artisan">Artisan: {p.artisan} ({p.district})</div>
                     <div className="wp-prod-sub">
                       {p.guildLabel || p.guild} • {p.giId} • Retail {formatINR(p.price)}
                     </div>
@@ -440,7 +437,7 @@ export default function WholesalePage() {
           <div className="wp-seller-target-box" id="wp-seller-target-box">
             {selected && (
               <>
-                <div className="wp-target-badge">⚡ Direct Routing → Specified HunarLink Seller (Artisan)</div>
+                <div className="wp-target-badge">Direct Routing → Specified HunarLink Seller (Artisan)</div>
                 <div className="wp-target-header">
                   <img src={selected.image} alt={selected.title} className="wp-target-img" />
                   <div>
@@ -459,8 +456,7 @@ export default function WholesalePage() {
 
           {/* Live Bulk Pricing Calculator */}
           <div className="wp-calc-box" id="wp-calc-box">
-            <div className="wp-calc-title">
-              📊 Live Wholesale Lot Estimate ({qty} Units • {discountPct}% Guild Tier Discount)
+            <div className="wp-calc-title">Live Wholesale Lot Estimate ({qty} Units • {discountPct}% Guild Tier Discount)
             </div>
             <div className="wp-calc-grid">
               <div className="wp-calc-cell">
@@ -587,8 +583,8 @@ export default function WholesalePage() {
 
             <button type="submit" className="wp-submit-btn" id="bw-submit-btn">
               {selected
-                ? `📤 Transfer Bulk Request to ${selected.artisan} →`
-                : '📤 Transfer Bulk Request to Specified HunarLink Seller →'}
+                ? `Transfer Bulk Request to ${selected.artisan} →`
+                : 'Transfer Bulk Request to Specified HunarLink Seller →'}
             </button>
           </form>
 
@@ -596,7 +592,7 @@ export default function WholesalePage() {
           <div className={`wp-receipt${buyerReceipt ? ' show' : ''}`} id="buyer-receipt">
             {buyerReceipt && (
               <>
-                <div className="wp-receipt-title">✅ Buyer Details Transferred to Specified HunarLink Seller!</div>
+                <div className="wp-receipt-title">Buyer Details Transferred to Specified HunarLink Seller!</div>
                 <p style={{fontSize: '0.82rem', color: '#14532D'}}>
                   Reference <strong>{buyerReceipt.id}</strong> has been routed directly to{' '}
                   <strong>{buyerReceipt.artisan}</strong> ({buyerReceipt.district}) for{' '}
@@ -611,9 +607,8 @@ export default function WholesalePage() {
                   <div><strong>Est. Lot Value:</strong> {formatINR(buyerReceipt.totalLotValue)}</div>
                 </div>
                 <div className="wp-receipt-actions">
-                  <a href={appHref('/seller?tab=wholesale')} className="wp-btn-sm">🔨 View in Seller Portal →</a>
-                  <button type="button" className="wp-btn-sm outline" onClick={() => setTab('tracker')}>
-                    📡 Open Live Routing Desk
+                  <a href={appHref('/seller?tab=wholesale')} className="wp-btn-sm">View in Seller Portal →</a>
+                  <button type="button" className="wp-btn-sm outline" onClick={() => setTab('tracker')}>Open Live Routing Desk
                   </button>
                 </div>
               </>
@@ -629,7 +624,7 @@ export default function WholesalePage() {
     <section className={`wp-panel${tab === 'local-seller' ? ' active' : ''}`} id="panel-local-seller">
       <div className="wp-card" style={{maxWidth: '920px', margin: '0 auto'}}>
         <div className="wp-admin-notice">
-          <span className="wp-admin-notice-icon">🛡️</span>
+          <span className="wp-admin-notice-icon">️</span>
           <div>
             <h3>Local Seller Wholesale Submission → Transferred Directly to HunarLink Admin</h3>
             <p>
@@ -757,8 +752,7 @@ export default function WholesalePage() {
             </div>
           </div>
 
-          <button type="submit" className="wp-submit-btn">
-            🛡️ Transfer Local Seller Details to HunarLink Admin →
+          <button type="submit" className="wp-submit-btn">Transfer Local Seller Details to HunarLink Admin →
           </button>
         </form>
 
@@ -766,7 +760,7 @@ export default function WholesalePage() {
         <div className={`wp-receipt${adminReceipt ? ' show' : ''}`} id="admin-receipt">
             {adminReceipt && (
               <>
-                <div className="wp-receipt-title">🛡️ Local Seller Information Transferred to HunarLink Admin!</div>
+                <div className="wp-receipt-title">Local Seller Information Transferred to HunarLink Admin!</div>
                 <p style={{fontSize: '0.82rem', color: '#14532D'}}>
                   Admin Reference <strong>{adminReceipt.id}</strong> has been delivered to the{' '}
                   <strong>HunarLink Admin Trade Desk</strong> for verification &amp; wholesale buyer matching.
@@ -780,8 +774,7 @@ export default function WholesalePage() {
                   <div><strong>Wholesale Rate:</strong> {formatINR(adminReceipt.wholesaleRate)} / unit</div>
                 </div>
                 <div className="wp-receipt-actions">
-                  <button type="button" className="wp-btn-sm" onClick={() => setTab('tracker')}>
-                    🛡️ View in HunarLink Admin Desk →
+                  <button type="button" className="wp-btn-sm" onClick={() => setTab('tracker')}>View in HunarLink Admin Desk →
                   </button>
                 </div>
               </>
@@ -799,7 +792,7 @@ export default function WholesalePage() {
         <div className="wp-card">
           <div className="wp-card-head">
             <div>
-              <h3>🧶 Transferred to Specified HunarLink Sellers (Artisans)</h3>
+              <h3>Transferred to Specified HunarLink Sellers (Artisans)</h3>
               <p className="wp-card-sub">Bulk buyer requests automatically routed to each product's specific artisan (also
                 synced live inside Seller Portal).</p>
             </div>
@@ -831,12 +824,11 @@ export default function WholesalePage() {
                     <div><strong>Location:</strong> {r.buyer?.city} - {r.buyer?.pincode}</div>
                     <div><strong>Lot Total:</strong> {formatINR(r.totalLotValue)} ({r.discountPct}% Off)</div>
                   </div>
-                  <div className="wp-req-target-strip">
-                    ⚡ Transferred to Specified HunarLink Seller: {r.sellerName} ({r.sellerDistrict}) • GI: {r.giId}
+                  <div className="wp-req-target-strip">Transferred to Specified HunarLink Seller: {r.sellerName} ({r.sellerDistrict}) • GI: {r.giId}
                   </div>
                   {r.sellerReply && (
                     <div style={{marginTop: '8px', fontSize: '0.78rem', color: '#166534', background: '#ECFDF5', padding: '7px 10px', borderRadius: '6px'}}>
-                      <strong>✦ Artisan Response:</strong> {r.sellerReply}
+                      <strong>Artisan Response:</strong> {r.sellerReply}
                     </div>
                   )}
                 </div>
@@ -849,7 +841,7 @@ export default function WholesalePage() {
         <div className="wp-card">
           <div className="wp-card-head">
             <div>
-              <h3>🛡️ HunarLink Admin Trade Desk (Local Sellers)</h3>
+              <h3>HunarLink Admin Trade Desk (Local Sellers)</h3>
               <p className="wp-card-sub">Wholesale supply submissions from local sellers routed directly to HunarLink Admin
                 for verification &amp; onboarding.</p>
             </div>
@@ -884,19 +876,16 @@ export default function WholesalePage() {
                   <div style={{fontSize: '0.76rem', color: 'var(--text-500)', marginBottom: '6px'}}>
                     <strong>GI Status:</strong> {a.giStatus} • <strong>Address:</strong> {a.address}
                   </div>
-                  <div className="wp-req-target-strip admin">🛡️ Routed to: HunarLink Admin Trade Desk</div>
+                  <div className="wp-req-target-strip admin">Routed to: HunarLink Admin Trade Desk</div>
                   <div className="wp-admin-actions">
                     <button type="button" className="wp-btn-sm"
-                      onClick={() => updateAdminStatus(a.id, 'Approved by Admin — Onboarding')}>
-                      ✅ Approve &amp; Onboard
+                      onClick={() => updateAdminStatus(a.id, 'Approved by Admin — Onboarding')}>Approve &amp; Onboard
                     </button>
                     <button type="button" className="wp-btn-sm outline"
-                      onClick={() => updateAdminStatus(a.id, 'Cluster Inspection Scheduled')}>
-                      📍 Schedule Visit
+                      onClick={() => updateAdminStatus(a.id, 'Cluster Inspection Scheduled')}>Schedule Visit
                     </button>
                     <button type="button" className="wp-btn-sm outline"
-                      onClick={() => updateAdminStatus(a.id, 'Sample Requested by Admin')}>
-                      📦 Request Sample
+                      onClick={() => updateAdminStatus(a.id, 'Sample Requested by Admin')}>Request Sample
                     </button>
                   </div>
                 </div>

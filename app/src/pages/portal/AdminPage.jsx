@@ -4,6 +4,8 @@ import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { demoApi } from '../../data/adminDemo.js';
 import { appHref } from '../../utils/href.js';
+import { IconGrid, IconUsers, IconPalette, IconSearchScan, IconMapPin, IconReceipt, IconTag,
+         IconFile, IconSeedling, IconBuilding, IconHandshake, IconPackage, IconShield, IconLog, IconGear } from '../../components/LineIcons.jsx';
 
 /* ==========================================================================
    AdminPage — master admin console
@@ -21,26 +23,26 @@ import { appHref } from '../../utils/href.js';
 
 const TABS = [
   { group: 'CHANNELS & ANALYTICS', items: [
-    { id: 'dashboard', icon: '📊', label: 'Dashboard Analytics' },
-    { id: 'customers', icon: '👥', label: 'Customer Management' },
-    { id: 'sellers', icon: '🎨', label: 'Direct Sellers (Artisans)' }
+    { id: 'dashboard', icon: <IconGrid size={16} />, label: 'Dashboard Analytics' },
+    { id: 'customers', icon: <IconUsers size={16} />, label: 'Customer Management' },
+    { id: 'sellers', icon: <IconPalette size={16} />, label: 'Direct Sellers (Artisans)' }
   ] },
   { group: 'VERIFICATION WORKFLOWS', items: [
-    { id: 'gi', icon: '🔍', label: 'GI LLM Verification' },
-    { id: 'non-gi', icon: '📑', label: 'Non-GI Manual Review' }
+    { id: 'gi', icon: <IconSearchScan size={16} />, label: 'GI LLM Verification' },
+    { id: 'non-gi', icon: <IconFile size={16} />, label: 'Non-GI Manual Review' }
   ] },
   { group: 'SUPPLIER PROCUREMENT', items: [
-    { id: 'suppliers', icon: '🌾', label: 'Suppliers & Lots' },
-    { id: 'dealers', icon: '🏢', label: 'Dealers & Warehouses' },
-    { id: 'procurement', icon: '🤝', label: 'Matching & Procurement' }
+    { id: 'suppliers', icon: <IconSeedling size={16} />, label: 'Suppliers & Lots' },
+    { id: 'dealers', icon: <IconBuilding size={16} />, label: 'Dealers & Warehouses' },
+    { id: 'procurement', icon: <IconHandshake size={16} />, label: 'Matching & Procurement' }
   ] },
   { group: 'B2B WHOLESALE', items: [
-    { id: 'wholesale', icon: '📦', label: 'Wholesale & RFQs' }
+    { id: 'wholesale', icon: <IconPackage size={16} />, label: 'Wholesale & RFQs' }
   ] },
   { group: 'GOVERNANCE & SECURITY', items: [
-    { id: 'settings', icon: '🛡️', label: 'Platform Control Center' },
-    { id: 'audit', icon: '📜', label: 'Immutable Audit Logs' },
-    { id: 'roles', icon: '⚙️', label: '14 Admin Roles (RBAC)' }
+    { id: 'settings', icon: <IconShield size={16} />, label: 'Platform Control Center' },
+    { id: 'audit', icon: <IconLog size={16} />, label: 'Immutable Audit Logs' },
+    { id: 'roles', icon: <IconGear size={16} />, label: '14 Admin Roles (RBAC)' }
   ] }
 ];
 
@@ -155,7 +157,7 @@ export default function AdminPage() {
   async function submitLogin(e) {
     e.preventDefault();
     if (!login.identifier.trim() || !login.password.trim()) {
-      toast('⚠️ Enter the admin identifier and security key.');
+      toast('Enter the admin identifier and security key.');
       return;
     }
     const res = await demoApi('/auth/login', {
@@ -164,9 +166,9 @@ export default function AdminPage() {
     });
     if (res && res.access_token) {
       setAdminToken(res.access_token);
-      toast('✓ Administrative session authenticated.', 'success');
+      toast('Administrative session authenticated.', 'success');
     } else {
-      toast('⚠️ Authentication failed — invalid credentials.', 'error');
+      toast('Authentication failed — invalid credentials.', 'error');
     }
   }
 
@@ -192,13 +194,13 @@ export default function AdminPage() {
         method: 'PUT',
         body: JSON.stringify({ status: payload.status, reason })
       });
-      toast(`✓ Seller #${payload.id} set to ${payload.status}.`, 'success');
+      toast(`Seller #${payload.id} set to ${payload.status}.`, 'success');
     } else if (type === 'gi') {
       await demoApi(`/admin/verifications/gi/${payload.id}/decide`, {
         method: 'POST',
         body: JSON.stringify({ decision: payload.decision, decision_notes: reason })
       });
-      toast(`✓ Audit #${payload.id}: ${payload.decision.replace(/_/g, ' ')}.`, 'success');
+      toast(`Audit #${payload.id}: ${payload.decision.replace(/_/g, ' ')}.`, 'success');
     } else if (type === 'setting') {
       await demoApi('/admin/settings/toggle', {
         method: 'PUT',
@@ -209,7 +211,7 @@ export default function AdminPage() {
           reason
         })
       });
-      toast(`✓ Platform switch '${payload.key}' ${payload.next ? 'ENABLED' : 'DISABLED'}.`, 'success');
+      toast(`Platform switch '${payload.key}' ${payload.next ? 'ENABLED' : 'DISABLED'}.`, 'success');
     }
     load();
   }
@@ -221,7 +223,7 @@ export default function AdminPage() {
       method: 'PUT',
       body: JSON.stringify({ account_status: next, reason: 'Administrative review via control dashboard.' })
     });
-    toast(`✓ Customer #${c.user_id} ${next === 'ACTIVE' ? 'reinstated' : 'suspended'}.`, 'success');
+    toast(`Customer #${c.user_id} ${next === 'ACTIVE' ? 'reinstated' : 'suspended'}.`, 'success');
     load();
   }
 
@@ -239,7 +241,7 @@ export default function AdminPage() {
       })
     });
     toast(
-      `⚡ LLM audit complete — ${res.confidence_score}% confidence. Human decision still required.`,
+      `LLM audit complete — ${res.confidence_score}% confidence. Human decision still required.`,
       'success'
     );
     await load();
@@ -259,7 +261,7 @@ export default function AdminPage() {
       }))
       .sort((a, b) => b.ranking_score - a.ranking_score);
     setMatching({ open: true, busy: false, dealers: scored });
-    toast('⚡ Dealer matching complete — ranked by category fit and reliability.', 'success');
+    toast('Dealer matching complete — ranked by category fit and reliability.', 'success');
   }
 
   function selectLot(lot) {
@@ -279,7 +281,7 @@ export default function AdminPage() {
         match_reasons: ['Category match', 'Budget verified', 'Transit approved']
       })
     });
-    toast(`✓ ${lot.lot_number} assigned to ${dealer.dealership_name}.`, 'success');
+    toast(`${lot.lot_number} assigned to ${dealer.dealership_name}.`, 'success');
     load();
   }
 
@@ -405,9 +407,7 @@ export default function AdminPage() {
                   aria-expanded={drawerOpen}
                   aria-controls="admin-sidebar"
                   onClick={() => setDrawerOpen((v) => !v)}
-                >
-                  ☰
-                </button>
+                > </button>
                 <span id="breadcrumb-channel">Retail + Wholesale + Supplier Procurement</span>
                 <h1 id="breadcrumb-title">{activeTab.label}</h1>
               </div>
@@ -584,12 +584,12 @@ export default function AdminPage() {
                               <td>{s.craft_specialty}</td>
                               <td>
                                 {s.has_gi_certification ? (
-                                  <span className="badge badge-gold">✓ {s.gi_authorized_user_number || 'GI Certified'}</span>
+                                  <span className="badge badge-gold">{s.gi_authorized_user_number || 'GI Certified'}</span>
                                 ) : (
                                   <span className="badge badge-neutral">Standard Craft</span>
                                 )}
                               </td>
-                              <td>★ {s.average_rating} ({s.total_reviews})</td>
+                              <td>{s.average_rating} ({s.total_reviews})</td>
                               <td>
                                 <span className={`badge ${s.status === 'APPROVED' ? 'badge-success' : 'badge-warning'}`}>
                                   {s.status}
@@ -634,8 +634,7 @@ export default function AdminPage() {
                 <div className="panel-card">
                   <div className="panel-header">
                     <h3>GI Verification Management (LLM-Assisted + Human Sovereign Review)</h3>
-                    <button id="btn-trigger-test-gi" className="btn btn-secondary" onClick={runTestAudit}>
-                      ⚡ Run Test LLM Audit
+                    <button id="btn-trigger-test-gi" className="btn btn-secondary" onClick={runTestAudit}>Run Test LLM Audit
                     </button>
                   </div>
                   <p className="section-notice">
@@ -766,7 +765,7 @@ export default function AdminPage() {
                                           : x
                                       )
                                     }));
-                                    toast(`✓ ${r.business_name} marked verified.`, 'success');
+                                    toast(`${r.business_name} marked verified.`, 'success');
                                   }}
                                 >
                                   Review Docs
@@ -861,7 +860,7 @@ export default function AdminPage() {
                               <td>{d.city}, J&amp;K</td>
                               <td>{inr(d.monthly_budget)}</td>
                               <td><span className="badge badge-gold">Pashmina &amp; Walnut</span></td>
-                              <td>★ {d.reliability_rating}/5</td>
+                              <td>{d.reliability_rating}/5</td>
                               <td><span className="badge badge-success">APPROVED</span></td>
                             </tr>
                           ))
@@ -901,8 +900,7 @@ export default function AdminPage() {
                         id="btn-run-matching"
                         className="btn btn-primary"
                         onClick={() => runMatching(activeLot ? activeLot.lot_id : 1)}
-                      >
-                        ⚡ Execute Dealer Matching Algorithm
+                      >Execute Dealer Matching Algorithm
                       </button>
                     </div>
 
@@ -921,7 +919,7 @@ export default function AdminPage() {
                             <div className="dealer-rank-card" key={d.dealer_id}>
                               <div className="rank-badge">Rank #{index + 1} ({d.ranking_score} pts)</div>
                               <h4>{d.dealership_name}</h4>
-                              <p>Location: <strong>{d.city}</strong> | Rating: <strong>★ {d.reliability_rating}/5</strong></p>
+                              <p>Location: <strong>{d.city}</strong> | Rating: <strong>{d.reliability_rating}/5</strong></p>
                               <p>Monthly Budget: <strong>{inr(d.monthly_budget)}</strong></p>
                               <ul style={{ fontSize: '0.78rem', color: '#555', margin: '0.5rem 0 1rem 1.2rem' }}>
                                 <li>Category specialisation match</li>
@@ -1075,7 +1073,7 @@ export default function AdminPage() {
                   <div className="roles-grid" id="roles-definitions-grid">
                     {data.roles.map((r) => (
                       <div className="role-card" key={r.role_name}>
-                        <h4>🛡️ {r.role_name.replace(/_/g, ' ')}</h4>
+                        <h4>{r.role_name.replace(/_/g, ' ')}</h4>
                         <p>{r.description}</p>
                       </div>
                     ))}

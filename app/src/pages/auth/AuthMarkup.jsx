@@ -294,7 +294,7 @@ export default function AuthMarkup(props) {
                ================================================================ */}
           <div className="gi-verification-section" id="gi-verification-section" style={{display: giMode === 'with_gi' ? 'block' : 'none'}}>
             <div className="gi-section-header">
-              <div className="gi-section-title">🛡️ GI Certification &amp; Live Verification</div>
+              <div className="gi-section-title">GI Certification &amp; Live Verification</div>
               <span className="gi-live-only-badge">● Live Camera • Auto Gallery Fallback</span>
             </div>
 
@@ -346,11 +346,9 @@ export default function AuthMarkup(props) {
               </div>
 
               <div className="capture-actions-row">
-                <button type="button" className="btn-cam primary" id="btn-cert-open" style={show(btn('cert').open)} onClick={() => openCamera('cert')}>
-                  📷 Open Camera
+                <button type="button" className="btn-cam primary" id="btn-cert-open" style={show(btn('cert').open)} onClick={() => openCamera('cert')}>Open Camera
                 </button>
-                <button type="button" className="btn-cam primary" id="btn-cert-snap" style={show(btn('cert').snap)} onClick={() => capturePhoto('cert')}>
-                  📸 Capture Certificate Photo
+                <button type="button" className="btn-cam primary" id="btn-cert-snap" style={show(btn('cert').snap)} onClick={() => capturePhoto('cert')}>Capture Certificate Photo
                 </button>
                 <button type="button" className="btn-cam" id="btn-cert-cancel" style={show(btn('cert').cancel)} onClick={stopAllCameras}>
                   Cancel
@@ -358,8 +356,7 @@ export default function AuthMarkup(props) {
                 <button type="button" className="btn-cam" id="btn-cert-retake" style={show(btn('cert').retake)} onClick={() => openCamera('cert')}>
                   ↺ Retake Live Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-cert-upload" style={show(btn('cert').upload)} onClick={() => fileEls.click('cert')}>
-                  📁 Upload Certificate Photo (No Camera)
+                <button type="button" className="btn-cam" id="btn-cert-upload" style={show(btn('cert').upload)} onClick={() => fileEls.click('cert')}>Upload Certificate Photo (No Camera)
                 </button>
                 <input
                   type="file" id="cert-file-input" aria-label="Upload GI certificate photo" accept="image/*" style={{display: 'none'}}
@@ -405,8 +402,7 @@ export default function AuthMarkup(props) {
               </div>
 
               <div className="capture-actions-row">
-                <button type="button" className="btn-cam primary" id="btn-video-open" style={show(btn('video').open)} onClick={() => openCamera('video')}>
-                  🎥 Open Camera
+                <button type="button" className="btn-cam primary" id="btn-video-open" style={show(btn('video').open)} onClick={() => openCamera('video')}>Open Camera
                 </button>
                 <button type="button" className="btn-cam danger" id="btn-video-start" style={show(isLive('video') && !cam('video').recording)} onClick={startRecording}>
                   ⏺ Start Live Recording
@@ -420,8 +416,7 @@ export default function AuthMarkup(props) {
                 <button type="button" className="btn-cam" id="btn-video-retake" style={show(btn('video').retake)} onClick={() => openCamera('video')}>
                   ↺ Re-record Live Video
                 </button>
-                <button type="button" className="btn-cam" id="btn-video-upload" style={show(btn('video').upload)} onClick={() => fileEls.click('video')}>
-                  📁 Upload Workshop Video (No Camera)
+                <button type="button" className="btn-cam" id="btn-video-upload" style={show(btn('video').upload)} onClick={() => fileEls.click('video')}>Upload Workshop Video (No Camera)
                 </button>
                 <input
                   type="file" id="video-file-input" aria-label="Upload workshop video" accept="video/*" style={{display: 'none'}}
@@ -467,11 +462,9 @@ export default function AuthMarkup(props) {
               </div>
 
               <div className="capture-actions-row">
-                <button type="button" className="btn-cam primary" id="btn-passport-open" style={show(btn('passport').open)} onClick={() => openCamera('passport')}>
-                  🤳 Open Front Camera
+                <button type="button" className="btn-cam primary" id="btn-passport-open" style={show(btn('passport').open)} onClick={() => openCamera('passport')}>Open Front Camera
                 </button>
-                <button type="button" className="btn-cam primary" id="btn-passport-snap" style={show(btn('passport').snap)} onClick={() => capturePhoto('passport')}>
-                  📸 Capture Passport Photo
+                <button type="button" className="btn-cam primary" id="btn-passport-snap" style={show(btn('passport').snap)} onClick={() => capturePhoto('passport')}>Capture Passport Photo
                 </button>
                 <button type="button" className="btn-cam" id="btn-passport-cancel" style={show(btn('passport').cancel)} onClick={stopAllCameras}>
                   Cancel
@@ -479,8 +472,7 @@ export default function AuthMarkup(props) {
                 <button type="button" className="btn-cam" id="btn-passport-retake" style={show(btn('passport').retake)} onClick={() => openCamera('passport')}>
                   ↺ Retake Passport Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-passport-upload" style={show(btn('passport').upload)} onClick={() => fileEls.click('passport')}>
-                  📁 Upload Passport Photo (No Camera)
+                <button type="button" className="btn-cam" id="btn-passport-upload" style={show(btn('passport').upload)} onClick={() => fileEls.click('passport')}>Upload Passport Photo (No Camera)
                 </button>
                 <input
                   type="file" id="passport-file-input" aria-label="Upload passport photo" accept="image/*" style={{display: 'none'}}

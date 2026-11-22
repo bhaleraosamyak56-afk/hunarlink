@@ -22,18 +22,22 @@ import React, { useEffect, useRef } from 'react';
      here moves fast enough to justify 60fps.
    ========================================================================== */
 
-const W = 160;
-const H = 100;
+const W = 220;
+const H = 140;
 const FRAME_MS = 1000 / 24;
 
 /* Palette pulled from the design tokens so the field can never drift out of
    the site's own colours. */
 const BLOBS = [
-  { rgb: [154, 52, 18], x: 0.18, y: 0.3, r: 0.55, sx: 0.11, sy: 0.07, ax: 0.16, ay: 0.12 },
-  { rgb: [17, 42, 32], x: 0.78, y: 0.22, r: 0.5, sx: 0.08, sy: 0.1, ax: 0.2, ay: 0.1 },
-  { rgb: [224, 90, 23], x: 0.5, y: 0.72, r: 0.42, sx: 0.13, sy: 0.06, ax: 0.18, ay: 0.14 },
-  { rgb: [196, 168, 120], x: 0.3, y: 0.85, r: 0.6, sx: 0.07, sy: 0.09, ax: 0.12, ay: 0.16 },
-  { rgb: [90, 110, 92], x: 0.88, y: 0.68, r: 0.46, sx: 0.1, sy: 0.05, ax: 0.15, ay: 0.1 }
+  /* Weighted towards cream, sage and pale gold. The first version leaned on
+     the terracotta and forest tokens, which at soft-light strength read as
+     brown stains across the page rather than as light moving behind it. */
+  { rgb: [232, 214, 168], x: 0.2,  y: 0.28, r: 0.72, sx: 0.09, sy: 0.06, ax: 0.18, ay: 0.13 },
+  { rgb: [176, 196, 170], x: 0.76, y: 0.2,  r: 0.66, sx: 0.07, sy: 0.09, ax: 0.2,  ay: 0.11 },
+  { rgb: [226, 186, 140], x: 0.52, y: 0.7,  r: 0.62, sx: 0.11, sy: 0.05, ax: 0.19, ay: 0.15 },
+  { rgb: [206, 214, 198], x: 0.3,  y: 0.86, r: 0.7,  sx: 0.06, sy: 0.08, ax: 0.13, ay: 0.17 },
+  { rgb: [198, 158, 118], x: 0.88, y: 0.66, r: 0.56, sx: 0.1,  sy: 0.05, ax: 0.16, ay: 0.1  },
+  { rgb: [240, 232, 210], x: 0.5,  y: 0.44, r: 0.8,  sx: 0.05, sy: 0.07, ax: 0.22, ay: 0.18 }
 ];
 
 export default function AmbientField() {
@@ -68,7 +72,7 @@ export default function AmbientField() {
         const g = ctx.createRadialGradient(x * W, y * H, 0, x * W, y * H, r * W);
         const [rr, gg, bb] = b.rgb;
         g.addColorStop(0, `rgba(${rr}, ${gg}, ${bb}, 0.5)`);
-        g.addColorStop(0.55, `rgba(${rr}, ${gg}, ${bb}, 0.16)`);
+        g.addColorStop(0.45, `rgba(${rr}, ${gg}, ${bb}, 0.22)`);
         g.addColorStop(1, `rgba(${rr}, ${gg}, ${bb}, 0)`);
 
         ctx.fillStyle = g;

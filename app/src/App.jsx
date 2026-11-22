@@ -89,7 +89,7 @@ export default function App() {
       {/* Fixed, aria-hidden, sits behind every page. Storefront only: the
           portal pages carry their own full-bleed surfaces and the login page
           already has a photograph behind it. */}
-      {!isAuth && !isPortal && <AmbientField />}
+      <AmbientField />
       <SpaRedirect />
       <LegacyRoutes />
       {!isAuth && !isPortal && <UtilityBar />}

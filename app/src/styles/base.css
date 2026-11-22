@@ -5756,6 +5756,12 @@ html {
    App.jsx. Nothing else depends on it.
    ========================================================================== */
 
+/* The field is a fixed layer at z-index 0 and every page root is explicitly
+   at z-index 1. Without that pairing a `position: relative` ancestor on the
+   page (and the storefront has several) makes the field a child of the page's
+   own stacking context, where it paints *under* the section backgrounds and
+   disappears completely -- which is exactly what happened on the first
+   attempt. The pairing below is what makes it reliably visible. */
 .ambient-field {
   position: fixed;
   inset: 0;
@@ -5786,7 +5792,11 @@ html {
    above a z-index:0 fixed sibling in practice, but stating it removes any
    dependency on paint order. */
 #main-content,
-#site-footer {
+#site-footer,
+.up-container,
+.wholesale-shell,
+.login-shell,
+.portal-shell {
   position: relative;
   z-index: 1;
 }
@@ -5854,5 +5864,17 @@ body {
 /* the field itself gets a little more presence now that it has somewhere to
    show; still well below the point where it competes with content */
 .ambient-field {
-  opacity: 0.65;
+  opacity: 1;
+  filter: saturate(1.05);
+}
+
+/* Soft-light lets the field tint what is above it instead of sitting behind
+   an opaque wall. Combined with mix-blend-mode it reads through the section
+   surfaces even where they are nearly opaque, which is what makes it feel
+   like a living background rather than a colour wallpaper. */
+@supports (mix-blend-mode: soft-light) {
+  .ambient-field {
+    mix-blend-mode: soft-light;
+    opacity: 0.72;
+  }
 }

@@ -4,6 +4,7 @@ import '../styles/portal.css';
 import { useStore } from '../state/StoreContext';
 import PortalScope from '../components/PortalScope.jsx';
 import { appHref } from '../utils/href.js';
+import { IconHome, IconUser, IconPackage, IconLogout, IconLogin } from '../components/LineIcons.jsx';
 
 /* Same palette the static profile page offered in its swatch row. */
 const AVATAR_SWATCHES = ['#E05A17', '#9A3412', '#0D2B1D', '#B88528', '#6B2D5C', '#1E4E79'];
@@ -278,14 +279,14 @@ export default function ProfilePage() {
       </a>
       <nav className="up-nav-links">
         <a href={appHref('/')}
-          className="up-nav-pill">🏠 Storefront</a>
-        <a href={appHref('/profile')} className="up-nav-pill active">👤 My Profile</a>
-        <a href={appHref('/orders')} className="up-nav-pill">📦 My Orders</a>
+          className="up-nav-pill"><IconHome size={15} /> Storefront</a>
+        <a href={appHref('/profile')} className="up-nav-pill active"><IconUser size={15} /> My Profile</a>
+        <a href={appHref('/orders')} className="up-nav-pill"><IconPackage size={15} /> My Orders</a>
         {profile.isLoggedIn ? (
           <a href={appHref('#')} className="up-nav-pill up-nav-signout" id="nav-auth-pill"
-            onClick={(e) => { e.preventDefault(); signOut(); }}>🚪 Sign Out</a>
+            onClick={(e) => { e.preventDefault(); signOut(); }}><IconLogout size={15} /> Sign Out</a>
         ) : (
-          <a href={appHref('/login')} className="up-nav-pill" id="nav-auth-pill">🔐 Switch / Login</a>
+          <a href={appHref('/login')} className="up-nav-pill" id="nav-auth-pill"><IconLogin size={15} /> Switch / Login</a>
         )}
       </nav>
     </div>
@@ -318,9 +319,7 @@ export default function ProfilePage() {
                 profile.badge || `${firstInitial}${lastInitial}`.toUpperCase()
               )}
             </div>
-            <label className="fk-avatar-cam" title="Upload Profile Photo">
-              📷
-              <input type="file" accept="image/*" style={{display: 'none'}}
+            <label className="fk-avatar-cam" title="Upload Profile Photo"> <input type="file" accept="image/*" style={{display: 'none'}}
                 ref={photoInput} onChange={uploadAvatar} />
             </label>
           </div>
@@ -334,13 +333,13 @@ export default function ProfilePage() {
         <div className="fk-nav-card">
           <div className="fk-nav-section" style={{padding: '4px 0'}}>
             <a href={appHref('/orders')} className="fk-nav-group-link">
-              <span>📦 MY ORDERS</span>
+              <span>MY ORDERS</span>
               <span>→</span>
             </a>
           </div>
 
           <div className="fk-nav-section">
-            <div className="fk-nav-group-title"><span>👤 ACCOUNT SETTINGS</span></div>
+            <div className="fk-nav-group-title"><span>ACCOUNT SETTINGS</span></div>
             <button type="button"
               className={`fk-nav-item${tab === 'personal' ? ' active' : ''}`}
               data-view="personal" onClick={() => setTab('personal')}>
@@ -360,7 +359,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="fk-nav-section">
-            <div className="fk-nav-group-title"><span>♡ MY STUFF</span></div>
+            <div className="fk-nav-group-title"><span>MY STUFF</span></div>
             <button type="button"
               className={`fk-nav-item${tab === 'wishlist' ? ' active' : ''}`}
               data-view="wishlist" onClick={() => setTab('wishlist')}>
@@ -377,7 +376,7 @@ export default function ProfilePage() {
             <button type="button" className="fk-nav-item"
               style={{paddingLeft: '18px', color: 'var(--danger-600)'}}
               onClick={signOut}>
-              <span>🚪 Sign Out</span>
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -463,8 +462,7 @@ export default function ProfilePage() {
                       />
                     ))}
                   </div>
-                  <label className="btn-orange-outline" style={{padding: '6px 12px', fontSize: '0.76rem', cursor: 'pointer'}}>
-                    📷 Upload Photo
+                  <label className="btn-orange-outline" style={{padding: '6px 12px', fontSize: '0.76rem', cursor: 'pointer'}}>Upload Photo
                     <input type="file" accept="image/*" style={{display: 'none'}}
                       ref={avatarInput} onChange={uploadAvatar} />
                   </label>

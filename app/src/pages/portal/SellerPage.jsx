@@ -5,6 +5,7 @@ import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR, asset } from '../../utils/legacy.js';
 import { appHref } from '../../utils/href.js';
+import { IconGrid, IconPlus, IconPalette, IconPackage, IconChat, IconHeart, IconX } from '../../components/LineIcons.jsx';
 
 /* ==========================================================================
    SellerPage — artisan workspace (dashboard.html)
@@ -404,7 +405,7 @@ export default function SellerPage() {
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         onDone(canvas.toDataURL('image/jpeg', 0.82));
-        toast('📷 Product photograph ready!', 'success');
+        toast('Product photograph ready!', 'success');
       };
       img.src = reader.result;
     };
@@ -422,7 +423,7 @@ export default function SellerPage() {
     if (!seller) return;
     const price = parseInt(newForm.price, 10);
     if (!newForm.title.trim() || !price) {
-      toast('⚠️ A product title and selling price are required.');
+      toast('A product title and selling price are required.');
       return;
     }
     const mrpInput = parseInt(newForm.mrp, 10);
@@ -462,7 +463,7 @@ export default function SellerPage() {
     setNewImage(guildInfo.defaultImg);
     setNewPhotoName('');
     setTab('products');
-    toast(`✦ "${product.title}" is now LIVE on HunarLink (${generatedGi})!`, 'success');
+    toast(`"${product.title}" is now LIVE on HunarLink (${generatedGi})!`, 'success');
   }
 
   function openEdit(product) {
@@ -521,7 +522,7 @@ export default function SellerPage() {
       setOverrides((map) => ({ ...map, [id]: { ...(map[id] || {}), ...updates } }));
     }
     closeEdit();
-    toast(`✓ Customized "${updates.title}" — live on HunarLink!`, 'success');
+    toast(`Customized "${updates.title}" — live on HunarLink!`, 'success');
   }
 
   function adjustStock(id, delta) {
@@ -533,7 +534,7 @@ export default function SellerPage() {
       const next = Math.max(0, ((current && current.stock) || 0) + delta);
       setOverrides((map) => ({ ...map, [id]: { ...(map[id] || {}), stock: next } }));
     }
-    toast('✓ Stock updated and synced to storefront!', 'success');
+    toast('Stock updated and synced to storefront!', 'success');
   }
 
   function removeProduct(id) {
@@ -548,13 +549,13 @@ export default function SellerPage() {
         o.id === orderId ? { ...o, stage, isNewForSeller: false } : o
       )
     );
-    toast(`🚚 Order #${orderId} updated to: ${TRACKING_STAGES[stage - 1]}`, 'success');
+    toast(`Order #${orderId} updated to: ${TRACKING_STAGES[stage - 1]}`, 'success');
   }
 
   function saveNote(orderId) {
     const note = String(notes[orderId] || '').trim();
     setOrders((list) => list.map((o) => (o.id === orderId ? { ...o, sellerNote: note } : o)));
-    toast(`✉️ Dispatch update saved for Order #${orderId} & sent to buyer!`, 'success');
+    toast(`Dispatch update saved for Order #${orderId} & sent to buyer!`, 'success');
   }
 
   function simulateOrder() {
@@ -601,7 +602,7 @@ export default function SellerPage() {
       isNewForSeller: true
     };
     setOrders((list) => [order, ...list]);
-    toast(`🔔 New Order #${orderId} received from ${b.name} (${formatINR(prod.price)})!`, 'success');
+    toast(`New Order #${orderId} received from ${b.name} (${formatINR(prod.price)})!`, 'success');
   }
 
   function submitReply(e, resp) {
@@ -621,7 +622,7 @@ export default function SellerPage() {
       replyToInquiry(resp.id, text);
     }
     setReplyDrafts((d) => ({ ...d, [resp.id]: '' }));
-    toast('✓ Your artisan response has been published!', 'success');
+    toast('Your artisan response has been published!', 'success');
   }
 
   function simulateInquiry() {
@@ -636,7 +637,7 @@ export default function SellerPage() {
         comment: `Hi ${seller?.name || 'Ustad ji'}, I loved "${prod.title}"! Can you include a gift card and confirm dispatch time to Pune?`,
         reply: ''
       });
-    toast('💬 New buyer inquiry received on your product!', 'success');
+    toast('New buyer inquiry received on your product!', 'success');
   }
 
   const meta = TAB_TITLES[tab] || TAB_TITLES.overview;
@@ -645,7 +646,7 @@ export default function SellerPage() {
     const mrp = Number(newForm.mrp || 0);
     if (price > 0 && mrp > price) {
       const pct = Math.round(((mrp - price) / mrp) * 100);
-      return { text: `✓ Shows ${pct}% OFF direct artisan savings on HunarLink`, color: 'var(--success-600)' };
+      return { text: `Shows ${pct}% OFF direct artisan savings on HunarLink`, color: 'var(--success-600)' };
     }
     return { text: 'MRP should be equal to or higher than Selling Price', color: 'var(--text-500)' };
   })();
@@ -669,11 +670,9 @@ export default function SellerPage() {
             customize product details, and receive real-time customer orders.
           </p>
           <div className="gate-actions">
-            <a href={appHref('/auth?mode=login&role=artisan')} className="btn-forest" style={{ width: '100%' }}>
-              🔑 Sign In as Verified Artisan →
+            <a href={appHref('/auth?mode=login&role=artisan')} className="btn-forest" style={{ width: '100%' }}>Sign In as Verified Artisan →
             </a>
-            <a href={appHref('/auth?mode=register&role=artisan')} className="btn-gold" style={{ width: '100%' }}>
-              🛡️ Complete Seller Registration &amp; Verification
+            <a href={appHref('/auth?mode=register&role=artisan')} className="btn-gold" style={{ width: '100%' }}>Complete Seller Registration &amp; Verification
             </a>
             <a href={appHref('/')} className="btn-outline" style={{ width: '100%' }}>
               ← Back to HunarLink Marketplace
@@ -712,8 +711,8 @@ export default function SellerPage() {
                 id="seller-gi-badge"
               >
                 {seller?.giCertified
-                  ? `🛡️ GI Certified • ${seller.giId || 'Verified'}`
-                  : '✓ Verified Standard Artisan'}
+                  ? `GI Certified • ${seller.giId || 'Verified'}`
+                  : 'Verified Standard Artisan'}
               </span>
             </div>
 
@@ -724,7 +723,7 @@ export default function SellerPage() {
                 data-tab="overview"
                 onClick={() => switchTab('overview')}
               >
-                <span className="nav-icon">📊</span> Overview
+                <span className="nav-icon"><IconGrid size={16} /></span> Overview
               </button>
               <button
                 type="button"
@@ -732,7 +731,7 @@ export default function SellerPage() {
                 data-tab="list"
                 onClick={() => switchTab('list')}
               >
-                <span className="nav-icon">➕</span> List New Product
+                <span className="nav-icon"><IconPlus size={16} /></span> List New Product
               </button>
               <button
                 type="button"
@@ -740,7 +739,7 @@ export default function SellerPage() {
                 data-tab="products"
                 onClick={() => switchTab('products')}
               >
-                <span className="nav-icon">🧶</span> My Products &amp; Edit
+                <span className="nav-icon"><IconPalette size={16} /></span> My Products &amp; Edit
                 <span className="nav-badge" id="badge-products-count">{products.length}</span>
               </button>
               <button
@@ -749,7 +748,7 @@ export default function SellerPage() {
                 data-tab="orders"
                 onClick={() => switchTab('orders')}
               >
-                <span className="nav-icon">📦</span> Incoming Orders
+                <span className="nav-icon"><IconPackage size={16} /></span> Incoming Orders
                 <span className={`nav-badge${newOrderCount > 0 ? ' alert' : ''}`} id="badge-orders-count">
                   {newOrderCount > 0 ? `${newOrderCount} NEW` : orders.length}
                 </span>
@@ -760,15 +759,15 @@ export default function SellerPage() {
                 data-tab="responses"
                 onClick={() => switchTab('responses')}
               >
-                <span className="nav-icon">💬</span> Product Responses
+                <span className="nav-icon"><IconChat size={16} /></span> Product Responses
                 <span className="nav-badge" id="badge-responses-count">{responses.length}</span>
               </button>
             </nav>
           </div>
 
           <div className="sidebar-footer">
-            <a href={appHref('/')} className="btn-outline sidebar-storefront-link">📈 Live Storefront ↗</a>
-            <button type="button" className="btn-outline" onClick={logout}>🚪 Sign Out</button>
+            <a href={appHref('/')} className="btn-outline sidebar-storefront-link">Live Storefront ↗</a>
+            <button type="button" className="btn-outline" onClick={logout}>Sign Out</button>
           </div>
         </aside>
 
@@ -783,9 +782,8 @@ export default function SellerPage() {
               <button
                 type="button"
                 className="btn-outline"
-                onClick={() => toast('✓ Synced live products, customer orders & buyer responses from HunarLink!', 'success')}
-              >
-                🔄 Sync Live Data
+                onClick={() => toast('Synced live products, customer orders & buyer responses from HunarLink!', 'success')}
+              >Sync Live Data
               </button>
               <button type="button" className="btn-gold" onClick={() => switchTab('list')}>
                 ＋ List New Craft
@@ -805,26 +803,25 @@ export default function SellerPage() {
                       : `Your ${seller?.business || 'Artisan Studio'} (${seller?.district || 'Jammu & Kashmir'} Cluster) is verified and connected live to the HunarLink marketplace.`}
                   </p>
                   <div className="verification-pills" id="verification-pills">
-                    <span className="v-pill gold">✓ Account Authenticated</span>
+                    <span className="v-pill gold">Account Authenticated</span>
                     {seller?.giCertified ? (
                       <>
-                        <span className="v-pill gold">🛡️ GI ID: {seller.giId || 'Registered'}</span>
+                        <span className="v-pill gold">GI ID: {seller.giId || 'Registered'}</span>
                         {seller.liveVerification?.certPhotoCaptured && (
-                          <span className="v-pill">📷 Live GI Certificate Verified</span>
+                          <span className="v-pill">Live GI Certificate Verified</span>
                         )}
                         {seller.liveVerification?.productVideoRecorded && (
-                          <span className="v-pill">
-                            🎥 Workshop Video Verified ({seller.liveVerification.videoDurationSec || 5}s)
+                          <span className="v-pill">Workshop Video Verified ({seller.liveVerification.videoDurationSec || 5}s)
                           </span>
                         )}
                         {seller.liveVerification?.passportPhotoCaptured && (
-                          <span className="v-pill">🤳 Live Passport ID Verified</span>
+                          <span className="v-pill">Live Passport ID Verified</span>
                         )}
                       </>
                     ) : (
                       <>
-                        <span className="v-pill">📝 Standard Seller Account</span>
-                        <span className="v-pill">📍 {seller?.district || 'Jammu & Kashmir'} Cluster</span>
+                        <span className="v-pill">Standard Seller Account</span>
+                        <span className="v-pill">{seller?.district || 'Jammu & Kashmir'} Cluster</span>
                       </>
                     )}
                   </div>
@@ -848,7 +845,7 @@ export default function SellerPage() {
                 <div className="kpi-card">
                   <div className="kpi-top">
                     <span className="kpi-label">Listed Crafts</span>
-                    <span className="kpi-icon">🧶</span>
+                    <span className="kpi-icon"><IconPalette size={17} /></span>
                   </div>
                   <div className="kpi-value" id="kpi-listed">{products.length}</div>
                   <div className="kpi-sub" id="kpi-listed-sub">{liveCount} active live on HunarLink</div>
@@ -857,7 +854,7 @@ export default function SellerPage() {
                 <div className="kpi-card">
                   <div className="kpi-top">
                     <span className="kpi-label">Total Orders Received</span>
-                    <span className="kpi-icon">📦</span>
+                    <span className="kpi-icon"><IconPackage size={17} /></span>
                   </div>
                   <div className="kpi-value" id="kpi-orders">{orders.length}</div>
                   <div className="kpi-sub" id="kpi-orders-sub">
@@ -879,7 +876,7 @@ export default function SellerPage() {
                 <div className="kpi-card">
                   <div className="kpi-top">
                     <span className="kpi-label">Buyer Responses</span>
-                    <span className="kpi-icon">💬</span>
+                    <span className="kpi-icon"><IconChat size={17} /></span>
                   </div>
                   <div className="kpi-value" id="kpi-responses">{responses.length}</div>
                   <div className="kpi-sub" id="kpi-responses-sub">Reviews, saves &amp; inquiries</div>
@@ -888,7 +885,7 @@ export default function SellerPage() {
 
               <div className="section-card">
                 <div className="section-card-head">
-                  <h3 className="section-card-title">⚡ Latest Customer Order Activity</h3>
+                  <h3 className="section-card-title">Latest Customer Order Activity</h3>
                   <button type="button" className="btn-outline" onClick={() => switchTab('orders')}>
                     Manage All Orders →
                   </button>
@@ -947,7 +944,7 @@ export default function SellerPage() {
               <div className="section-card">
                 <div className="section-card-head">
                   <div>
-                    <h3 className="section-card-title">➕ List a New Craft on HunarLink</h3>
+                    <h3 className="section-card-title">List a New Craft on HunarLink</h3>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-500)' }}>
                       Published products appear immediately on the live HunarLink storefront &amp; product detail pages.
                     </p>
@@ -1097,8 +1094,7 @@ export default function SellerPage() {
                       ))}
                     </div>
                     <div className="custom-photo-upload-row">
-                      <label className="btn-outline" style={{ cursor: 'pointer' }}>
-                        📷 Upload Product Image
+                      <label className="btn-outline" style={{ cursor: 'pointer' }}>Upload Product Image
                         <input
                           type="file" id="np-photo-file" accept="image/*" style={{ display: 'none' }}
                           ref={fileRef}
@@ -1120,7 +1116,7 @@ export default function SellerPage() {
                         alt="Uploaded craft preview"
                       />
                       <span className="field-hint" id="np-photo-status">
-                        {newPhotoName ? `✓ Uploaded custom craft photo: ${newPhotoName}` : 'Selected: Heritage craft gallery photo'}
+                        {newPhotoName ? `Uploaded custom craft photo: ${newPhotoName}` : 'Selected: Heritage craft gallery photo'}
                       </span>
                     </div>
                   </div>
@@ -1147,7 +1143,7 @@ export default function SellerPage() {
                     >
                       Clear Form
                     </button>
-                    <button type="submit" className="btn-forest">✦ Publish Product Live on HunarLink →</button>
+                    <button type="submit" className="btn-forest">Publish Product Live on HunarLink →</button>
                   </div>
                 </form>
               </div>
@@ -1158,7 +1154,7 @@ export default function SellerPage() {
               <div className="section-card">
                 <div className="section-card-head">
                   <div>
-                    <h3 className="section-card-title">🧶 My Listed Crafts — Customize Any Detail</h3>
+                    <h3 className="section-card-title">My Listed Crafts — Customize Any Detail</h3>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-500)' }}>
                       Edit pricing, stock, descriptions, photos, dimensions, GI specs, or pause listings anytime.
                       Changes reflect immediately on HunarLink.
@@ -1179,7 +1175,7 @@ export default function SellerPage() {
                 <div className="seller-products-grid" id="seller-products-grid">
                   {filteredProducts.length === 0 ? (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '38px 16px', color: 'var(--text-500)' }}>
-                      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🧶</div>
+                      <div style={{ marginBottom: '8px', color: 'var(--forest-700)' }}><IconPalette size={30} /></div>
                       <strong style={{ color: 'var(--forest-950)' }}>No crafts listed yet</strong>
                       <p style={{ fontSize: '0.82rem', margin: '6px 0 14px' }}>
                         Publish your first Kashmiri craft to make it available to HunarLink buyers worldwide.
@@ -1241,7 +1237,7 @@ export default function SellerPage() {
                                   <div className="sp-metric-lbl">Ordered</div>
                                 </div>
                                 <div>
-                                  <div className="sp-metric-val">♡ {wishCount + (p.reviewCount || 0)}</div>
+                                  <div className="sp-metric-val">{wishCount + (p.reviewCount || 0)}</div>
                                   <div className="sp-metric-lbl">Interest</div>
                                 </div>
                               </div>
@@ -1249,8 +1245,7 @@ export default function SellerPage() {
                           </div>
 
                           <div className="sp-actions">
-                            <button type="button" className="btn-forest" onClick={() => openEdit(p)}>
-                              ✏️ Customize
+                            <button type="button" className="btn-forest" onClick={() => openEdit(p)}>Customize
                             </button>
                             <a href={appHref(`/product?id=${encodeURIComponent(p.id)}`)} target="_blank" rel="noreferrer" className="btn-outline">
                               Store ↗
@@ -1259,9 +1254,7 @@ export default function SellerPage() {
                               +1 Stock
                             </button>
                             {!p.isCatalogSeed && (
-                              <button type="button" className="btn-danger-outline" onClick={() => removeProduct(p.id)} title="Delete Listing">
-                                🗑️
-                              </button>
+                              <button type="button" className="btn-danger-outline" onClick={() => removeProduct(p.id)} title="Delete Listing"> </button>
                             )}
                           </div>
                         </article>
@@ -1277,7 +1270,7 @@ export default function SellerPage() {
               <div className="section-card">
                 <div className="section-card-head">
                   <div>
-                    <h3 className="section-card-title">📦 Customer Orders — Complete Information &amp; Fulfillment</h3>
+                    <h3 className="section-card-title">Customer Orders — Complete Information &amp; Fulfillment</h3>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-500)' }}>
                       Every order placed by buyers on HunarLink arrives here with full customer contact, shipping
                       address, payment status, GI items, and live tracking controls.
@@ -1294,8 +1287,7 @@ export default function SellerPage() {
                       <option value="active">Active / In Progress</option>
                       <option value="delivered">Delivered (Stage 5)</option>
                     </select>
-                    <button type="button" className="btn-outline" onClick={simulateOrder}>
-                      ⚡ Simulate New Buyer Order
+                    <button type="button" className="btn-outline" onClick={simulateOrder}>Simulate New Buyer Order
                     </button>
                   </div>
                 </div>
@@ -1303,14 +1295,13 @@ export default function SellerPage() {
                 <div id="orders-container">
                   {visibleOrders.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-500)' }}>
-                      <div style={{ fontSize: '2.2rem', marginBottom: '8px' }}>📦</div>
+                      <div style={{ marginBottom: '8px', color: 'var(--forest-700)' }}><IconPackage size={32} /></div>
                       <strong style={{ color: 'var(--forest-950)' }}>No matching orders yet</strong>
                       <p style={{ fontSize: '0.82rem', margin: '6px 0 16px' }}>
                         When a customer orders any product on HunarLink, you receive every customer, shipping,
                         payment, and item detail here.
                       </p>
-                      <button type="button" className="btn-gold" onClick={simulateOrder}>
-                        ⚡ Simulate a Live Customer Order
+                      <button type="button" className="btn-gold" onClick={simulateOrder}>Simulate a Live Customer Order
                       </button>
                     </div>
                   ) : (
@@ -1338,8 +1329,7 @@ export default function SellerPage() {
                               <span className="status-chip live">
                                 {TRACKING_STAGES[stage - 1] || TRACKING_STAGES[0]}
                               </span>
-                              <button type="button" className="btn-outline" onClick={() => window.print()}>
-                                🖨️ Print Packing Slip
+                              <button type="button" className="btn-outline" onClick={() => window.print()}>Print Packing Slip
                               </button>
                             </div>
                           </div>
@@ -1348,8 +1338,8 @@ export default function SellerPage() {
                             <div className="oc-block">
                               <div className="oc-block-title">Customer &amp; Delivery</div>
                               <div className="oc-line"><strong>{name}</strong></div>
-                              <div className="oc-line">📞 {phone}</div>
-                              <div className="oc-line">✉️ {email}</div>
+                              <div className="oc-line">{phone}</div>
+                              <div className="oc-line">{email}</div>
                               <div className="oc-line">{locality}</div>
                               <div className="oc-line">{cityPin}</div>
                               <div className="oc-line">Type: {buyer.addressType || 'Home'}</div>
@@ -1394,8 +1384,7 @@ export default function SellerPage() {
                               value={notes[o.id] ?? o.sellerNote ?? ''}
                               onChange={(e) => setNotes({ ...notes, [o.id]: e.target.value })}
                             />
-                            <button type="button" className="btn-forest" onClick={() => saveNote(o.id)}>
-                              ✉️ Send Dispatch Update
+                            <button type="button" className="btn-forest" onClick={() => saveNote(o.id)}>Send Dispatch Update
                             </button>
                           </div>
                           {o.sellerNote && (
@@ -1414,14 +1403,13 @@ export default function SellerPage() {
               <div className="section-card">
                 <div className="section-card-head">
                   <div>
-                    <h3 className="section-card-title">💬 Product Performance &amp; Buyer Responses</h3>
+                    <h3 className="section-card-title">Product Performance &amp; Buyer Responses</h3>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-500)' }}>
                       Track wishlist saves, active shopping bag interest, and reply directly to customer reviews and
                       product questions.
                     </p>
                   </div>
-                  <button type="button" className="btn-outline" onClick={simulateInquiry}>
-                    ⚡ Simulate New Buyer Inquiry
+                  <button type="button" className="btn-outline" onClick={simulateInquiry}>Simulate New Buyer Inquiry
                   </button>
                 </div>
 
@@ -1429,7 +1417,7 @@ export default function SellerPage() {
                   <div className="kpi-card">
                     <div className="kpi-top">
                       <span className="kpi-label">Wishlist Saves</span>
-                      <span className="kpi-icon">♡</span>
+                      <span className="kpi-icon"><IconHeart size={17} /></span>
                     </div>
                     <div className="kpi-value">{products.filter((p) => wishlist.includes(p.id)).length}</div>
                     <div className="kpi-sub">Users watching your crafts</div>
@@ -1437,7 +1425,7 @@ export default function SellerPage() {
                   <div className="kpi-card">
                     <div className="kpi-top">
                       <span className="kpi-label">In Shopping Bags</span>
-                      <span className="kpi-icon">🛍️</span>
+                      <span className="kpi-icon">️</span>
                     </div>
                     <div className="kpi-value">
                       {products.filter((p) => (cart || []).some((c) => c.productId === p.id)).length}
@@ -1447,7 +1435,7 @@ export default function SellerPage() {
                   <div className="kpi-card">
                     <div className="kpi-top">
                       <span className="kpi-label">Reviews &amp; Inquiries</span>
-                      <span className="kpi-icon">💬</span>
+                      <span className="kpi-icon"><IconChat size={17} /></span>
                     </div>
                     <div className="kpi-value">{responses.length}</div>
                     <div className="kpi-sub">
@@ -1477,7 +1465,7 @@ export default function SellerPage() {
                         <p className="rc-comment">{r.comment}</p>
                         {r.reply ? (
                           <div className="rc-reply">
-                            <strong>✦ Your reply:</strong> {r.reply}
+                            <strong>Your reply:</strong> {r.reply}
                           </div>
                         ) : (
                           <form className="rc-reply-form" onSubmit={(e) => submitReply(e, r)}>
@@ -1505,8 +1493,8 @@ export default function SellerPage() {
       <div className={`modal-backdrop${editForm ? ' open' : ''}`} id="edit-product-modal">
         <div className="modal-dialog">
           <div className="modal-head">
-            <h3>✏️ Customize Product Details</h3>
-            <button type="button" className="modal-close" aria-label="Close" onClick={closeEdit}>✕</button>
+            <h3>Customize Product Details</h3>
+            <button type="button" className="modal-close" aria-label="Close" onClick={closeEdit}><IconX size={15} /></button>
           </div>
           <div className="modal-body">
             {editForm && (
@@ -1617,8 +1605,7 @@ export default function SellerPage() {
                   <label className="field-label">Update Product Photograph</label>
                   <div className="custom-photo-upload-row" style={{ marginTop: '2px' }}>
                     <img id="edit-photo-preview" className="upload-preview-thumb" src={resolveImg(editImage)} alt="Current product photo" />
-                    <label className="btn-outline" style={{ cursor: 'pointer' }}>
-                      📷 Change Photo
+                    <label className="btn-outline" style={{ cursor: 'pointer' }}>Change Photo
                       <input
                         type="file" id="edit-photo-file" accept="image/*" style={{ display: 'none' }}
                         ref={editFileRef}
@@ -1643,7 +1630,7 @@ export default function SellerPage() {
 
                 <div style={{ marginTop: '18px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                   <button type="button" className="btn-outline" onClick={closeEdit}>Cancel</button>
-                  <button type="submit" className="btn-forest">✓ Save Customized Details →</button>
+                  <button type="submit" className="btn-forest">Save Customized Details →</button>
                 </div>
               </form>
             )}
