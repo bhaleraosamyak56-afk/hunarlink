@@ -109,7 +109,7 @@
     launcher.setAttribute("aria-label", "Open HunarSathi Buyer Assistant");
     launcher.innerHTML = `
       <span class="hs-launcher-inner">
-        <span class="hunarsathi-launcher-avatar"></span>
+        <span class="hunarsathi-launcher-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="15" height="15"><path d="M12 3.2l1.9 5.1a3 3 0 0 0 1.8 1.8l5.1 1.9-5.1 1.9a3 3 0 0 0-1.8 1.8L12 20.8l-1.9-5.1a3 3 0 0 0-1.8-1.8L3.2 12l5.1-1.9a3 3 0 0 0 1.8-1.8z"/></svg></span>
         <span class="hunarsathi-launcher-text">HunarSathi</span>
         <span class="hunarsathi-launcher-pulse" aria-hidden="true"></span>
       </span>
@@ -122,7 +122,7 @@
     win.innerHTML = `
       <div class="hs-header">
         <div class="hs-header-left">
-          <div class="hs-bot-badge"></div>
+          <div class="hs-bot-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="19" height="19"><path d="M12 3.2l1.9 5.1a3 3 0 0 0 1.8 1.8l5.1 1.9-5.1 1.9a3 3 0 0 0-1.8 1.8L12 20.8l-1.9-5.1a3 3 0 0 0-1.8-1.8L3.2 12l5.1-1.9a3 3 0 0 0 1.8-1.8z"/></svg></div>
           <div>
             <div class="hs-bot-name">HunarSathi</div>
             <div class="hs-bot-sub">
