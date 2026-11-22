@@ -195,20 +195,45 @@ const save = (key, value) => {
 
 export default function SellerPage() {
   const navigate = useNavigate();
-  const { toast } = useStore();
   const fileRef = useRef(null);
   const editFileRef = useRef(null);
 
   const [seller, setSeller] = useState(null);
   const [tab, setTab] = useState('overview');
 
-  const [customProducts, setCustomProducts] = useState(() => load(KEYS.CUSTOM_PRODUCTS, []));
-  const [overrides, setOverrides] = useState(() => load(KEYS.OVERRIDES, {}));
-  const [orders, setOrders] = useState(() => load(KEYS.ORDERS, []));
-  const [inquiries, setInquiries] = useState(() => load(KEYS.INQUIRIES, null));
-  const [reviews, setReviews] = useState(() => load(KEYS.REVIEWS, {}));
-  const [wishlist, setWishlist] = useState(() => load(KEYS.WISHLIST, []));
-  const [cart] = useState(() => load(KEYS.CART, []));
+  /* The catalogue lives in the store, which is the single owner of
+     hunarlink_custom_products. Reading it from here instead of a private
+     useState is what lets a publish reach a storefront open in another tab. */
+  const {
+    toast,
+    user: storeUser,
+    customProducts,
+    orders,
+    reviews,
+    wishlist,
+    cart,
+    productOverrides: overrides,
+    sellerInquiries: inquiries,
+    addProduct,
+    updateProduct,
+    removeProduct: removeProductFromStore,
+    setProductOverride,
+    replyToInquiry,
+    addInquiry,
+    setReviews
+  } = useStore();
+
+  /* Overrides and inquiries are maps/arrays owned by the store. These thin
+     wrappers keep the call sites below readable while every write still goes
+     through a reducer action, so another tab sees it. */
+  const setOverrides = (updater) => {
+    const next = typeof updater === 'function' ? updater(overrides) : updater;
+    Object.keys(next).forEach((id) => {
+      if (JSON.stringify(next[id]) !== JSON.stringify(overrides[id])) {
+        setProductOverride(id, next[id]);
+      }
+    });
+  };
 
   const [newForm, setNewForm] = useState(BLANK_NEW);
   const [newImage, setNewImage] = useState('assets/products/pashmina_01.jpg');
@@ -223,18 +248,14 @@ export default function SellerPage() {
   const [replyDrafts, setReplyDrafts] = useState({});
   const [notes, setNotes] = useState({});
 
-  /* ---- session gate -------------------------------------------------- */
+  /* ---- session gate --------------------------------------------------
+     The signed-in user is store state now, so signing in or out in any tab
+     re-renders this gate without a focus or storage listener. */
   useEffect(() => {
-    const read = () => {
-      const user = load(KEYS.AUTH, null);
-      if (user && user.isLoggedIn && user.role === 'artisan') return user;
-      return null;
-    };
-    const sync = () => setSeller(read());
-    sync();
-    window.addEventListener('focus', sync);
-    return () => window.removeEventListener('focus', sync);
-  }, []);
+    const artisan =
+      storeUser && storeUser.isLoggedIn && storeUser.role === 'artisan' ? storeUser : null;
+    setSeller(artisan);
+  }, [storeUser]);
 
   /* seedInitialSellerInquiriesIfEmpty — the static console seeded two sample
      responses the first time a seller opened the workspace. */
@@ -266,18 +287,12 @@ export default function SellerPage() {
           'Thank you for supporting Kashmiri walnut artisans directly. Wishing your family generations of joy with this heirloom!'
       }
     ];
-    setInquiries(sample);
-    save(KEYS.INQUIRIES, sample);
+    addInquiry(sample);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seller]);
 
-  /* Persist each collection the moment it changes. */
-  useEffect(() => save(KEYS.CUSTOM_PRODUCTS, customProducts), [customProducts]);
-  useEffect(() => save(KEYS.OVERRIDES, overrides), [overrides]);
-  useEffect(() => save(KEYS.ORDERS, orders), [orders]);
-  useEffect(() => {
-    if (inquiries) save(KEYS.INQUIRIES, inquiries);
-  }, [inquiries]);
+  /* Persistence belongs to the store — see StoreContext's single write effect.
+     This page no longer touches localStorage for any of these collections. */
 
   /* ---- derived: the seller's catalogue -------------------------------- */
   const products = useMemo(() => {
@@ -441,7 +456,7 @@ export default function SellerPage() {
       listedAt: new Date().toISOString()
     };
 
-    setCustomProducts((list) => [product, ...list]);
+    addProduct(product);
     setNewForm({ ...BLANK_NEW, guild: seller.craft || 'pashmina', district: seller.district || 'Srinagar', giId: seller.giCertified ? seller.giId || '' : '' });
     setNewImage(guildInfo.defaultImg);
     setNewPhotoName('');
@@ -500,7 +515,7 @@ export default function SellerPage() {
     /* custom products live in their own key; catalog seeds are only patched
        through the overrides map, exactly as the static controller did. */
     if (customProducts.some((p) => p.id === id)) {
-      setCustomProducts((list) => list.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+      updateProduct(id, updates);
     } else {
       setOverrides((map) => ({ ...map, [id]: { ...(map[id] || {}), ...updates } }));
     }
@@ -510,9 +525,8 @@ export default function SellerPage() {
 
   function adjustStock(id, delta) {
     if (customProducts.some((p) => p.id === id)) {
-      setCustomProducts((list) =>
-        list.map((p) => (p.id === id ? { ...p, stock: Math.max(0, (p.stock || 0) + delta) } : p))
-      );
+      const current = customProducts.find((p) => p.id === id);
+      updateProduct(id, { stock: Math.max(0, ((current && current.stock) || 0) + delta) });
     } else {
       const current = products.find((p) => p.id === id);
       const next = Math.max(0, ((current && current.stock) || 0) + delta);
@@ -523,7 +537,7 @@ export default function SellerPage() {
 
   function removeProduct(id) {
     if (!window.confirm('Remove this product listing from HunarLink?')) return;
-    setCustomProducts((list) => list.filter((p) => p.id !== id));
+    removeProductFromStore(id);
     toast('Listing removed from HunarLink catalog.');
   }
 
@@ -600,10 +614,10 @@ export default function SellerPage() {
           i === resp.sourceIndex ? { ...r, artisanReply: text } : r
         );
         setReviews(next);
-        save(KEYS.REVIEWS, next);
+        setReviews(next);
       }
     } else {
-      setInquiries((list) => (list || []).map((i) => (i.id === resp.id ? { ...i, reply: text } : i)));
+      replyToInquiry(resp.id, text);
     }
     setReplyDrafts((d) => ({ ...d, [resp.id]: '' }));
     toast('✓ Your artisan response has been published!', 'success');
@@ -611,8 +625,7 @@ export default function SellerPage() {
 
   function simulateInquiry() {
     const prod = products[0] || DEMO_SEED_FALLBACK[0];
-    setInquiries((list) => [
-      {
+    addInquiry({
         id: 'inq-' + Date.now(),
         type: 'Buyer Question',
         author: 'Rhea Deshmukh (Pune)',
@@ -621,9 +634,7 @@ export default function SellerPage() {
         rating: 5,
         comment: `Hi ${seller?.name || 'Ustad ji'}, I loved "${prod.title}"! Can you include a gift card and confirm dispatch time to Pune?`,
         reply: ''
-      },
-      ...(list || [])
-    ]);
+      });
     toast('💬 New buyer inquiry received on your product!', 'success');
   }
 
@@ -650,7 +661,7 @@ export default function SellerPage() {
       >
         <div className="auth-gate-card">
           <div className="gate-emblem">H</div>
-          <h1 className="gate-title">Artisan Verification Required</h1>
+          <h2 className="gate-title">Artisan Verification Required</h2>
           <p className="gate-desc">
             The HunarLink Seller Workspace is exclusively available to logged-in and verified Kashmiri
             artisans. Please sign in or complete your GI / Standard seller registration to list crafts,
@@ -1154,7 +1165,7 @@ export default function SellerPage() {
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <input
-                      type="text" id="seller-prod-search" className="field-input"
+                      type="text" id="seller-prod-search" aria-label="Search my crafts" className="field-input"
                       style={{ width: '220px', padding: '8px 12px' }}
                       placeholder="Search my crafts..."
                       value={prodQuery}
@@ -1273,7 +1284,7 @@ export default function SellerPage() {
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <select
-                      id="order-stage-filter" className="field-select"
+                      id="order-stage-filter" aria-label="Filter orders by stage" className="field-select"
                       style={{ width: 'auto', padding: '8px 12px' }}
                       value={orderFilter}
                       onChange={(e) => setOrderFilter(e.target.value)}
@@ -1472,7 +1483,7 @@ export default function SellerPage() {
                             <input
                               type="text"
                               className="field-input"
-                              placeholder="Write your artisan response..."
+                              placeholder="Write your artisan response..." aria-label="Your reply to this buyer"
                               value={replyDrafts[r.id] || ''}
                               onChange={(e) => setReplyDrafts({ ...replyDrafts, [r.id]: e.target.value })}
                             />

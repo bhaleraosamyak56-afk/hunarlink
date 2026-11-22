@@ -70,15 +70,10 @@ const EMPTY = {
 };
 
 export default function AdminPage() {
-  const { toast } = useStore();
 
-  const [adminToken, setAdminToken] = useState(() => {
-    try {
-      return localStorage.getItem('hunarlink_admin_token') || null;
-    } catch (err) {
-      return null;
-    }
-  });
+  /* The admin bearer token is session state owned by the store, which persists
+     it under hunarlink_admin_token and mirrors changes from other tabs. */
+  const { toast, adminToken, setAdminToken } = useStore();
   const [tab, setTab] = useState('dashboard');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -168,11 +163,6 @@ export default function AdminPage() {
     });
     if (res && res.access_token) {
       setAdminToken(res.access_token);
-      try {
-        localStorage.setItem('hunarlink_admin_token', res.access_token);
-      } catch (err) {
-        /* ignore */
-      }
       toast('✓ Administrative session authenticated.', 'success');
     } else {
       toast('⚠️ Authentication failed — invalid credentials.', 'error');
@@ -180,11 +170,6 @@ export default function AdminPage() {
   }
 
   function logout() {
-    try {
-      localStorage.removeItem('hunarlink_admin_token');
-    } catch (err) {
-      /* ignore */
-    }
     setAdminToken(null);
     setData(EMPTY);
     toast('Administrative session closed.');
@@ -334,6 +319,7 @@ export default function AdminPage() {
                   <label>Admin Identifier (Email / Clerk UID)</label>
                   <input
                     type="text" id="login-identifier" required
+                    aria-label="Admin email address"
                     value={login.identifier}
                     onChange={(e) => setLogin({ ...login, identifier: e.target.value })}
                   />
@@ -342,6 +328,7 @@ export default function AdminPage() {
                   <label>Password / Security Key</label>
                   <input
                     type="password" id="login-password" required
+                    aria-label="Admin password"
                     value={login.password}
                     onChange={(e) => setLogin({ ...login, password: e.target.value })}
                   />

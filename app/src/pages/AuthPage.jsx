@@ -30,7 +30,7 @@ const AUTOFILL_CREDS = {
 export default function AuthPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { setUser, toast, catalogue } = useStore();
+  const { setUser, toast, catalogue, platformUsers, setPlatformUsers } = useStore();
 
   const mode = ['login', 'register', 'forgot'].includes(params.get('mode'))
     ? params.get('mode')
@@ -340,12 +340,7 @@ export default function AuthPage() {
       return;
     }
 
-    let accounts = [];
-    try {
-      accounts = JSON.parse(localStorage.getItem('hunarlink_platform_users') || '[]');
-    } catch (err) {
-      accounts = [];
-    }
+    const accounts = platformUsers;
     const known = accounts.find(
       (a) => String(a.email || '').toLowerCase() === email.toLowerCase()
     );
@@ -451,12 +446,7 @@ export default function AuthPage() {
 
     stopAllCameras();
 
-    let accounts = [];
-    try {
-      accounts = JSON.parse(localStorage.getItem('hunarlink_platform_users') || '[]');
-    } catch (err) {
-      accounts = [];
-    }
+    const accounts = platformUsers;
     if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
       flash('\u26a0\ufe0f An artisan account with this email already exists. Please sign in instead.');
       return;
@@ -470,7 +460,7 @@ export default function AuthPage() {
         .toUpperCase()
         .slice(0, 2) || 'AR';
 
-    accounts.push({
+    const newAccount = {
       email,
       phone: `+91 ${phone}`,
       password: pwd,
@@ -486,13 +476,9 @@ export default function AuthPage() {
           ? `GI-Verified Artisan (${giId}) \u2022 ${district} Cluster`
           : `Standard Artisan \u2022 ${district} Cluster`,
       badge: initials
-    });
-    try {
-      localStorage.setItem('hunarlink_platform_users', JSON.stringify(accounts));
-    } catch (err) {
-      flash('\u26a0\ufe0f Browser storage is full — cannot save this account.');
-      return;
-    }
+    };
+    /* a new array, never a push onto store state */
+    setPlatformUsers([...accounts, newAccount]);
 
     signInArtisan({
       name,

@@ -27,7 +27,31 @@ const KEYS = {
   addresses: 'hunarlink_addresses',
   orders: 'hunarlink_orders',
   customProducts: 'hunarlink_custom_products',
-  reviews: 'hunarlink_reviews'
+  productOverrides: 'hunarlink_product_overrides',
+  reviews: 'hunarlink_reviews',
+  sellerInquiries: 'hunarlink_seller_inquiries',
+  buyerProfile: 'hunarlink_buyer_profile',
+  platformUsers: 'hunarlink_platform_users',
+  adminToken: 'hunarlink_admin_token'
+};
+
+/* Which state slice each storage key feeds. The cross-tab listener refreshes
+   exactly the affected slice when another tab writes, so a craft published in
+   the seller portal appears in an open storefront without a reload. */
+const KEY_TO_SLICE = {
+  [KEYS.cart]: 'cart',
+  [KEYS.wishlist]: 'wishlist',
+  [KEYS.savedLater]: 'savedLater',
+  [KEYS.coupon]: 'coupon',
+  [KEYS.user]: 'user',
+  [KEYS.addresses]: 'addresses',
+  [KEYS.orders]: 'orders',
+  [KEYS.customProducts]: 'customProducts',
+  [KEYS.productOverrides]: 'productOverrides',
+  [KEYS.reviews]: 'reviews',
+  [KEYS.sellerInquiries]: 'sellerInquiries',
+  [KEYS.buyerProfile]: 'buyerProfile',
+  [KEYS.platformUsers]: 'platformUsers'
 };
 
 /* The demo boots as a signed-in collector, exactly as the static build did —
@@ -77,7 +101,12 @@ const initialState = {
   addresses: loadStorage(KEYS.addresses, [DEFAULT_ADDRESS]),
   orders: loadStorage(KEYS.orders, []),
   customProducts: loadStorage(KEYS.customProducts, []),
+  productOverrides: loadStorage(KEYS.productOverrides, {}),
   reviews: loadStorage(KEYS.reviews, {}),
+  sellerInquiries: loadStorage(KEYS.sellerInquiries, []),
+  buyerProfile: loadStorage(KEYS.buyerProfile, null),
+  platformUsers: loadStorage(KEYS.platformUsers, []),
+  adminToken: loadStorage(KEYS.adminToken, null),
   recentlyViewed: readRecentlyViewed(),
   compareList: [],
   toasts: [],
@@ -150,6 +179,46 @@ function reducer(state, action) {
     case 'wishlist/remove':
       return { ...state, wishlist: state.wishlist.filter((id) => id !== action.productId) };
 
+    /* ---------------------------------------------------------- catalogue
+       A product published in the seller portal is a first-class catalogue
+       change, not a seller-local detail: the storefront filters, wishes and
+       prices all read it. */
+    case 'products/add':
+      return { ...state, customProducts: [action.product, ...state.customProducts] };
+    case 'products/update':
+      return {
+        ...state,
+        customProducts: state.customProducts.map((p) =>
+          p.id === action.id ? { ...p, ...action.patch } : p
+        )
+      };
+    case 'products/remove':
+      return {
+        ...state,
+        customProducts: state.customProducts.filter((p) => p.id !== action.id)
+      };
+    case 'overrides/set':
+      return { ...state, productOverrides: { ...state.productOverrides, [action.id]: { ...(state.productOverrides[action.id] || {}), ...action.patch } } };
+    case 'inquiries/add':
+      return { ...state, sellerInquiries: [action.inquiry, ...state.sellerInquiries] };
+    case 'inquiries/reply':
+      return {
+        ...state,
+        sellerInquiries: state.sellerInquiries.map((i) =>
+          i.id === action.id ? { ...i, reply: action.reply } : i
+        )
+      };
+    case 'buyerProfile/set':
+      return { ...state, buyerProfile: action.profile };
+    case 'platformUsers/set':
+      return { ...state, platformUsers: action.users };
+    case 'adminToken/set':
+      return { ...state, adminToken: action.token };
+
+    /* Cross-tab refresh: another tab wrote this key, so adopt its value. */
+    case 'external/sync':
+      return { ...state, [action.slice]: action.value };
+
     /* ------------------------------------------------------------- other */
     case 'coupon/set':
       return { ...state, coupon: action.code };
@@ -168,6 +237,8 @@ function reducer(state, action) {
             : o
         )
       };
+    case 'reviews/set':
+      return { ...state, reviews: action.reviews };
     case 'recentlyViewed/push':
       return { ...state, recentlyViewed: pushRecentlyViewed(action.id) };
     case 'recentlyViewed/clear':
@@ -248,6 +319,12 @@ export function StoreProvider({ children }) {
     saveStorage(KEYS.addresses, state.addresses);
     saveStorage(KEYS.orders, state.orders);
     saveStorage(KEYS.reviews, state.reviews);
+    saveStorage(KEYS.customProducts, state.customProducts);
+    saveStorage(KEYS.productOverrides, state.productOverrides);
+    saveStorage(KEYS.sellerInquiries, state.sellerInquiries);
+    saveStorage(KEYS.buyerProfile, state.buyerProfile);
+    saveStorage(KEYS.platformUsers, state.platformUsers);
+    saveStorage(KEYS.adminToken, state.adminToken);
   }, [
     state.cart,
     state.wishlist,
@@ -256,8 +333,36 @@ export function StoreProvider({ children }) {
     state.user,
     state.addresses,
     state.orders,
-    state.reviews
+    state.reviews,
+    state.customProducts,
+    state.productOverrides,
+    state.sellerInquiries,
+    state.buyerProfile,
+    state.platformUsers,
+    state.adminToken
   ]);
+
+  /* ---------------------------------------------------------- cross-tab sync
+     localStorage is shared between tabs but a write in one tab fires no event
+     in another, so a craft published in the seller portal used to sit invisible
+     in an open storefront until a manual reload. The 'storage' event fires in
+     every OTHER tab; re-read the changed key and adopt it. */
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e.key) return;                       // clear() — ignore
+      const slice = KEY_TO_SLICE[e.key];
+      if (!slice) return;
+      let value;
+      try {
+        value = e.newValue === null ? null : JSON.parse(e.newValue);
+      } catch (err) {
+        return;
+      }
+      dispatch({ type: 'external/sync', slice, value });
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const value = useMemo(() => {
     const productById = (id) => catalogue.find((p) => p.id === id) || catalogue[0];
@@ -319,6 +424,18 @@ export function StoreProvider({ children }) {
 
       addAddress: (address) =>
         dispatch({ type: 'addresses/set', addresses: [...state.addresses, address] }),
+      setAddresses: (addresses) => dispatch({ type: 'addresses/set', addresses }),
+      addProduct: (product) => dispatch({ type: 'products/add', product }),
+      updateProduct: (id, patch) => dispatch({ type: 'products/update', id, patch }),
+      removeProduct: (id) => dispatch({ type: 'products/remove', id }),
+      setProductOverride: (id, patch) => dispatch({ type: 'overrides/set', id, patch }),
+      setReviews: (reviews) => dispatch({ type: 'reviews/set', reviews }),
+      addInquiry: (inquiry) => dispatch({ type: 'inquiries/add', inquiry }),
+      replyToInquiry: (id, reply) => dispatch({ type: 'inquiries/reply', id, reply }),
+      setBuyerProfile: (profile) => dispatch({ type: 'buyerProfile/set', profile }),
+      setPlatformUsers: (users) => dispatch({ type: 'platformUsers/set', users }),
+      setAdminToken: (token) => dispatch({ type: 'adminToken/set', token }),
+
       placeOrder: (order) => dispatch({ type: 'order/add', order }),
       addOrder: (order) => dispatch({ type: 'order/add', order }),
       advanceOrder: (orderId) => dispatch({ type: 'order/advance', orderId }),

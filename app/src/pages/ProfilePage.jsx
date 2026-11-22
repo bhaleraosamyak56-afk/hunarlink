@@ -39,24 +39,14 @@ const FALLBACK_ADDRESS = {
   type: 'Home'
 };
 
-function readProfile() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('hunarlink_buyer_profile') || 'null');
-    if (saved) return { ...DEFAULT_PROFILE, ...saved };
-  } catch (err) {
-    /* storage unavailable or corrupt — fall through to the defaults */
-  }
-  return { ...DEFAULT_PROFILE };
+/* Both readers take their value from the store, which already loaded these
+   keys at boot. Nothing here touches localStorage. */
+function readProfile(buyerProfile) {
+  return buyerProfile ? { ...DEFAULT_PROFILE, ...buyerProfile } : { ...DEFAULT_PROFILE };
 }
 
-function readAddresses() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('hunarlink_addresses') || 'null');
-    if (Array.isArray(saved)) return saved;
-  } catch (err) {
-    /* ignore */
-  }
-  return [FALLBACK_ADDRESS];
+function readAddresses(addresses) {
+  return Array.isArray(addresses) && addresses.length ? addresses : [FALLBACK_ADDRESS];
 }
 
 
@@ -75,10 +65,21 @@ function readAddresses() {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { wishlist, wishlistItems, removeFromWishlist, setUser, toast } = useStore();
+  const {
+    wishlist,
+    wishlistItems,
+    removeFromWishlist,
+    setUser,
+    user,
+    buyerProfile,
+    addresses: storeAddresses,
+    setBuyerProfile,
+    setAddresses: saveAddresses,
+    toast
+  } = useStore();
 
-  const [profile, setProfile] = useState(readProfile);
-  const [addresses, setAddresses] = useState(readAddresses);
+  const [profile, setProfile] = useState(() => readProfile(buyerProfile));
+  const [addresses, setAddresses] = useState(() => readAddresses(storeAddresses));
   const [tab, setTab] = useState(() => {
     const requested = params.get('tab');
     return ['personal', 'addresses', 'payments', 'wishlist'].includes(requested)
@@ -109,45 +110,26 @@ export default function ProfilePage() {
      static page wrote hunarlink_buyer_profile and mirrored the person onto
      hunarlink_auth_user so the nav greeting follows. */
   useEffect(() => {
-    try {
-      localStorage.setItem('hunarlink_buyer_profile', JSON.stringify(profile));
-      const auth = JSON.parse(localStorage.getItem('hunarlink_auth_user') || 'null');
-      if (!auth || auth.role !== 'artisan') {
-        localStorage.setItem(
-          'hunarlink_auth_user',
-          JSON.stringify({
-            name: profile.firstName,
-            fullName: profile.fullName,
-            email: profile.email,
-            phone: profile.phone,
-            role: 'buyer',
-            title: 'Verified Valley Collector \u2022 J&K',
-            badge: profile.badge,
-            isLoggedIn: profile.isLoggedIn
-          })
-        );
-      }
-    } catch (err) {
-      /* storage unavailable — the page still works for this session */
+    /* One write path: the store owns hunarlink_buyer_profile and mirrors the
+       person onto hunarlink_auth_user so the header greeting follows. */
+    setBuyerProfile(profile);
+    if (!user || user.role !== 'artisan') {
+      setUser({
+        name: profile.firstName,
+        fullName: profile.fullName,
+        email: profile.email,
+        role: 'buyer',
+        title: 'Verified Valley Collector \u2022 J&K',
+        badge: profile.badge,
+        isLoggedIn: profile.isLoggedIn
+      });
     }
-    setUser({
-      name: profile.firstName,
-      fullName: profile.fullName,
-      email: profile.email,
-      role: 'buyer',
-      title: 'Verified Valley Collector \u2022 J&K',
-      badge: profile.badge,
-      isLoggedIn: profile.isLoggedIn
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('hunarlink_addresses', JSON.stringify(addresses));
-    } catch (err) {
-      /* ignore */
-    }
+    saveAddresses(addresses);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addresses]);
 
   /* upSaveProfile recomputes the greeting name and the two-letter badge from
@@ -310,6 +292,9 @@ export default function ProfilePage() {
 
   {/* Flipkart-Style Two-Column Account Layout */}
   <main className="up-container">
+    {/* the page had no h1 at all — every section started at h2, so assistive
+        tech had no page name to announce */}
+    <h1 className="up-page-h1">Collector Account &amp; Profile</h1>
     <div className="fk-account-grid">
 
       {/* LEFT SIDEBAR */}
@@ -504,7 +489,7 @@ export default function ProfilePage() {
             </div>
             <form id="form-email" onSubmit={submitEmail}
               style={{display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap'}}>
-              <input type="email" id="prof-email" className="up-input" style={{maxWidth: '360px'}}
+              <input type="email" id="prof-email" aria-label="Email address" className="up-input" style={{maxWidth: '360px'}}
                 required disabled={!editing.email} value={profile.email || ''}
                 onChange={(e) => saveProfile({ email: e.target.value })} />
               <button type="submit" className="btn-orange" id="save-email-btn"
@@ -523,7 +508,7 @@ export default function ProfilePage() {
             </div>
             <form id="form-phone" onSubmit={submitPhone}
               style={{display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap'}}>
-              <input type="tel" id="prof-phone" className="up-input" style={{maxWidth: '360px'}}
+              <input type="tel" id="prof-phone" aria-label="Mobile number" className="up-input" style={{maxWidth: '360px'}}
                 required disabled={!editing.phone} value={profile.phone || ''}
                 onChange={(e) => saveProfile({ phone: e.target.value })} />
               <button type="submit" className="btn-orange" id="save-phone-btn"

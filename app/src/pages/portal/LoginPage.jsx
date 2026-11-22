@@ -44,20 +44,14 @@ const DEFAULT_PROFILE = {
   memberSince: 'Nov 2026'
 };
 
-function readProfile() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
-    if (saved) return { ...DEFAULT_PROFILE, ...saved };
-  } catch (err) {
-    /* storage unavailable — use defaults */
-  }
-  return { ...DEFAULT_PROFILE };
+function readProfile(savedProfile) {
+  return savedProfile ? { ...DEFAULT_PROFILE, ...savedProfile } : { ...DEFAULT_PROFILE };
 }
 
 /* upSaveProfile(): derive fullName + badge from the name, force role buyer,
    and mirror the display identity onto the storefront session key. */
-function writeProfile(patch) {
-  const merged = { ...readProfile(), ...patch };
+function buildProfile(savedProfile, patch) {
+  const merged = { ...readProfile(savedProfile), ...patch };
   const first = String(merged.firstName || 'Priya').trim();
   const last = String(merged.lastName || '').trim();
   const updated = {
@@ -68,34 +62,33 @@ function writeProfile(patch) {
     badge: ((first[0] || 'P') + (last[0] || first[1] || 'S')).toUpperCase(),
     role: 'buyer'
   };
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(updated));
-    const auth = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
-    if (!auth || auth.role !== 'artisan') {
-      localStorage.setItem(
-        AUTH_KEY,
-        JSON.stringify({
-          name: updated.firstName,
-          fullName: updated.fullName,
-          email: updated.email,
-          phone: updated.phone,
-          role: 'buyer',
-          title: 'Verified Valley Collector \u2022 J&K',
-          badge: updated.badge,
-          isLoggedIn: updated.isLoggedIn
-        })
-      );
-    }
-  } catch (err) {
-    /* ignore quota / privacy-mode failures */
-  }
   return updated;
 }
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { setUser, toast } = useStore();
+  const { setUser, user: storeUser, buyerProfile, setBuyerProfile, toast } = useStore();
+
+  /* Persist a buyer profile through the store — one write path that also
+     mirrors the identity onto the storefront session key. */
+  const writeProfile = (patch) => {
+    const updated = buildProfile(buyerProfile, patch);
+    setBuyerProfile(updated);
+    if (!storeUser || storeUser.role !== 'artisan') {
+      setUser({
+        name: updated.firstName,
+        fullName: updated.fullName,
+        email: updated.email,
+        phone: updated.phone,
+        role: 'buyer',
+        title: 'Verified Valley Collector \u2022 J&K',
+        badge: updated.badge,
+        isLoggedIn: updated.isLoggedIn
+      });
+    }
+    return updated;
+  };
 
   const [mode, setMode] = useState(() => (params.get('mode') === 'signup' ? 'signup' : 'signin'));
   const [useOtp, setUseOtp] = useState(false);
@@ -112,7 +105,7 @@ export default function LoginPage() {
 
   /* Keep the storefront header pill in step with whatever session is on disk. */
   useEffect(() => {
-    const p = readProfile();
+    const p = readProfile(buyerProfile);
     setUser({
       name: p.firstName,
       fullName: p.fullName,
@@ -167,7 +160,7 @@ export default function LoginPage() {
       return;
     }
 
-    const existing = readProfile();
+    const existing = readProfile(buyerProfile);
     const isEmail = identifier.includes('@');
     const nameFromEmail = isEmail
       ? identifier
