@@ -5790,3 +5790,69 @@ html {
   position: relative;
   z-index: 1;
 }
+
+/* ==========================================================================
+   Ambient field — making it actually visible
+   --------------------------------------------------------------------------
+   The first pass of this was invisible. Not because the canvas was broken,
+   but because every section between it and the eye painted an opaque colour:
+   the hero (#F7F5EE), verification (#FAF9F5), the store (#FAF9F5) and the
+   footer (#EFECE2) all covered it completely. A fixed layer underneath
+   opaque siblings is a layer nobody will ever see.
+
+   The sections now paint the same colours at 88% alpha instead of 100%, and
+   the page body is transparent so the field shows through the whole document.
+   At 88% the change in any single colour is around four points of luminance
+   -- invisible as a colour shift, but enough for a slow movement behind it
+   to read.
+
+   Revert: set the four backgrounds back to solid (they are listed below with
+   their original values) and delete the body rule.
+   ========================================================================== */
+
+html {
+  background-color: var(--bg-ivory);
+}
+
+body {
+  /* was: background-color: var(--bg-ivory) — the field is behind this now */
+  background-color: transparent;
+}
+
+.hero-section {
+  background:
+    radial-gradient(circle at 82% 22%, rgba(212, 175, 55, 0.11), transparent 48%),
+    linear-gradient(180deg, rgba(247, 245, 238, 0.88) 0%, rgba(243, 240, 230, 0.9) 100%);
+}
+
+.verification-section {
+  background-color: rgba(250, 249, 245, 0.88);
+}
+
+.marketplace-section {
+  background-color: rgba(250, 249, 245, 0.88);
+}
+
+.guilds-section,
+.artisans-section {
+  background-color: rgba(247, 245, 238, 0.88);
+}
+
+.site-footer {
+  background-color: rgba(239, 236, 226, 0.9);
+}
+
+/* The utility strip and header must stay opaque: text sits directly on them
+   at small sizes and a moving field behind 11px type is a legibility problem,
+   not an atmosphere one. */
+.utility-bar,
+.site-header,
+.section-nav-bar {
+  background-color: #FBF9F4;
+}
+
+/* the field itself gets a little more presence now that it has somewhere to
+   show; still well below the point where it competes with content */
+.ambient-field {
+  opacity: 0.65;
+}
