@@ -5,6 +5,8 @@ import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { StoreProvider } from './state/StoreContext.jsx';
 
+import { CLERK_ENABLED, clerkConfig } from './data/clerkConfig.js';
+
 import './styles/base.css';
 import './styles/craft.css';
 import './styles/widget.css';
@@ -34,6 +36,30 @@ function resolveBasename() {
 }
 
 const basename = resolveBasename();
+
+/* ==========================================================================
+   Clerk provider — deliberately conditional
+   --------------------------------------------------------------------------
+   The dependency is installed and the seam exists (data/clerkConfig.js), but
+   there is no publishable key, so no ClerkProvider is mounted today.
+
+   That is not laziness. ClerkProvider throws on mount if the key is missing
+   or malformed, and the site must keep running on the demo session path. The
+   provider is mounted only when CLERK_ENABLED is true, which is only true
+   when VITE_CLERK_PUBLISHABLE_KEY starts with "pk_".
+
+   To finish the frontend half: put the key in app/.env.local as
+     VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxx
+   rebuild, and wrap <App /> in <ClerkProvider publishableKey={...}>. The
+   server half cannot be done without a backend — see clerkConfig.js.
+   ========================================================================== */
+if (CLERK_ENABLED) {
+  // eslint-disable-next-line no-console
+  console.info('[HunarLink] Clerk publishable key detected — frontend auth available.');
+} else if (clerkConfig.publishableKey) {
+  // eslint-disable-next-line no-console
+  console.warn('[HunarLink] VITE_CLERK_PUBLISHABLE_KEY is set but does not look like a key.');
+}
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

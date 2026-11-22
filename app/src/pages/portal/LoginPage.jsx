@@ -18,6 +18,7 @@ import {
   IconX
 } from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
+import { CLERK_ENABLED, useClerkAuth, toSessionUser } from '../../data/clerkConfig.js';
 import { appHref } from '../../utils/href.js';
 
 /* ==========================================================================
@@ -187,6 +188,11 @@ export default function LoginPage() {
     platformUsers,
     setPlatformUsers
   } = useStore();
+
+  /* When Clerk is configured this carries the real authenticated identity and
+     writeProfile() is fed from it instead of from the demo form. With no key
+     it reports isSignedIn: false and every demo path below runs untouched. */
+  const clerk = useClerkAuth();
 
   /* Persist a buyer profile through the store — one write path that also
      mirrors the identity onto the storefront session key. */
