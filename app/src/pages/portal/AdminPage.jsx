@@ -3,6 +3,7 @@ import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { demoApi } from '../../data/adminDemo.js';
+import { appHref } from '../../utils/href.js';
 
 /* ==========================================================================
    AdminPage — master admin console
@@ -417,7 +418,7 @@ export default function AdminPage() {
                 <button id="btn-refresh-data" className="btn btn-secondary" onClick={load}>
                   ↻ Refresh Data
                 </button>
-                <a href={'/'} className="btn btn-outline" target="_blank" rel="noreferrer">
+                <a href={appHref('/')} className="btn btn-outline" target="_blank" rel="noreferrer">
                   View Marketplace ↗
                 </a>
               </div>

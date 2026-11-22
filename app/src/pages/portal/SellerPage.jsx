@@ -4,6 +4,7 @@ import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR, asset } from '../../utils/legacy.js';
+import { appHref } from '../../utils/href.js';
 
 /* ==========================================================================
    SellerPage — artisan workspace (dashboard.html)
@@ -668,13 +669,13 @@ export default function SellerPage() {
             customize product details, and receive real-time customer orders.
           </p>
           <div className="gate-actions">
-            <a href={'/auth?mode=login&role=artisan'} className="btn-forest" style={{ width: '100%' }}>
+            <a href={appHref('/auth?mode=login&role=artisan')} className="btn-forest" style={{ width: '100%' }}>
               🔑 Sign In as Verified Artisan →
             </a>
-            <a href={'/auth?mode=register&role=artisan'} className="btn-gold" style={{ width: '100%' }}>
+            <a href={appHref('/auth?mode=register&role=artisan')} className="btn-gold" style={{ width: '100%' }}>
               🛡️ Complete Seller Registration &amp; Verification
             </a>
-            <a href={'/'} className="btn-outline" style={{ width: '100%' }}>
+            <a href={appHref('/')} className="btn-outline" style={{ width: '100%' }}>
               ← Back to HunarLink Marketplace
             </a>
           </div>
@@ -690,7 +691,7 @@ export default function SellerPage() {
         {/* Sidebar */}
         <aside className="portal-sidebar">
           <div>
-            <a href={'/'} className="sidebar-brand">
+            <a href={appHref('/')} className="sidebar-brand">
               <span className="sidebar-emblem">H</span>
               <div>
                 <div className="sidebar-brand-title">HunarLink</div>
@@ -766,7 +767,7 @@ export default function SellerPage() {
           </div>
 
           <div className="sidebar-footer">
-            <a href={'/'} className="btn-outline sidebar-storefront-link">📈 Live Storefront ↗</a>
+            <a href={appHref('/')} className="btn-outline sidebar-storefront-link">📈 Live Storefront ↗</a>
             <button type="button" className="btn-outline" onClick={logout}>🚪 Sign Out</button>
           </div>
         </aside>
@@ -1251,7 +1252,7 @@ export default function SellerPage() {
                             <button type="button" className="btn-forest" onClick={() => openEdit(p)}>
                               ✏️ Customize
                             </button>
-                            <a href={`/product?id=${encodeURIComponent(p.id)}`} target="_blank" rel="noreferrer" className="btn-outline">
+                            <a href={appHref(`/product?id=${encodeURIComponent(p.id)}`)} target="_blank" rel="noreferrer" className="btn-outline">
                               Store ↗
                             </a>
                             <button type="button" className="btn-outline" onClick={() => adjustStock(p.id, 1)} title="Add +1 Stock">

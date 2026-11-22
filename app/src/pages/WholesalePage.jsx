@@ -4,6 +4,7 @@ import '../styles/portal.css';
 import PortalScope from '../components/PortalScope.jsx';
 import { useStore } from '../state/StoreContext';
 import { formatINR, loadStorage, saveStorage } from '../utils/legacy';
+import { appHref } from '../utils/href.js';
 
 /* ==========================================================================
    WholesalePage
@@ -276,7 +277,7 @@ export default function WholesalePage() {
 {/* Header */}
   <header className="wp-header">
     <div className="wp-header-inner">
-      <a href={'/'} className="wp-brand">
+      <a href={appHref('/')} className="wp-brand">
         <span className="wp-emblem">H</span>
         <div>
           <div className="wp-brand-name">HunarLink Wholesale</div>
@@ -285,13 +286,13 @@ export default function WholesalePage() {
       </a>
 
       <nav className="wp-nav-links" aria-label="Wholesale Portal Navigation">
-        <a href={'/'} className="wp-nav-btn">
+        <a href={appHref('/')} className="wp-nav-btn">
           ← Storefront
         </a>
-        <a href={'/seller'} className="wp-nav-btn">
+        <a href={appHref('/seller')} className="wp-nav-btn">
           🔨 Seller Portal
         </a>
-        <a href={'/profile'} className="wp-nav-btn">
+        <a href={appHref('/profile')} className="wp-nav-btn">
           👤 My Profile
         </a>
         <button type="button" className="wp-nav-btn primary">
@@ -610,7 +611,7 @@ export default function WholesalePage() {
                   <div><strong>Est. Lot Value:</strong> {formatINR(buyerReceipt.totalLotValue)}</div>
                 </div>
                 <div className="wp-receipt-actions">
-                  <a href={'/seller?tab=wholesale'} className="wp-btn-sm">🔨 View in Seller Portal →</a>
+                  <a href={appHref('/seller?tab=wholesale')} className="wp-btn-sm">🔨 View in Seller Portal →</a>
                   <button type="button" className="wp-btn-sm outline" onClick={() => setTab('tracker')}>
                     📡 Open Live Routing Desk
                   </button>

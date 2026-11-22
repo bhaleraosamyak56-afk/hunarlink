@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
+import { appHref } from '../../utils/href.js';
 
 /* ==========================================================================
    LoginPage — collector (buyer) sign in / sign up
@@ -217,7 +218,7 @@ export default function LoginPage() {
       {/* Shared Top Header */}
       <header className="up-header">
         <div className="up-header-inner">
-          <a href={'/'} className="up-brand">
+          <a href={appHref('/')} className="up-brand">
             <span className="up-emblem">H</span>
             <div>
               <div className="up-brand-title">HunarLink</div>
@@ -225,10 +226,10 @@ export default function LoginPage() {
             </div>
           </a>
           <nav className="up-nav-links">
-            <a href={'/'} className="up-nav-pill">🏠 Storefront</a>
-            <a href={'/profile'} className="up-nav-pill">👤 My Profile</a>
-            <a href={'/orders'} className="up-nav-pill">📦 Track Orders</a>
-            <a href={'/login'} className="up-nav-pill active" id="nav-auth-pill">🔐 User Login</a>
+            <a href={appHref('/')} className="up-nav-pill">🏠 Storefront</a>
+            <a href={appHref('/profile')} className="up-nav-pill">👤 My Profile</a>
+            <a href={appHref('/orders')} className="up-nav-pill">📦 Track Orders</a>
+            <a href={appHref('/login')} className="up-nav-pill active" id="nav-auth-pill">🔐 User Login</a>
           </nav>
         </div>
       </header>
@@ -449,7 +450,7 @@ export default function LoginPage() {
             <div
               style={{marginTop: '20px', paddingTop: '14px', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.78rem', color: 'var(--text-500)'}}>
               <span>Are you a Kashmiri Artisan / Seller?</span>
-              <a href={'/auth?mode=login&role=artisan'}
+              <a href={appHref('/auth?mode=login&role=artisan')}
                 style={{color: 'var(--btn-orange)', fontWeight: '700', textDecoration: 'none'}}>Open Seller Portal Login →</a>
             </div>
           </div>

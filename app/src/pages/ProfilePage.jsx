@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../styles/portal.css';
 import { useStore } from '../state/StoreContext';
 import PortalScope from '../components/PortalScope.jsx';
+import { appHref } from '../utils/href.js';
 
 /* Same palette the static profile page offered in its swatch row. */
 const AVATAR_SWATCHES = ['#E05A17', '#9A3412', '#0D2B1D', '#B88528', '#6B2D5C', '#1E4E79'];
@@ -268,7 +269,7 @@ export default function ProfilePage() {
 {/* Shared Top Header */}
   <header className="up-header">
     <div className="up-header-inner">
-      <a href={'/'} className="up-brand">
+      <a href={appHref('/')} className="up-brand">
         <span className="up-emblem">H</span>
         <div>
           <div className="up-brand-title">HunarLink</div>
@@ -276,15 +277,15 @@ export default function ProfilePage() {
         </div>
       </a>
       <nav className="up-nav-links">
-        <a href={'/'}
+        <a href={appHref('/')}
           className="up-nav-pill">🏠 Storefront</a>
-        <a href={'/profile'} className="up-nav-pill active">👤 My Profile</a>
-        <a href={'/orders'} className="up-nav-pill">📦 My Orders</a>
+        <a href={appHref('/profile')} className="up-nav-pill active">👤 My Profile</a>
+        <a href={appHref('/orders')} className="up-nav-pill">📦 My Orders</a>
         {profile.isLoggedIn ? (
-          <a href={'#'} className="up-nav-pill up-nav-signout" id="nav-auth-pill"
+          <a href={appHref('#')} className="up-nav-pill up-nav-signout" id="nav-auth-pill"
             onClick={(e) => { e.preventDefault(); signOut(); }}>🚪 Sign Out</a>
         ) : (
-          <a href={'/login'} className="up-nav-pill" id="nav-auth-pill">🔐 Switch / Login</a>
+          <a href={appHref('/login')} className="up-nav-pill" id="nav-auth-pill">🔐 Switch / Login</a>
         )}
       </nav>
     </div>
@@ -332,7 +333,7 @@ export default function ProfilePage() {
         {/* Navigation Menu (Exact Flipkart Structure) */}
         <div className="fk-nav-card">
           <div className="fk-nav-section" style={{padding: '4px 0'}}>
-            <a href={'/orders'} className="fk-nav-group-link">
+            <a href={appHref('/orders')} className="fk-nav-group-link">
               <span>📦 MY ORDERS</span>
               <span>→</span>
             </a>
@@ -366,7 +367,7 @@ export default function ProfilePage() {
               <span>My Wishlist</span>
               <span id="nav-wish-count" style={{fontSize: '0.72rem'}}>{wishlist.length}</span>
             </button>
-            <a href={'/orders'} className="fk-nav-item" style={{textDecoration: 'none'}}>
+            <a href={appHref('/orders')} className="fk-nav-item" style={{textDecoration: 'none'}}>
               <span>My Reviews &amp; Ratings</span>
               <span>→</span>
             </a>
@@ -661,7 +662,7 @@ export default function ProfilePage() {
         <div className={`fk-tab-view${tab === 'wishlist' ? ' active' : ''}`} id="view-wishlist">
           <div className="fk-block-head" style={{justifyContent: 'space-between'}}>
             <h2 className="fk-block-title">My Saved Heirloom Wishlist</h2>
-            <a href={'/#marketplace-section'}
+            <a href={appHref('/#marketplace-section')}
               className="btn-orange-outline">Explore More Crafts →</a>
           </div>
           <div id="wishlist-container">
@@ -681,7 +682,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <div style={{display: 'flex', gap: '8px'}}>
-                    <a href={`/product?id=${encodeURIComponent(p.id)}`} className="btn-orange"
+                    <a href={appHref(`/product?id=${encodeURIComponent(p.id)}`)} className="btn-orange"
                       style={{padding: '7px 14px', fontSize: '0.76rem'}}>View Craft →</a>
                     <button type="button" className="btn-link-edit"
                       style={{color: 'var(--danger-600)'}}
