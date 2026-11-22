@@ -66,10 +66,10 @@
       return "Shukriya! Let me know anytime you need help with HunarLink crafts, GI verification, or your orders.";
     }
     if (/papier|mache|mâché|sakhta|naqash|urn|gulab/i.test(q)) {
-      return "HunarLink's **Papier-Mâché Art** collection features 20 GI-certified pieces priced between **₹500 and ₹980** (MRPs up to ₹1,000), hand-molded from Sakhta pulp with 24K gold leaf Naqash in Zadibal & Budgam. Popular pick: **Shahi Gulab-dan Urn (₹850 • `GI-JK-PAPR-3109`)**.";
+      return "HunarLink's **Papier-Mâché Art** collection features 20 GI-certified pieces priced between **₹450 and ₹7,250**, hand-molded from Sakhta pulp with 24K gold leaf Naqash in Zadibal & Budgam.";
     }
     if (/pashmina|shawl|stole|micron/i.test(q)) {
-      return "All **16 GI-certified Kashmiri Pashmina & Kani shawls** on HunarLink are priced between **₹1,050 and ₹1,980** (MRPs up to ₹2,000), crafted from authentic sub-16-micron Changthangi fleece:\n• **Royal Khudrang Pashmina** — ₹1,650 (`GI-JK-PASH-8821`)\n• **Natural Ivory Ring Pashmina** — ₹1,320 (`GI-JK-PASH-8830`)\n• **Jamawar Heirloom Stole** — ₹1,850 (`GI-JK-PASH-8810`)";
+      return "All **16 GI-certified Kashmiri Pashmina & Kani shawls** on HunarLink are priced between **₹19,900 and ₹2,00,000**, crafted from authentic sub-16-micron Changthangi fleece:\n• **Royal Khudrang Pashmina Shawl** — ₹26,600 (`GI-JK-PASH-8821`)\n• **Natural Ivory Ring Pashmina** — ₹25,200 (`GI-JK-PASH-8830`)\n• **Jamawar Heirloom Stole** — ₹169,400 (`GI-JK-PASH-8810`)";
     }
     if (/gi\b|gi-jk|jk-wnt|verify|verification|authentic|fake|lab|passport|seal/i.test(q)) {
       return "Every HunarLink craft passes our **3-Step Valley Verification Flow**:\n1. **Artisan Geo-Verification** (GPS-logged J&K workshop)\n2. **Material Purity Lab Review** (sub-16µm Pashmina & 99.4% purity test)\n3. **GI Tag & Tamper-Proof QR Laser Seal**\n\nTest any code live in the **Verify GI Tag** box (try `GI-JK-PASH-8821` or `GI #JK-WNT-1180`) — backed by our 100% Authenticity Refund Guarantee.";
@@ -81,7 +81,7 @@
       return "HunarLink protects every order with **UPI Escrow, Card Escrow, and Insured Verify-on-Delivery (COD) Escrow** — scan the physical GI QR tag at your doorstep before payment release. Track all 5 stages (**Confirmed → GI Seal Verified → Packed at Loom → Insured Transit → Delivered**) anytime on your **My Orders** page.";
     }
     if (/walnut|wood|silk|rug|carpet|sozni|kani/i.test(q)) {
-      return "HunarLink curates **5 Heritage Craft Guilds** direct from J&K workshops with 100% artisan payout:\n• **Pashmina & Kani Shawls** (₹1,050–₹1,980)\n• **Walnut Woodcarving** (e.g., Openwork Chinar Chest ₹14,800)\n• **Papier-Mâché Art** (₹500–₹980, 24K gold leaf Naqash)\n• **Silk-on-Silk Rugs** (up to 900 knots/sq.in)\n• **Kani Jamawar & Sozni Needlework**";
+      return "HunarLink curates **5 Heritage Craft Guilds** direct from J&K workshops with 100% artisan payout:\n• **Pashmina & Kani Shawls** (₹19,900–₹2,00,000)\n• **Walnut Woodcarving** (₹1,800–₹2,10,000)\n• **Papier-Mâché Art** (₹450–₹7,250)\n• **Silk-on-Silk Rugs** (₹1,10,150–₹1,90,000)\n• **Kani Jamawar & Sozni Needlework** (₹9,000–₹50,000)";
     }
     if (/care|wash|clean|store/i.test(q)) {
       return "Dry-clean **Pashmina, Kani & Sozni** gently and store in breathable cotton/muslin. Wipe **Walnut Woodcarving & Papier-Mâché** with a soft dry cloth away from moisture.";
