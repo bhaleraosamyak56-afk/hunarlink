@@ -15,12 +15,18 @@ static HTML fallback and no page-level controller code.
 
 ## Run it
 
-The built site is committed at the repo root, so any static file server works:
+The built site is committed at the repo root, so any static file server works —
+but it must be started from the repo's **parent** directory, because every asset
+URL is prefixed with `/hunarlink/`:
 
 ```bash
+cd ..                          # the directory CONTAINING the hunarlink folder
 python3 -m http.server 8000
-# then open http://localhost:8000
+# then open http://localhost:8000/hunarlink/
 ```
+
+Starting the server *inside* the repo and opening `/` gives a blank page: the shell
+loads, but `/hunarlink/assets/...` is not on that server.
 
 For development with hot reload:
 
