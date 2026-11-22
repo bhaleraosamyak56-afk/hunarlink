@@ -25,6 +25,7 @@ import OrdersPage from './pages/OrdersPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import NotFound from './pages/NotFound.jsx';
 import SpaRedirect from './pages/SpaRedirect.jsx';
+import LegacyRoutes from './pages/LegacyRoutes.jsx';
 
 /* ==========================================================================
    App
@@ -61,6 +62,7 @@ export default function App() {
   return (
     <>
       <SpaRedirect />
+      <LegacyRoutes />
       {!isAuth && !isPortal && <UtilityBar />}
       {!isAuth && !isPortal && (
         <Header showSectionNav={onStorefront} activeSection={activeSection} />
