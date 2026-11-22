@@ -339,7 +339,8 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
 
       {showSectionNav && (
         <nav className="section-nav-bar" id="section-nav-bar" aria-label="Section Navigation">
-          <div className="container section-nav-inner">
+          <div className="container section-nav-track">
+            <div className="section-nav-inner">
             {NAV.map((item) => (
               <button
                 type="button"
@@ -352,6 +353,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
                 {item.label}
               </button>
             ))}
+            </div>
           </div>
         </nav>
       )}
