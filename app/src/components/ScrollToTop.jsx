@@ -61,6 +61,28 @@ function jumpTo(top, left = 0) {
   html.style.scrollBehavior = previous;
 }
 
+/* Was this document arrived at by pressing reload?
+   The Performance API records how the current document was obtained, so a
+   refresh can be told apart from a first open — and that difference matters
+   here. A REFRESH must go to the top of the page, because the fragment left in
+   the address bar is just where the visitor happened to be. A FIRST OPEN of a
+   shared link such as /#marketplace-section is a genuine request for that
+   section and should still honour it. */
+/* The fragment the document was actually loaded with, captured once at module
+   evaluation. A later hash change — clicking a section nav — does not update
+   this, which is the whole point: it separates "this URL arrived with a hash"
+   from "a hash was added while browsing". */
+const HASH_AT_LOAD = typeof window !== 'undefined' ? window.location.hash : '';
+
+function wasReloaded() {
+  try {
+    const entries = performance.getEntriesByType('navigation');
+    return Boolean(entries && entries[0] && entries[0].type === 'reload');
+  } catch {
+    return false;
+  }
+}
+
 /* Move focus to a hash target without letting the browser scroll again (which
    would fight the position jumpTo() just set). */
 function focusTarget(el) {
@@ -200,6 +222,26 @@ export default function ScrollToTop() {
         clearTimeout(unlock);
         lockSaves.current = false;
       };
+    }
+
+    /* A hash that was already in the address bar when the page loaded is not
+       a request to scroll — it is the leftover of a previous visit. Refresh on
+       such a URL and the browser re-honours the fragment, so the page reopens
+       at the marketplace grid instead of the top. On a load or a refresh, the
+       top of the page wins and the fragment is dropped from the URL.
+
+       An in-app click that sets a hash (EXPLORE CRAFTS, a section nav) is a
+       real request and still scrolls, because by then the first run is over. */
+    if (hash && firstRun && HASH_AT_LOAD === hash && wasReloaded()) {
+      try {
+        history.replaceState(history.state, '', window.location.pathname + window.location.search);
+      } catch {
+        /* replaceState can throw in sandboxed frames; the reset below still
+           puts the visitor at the top, which is the part that matters. */
+      }
+      jumpTo(0);
+      currentKey.current = key;
+      return;
     }
 
     /* A hash means the destination is a section on this page, so honour it.
