@@ -50,6 +50,8 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
     catalogue,
     openDrawer,
     setFilters,
+    raiseVeil,
+    lowerVeil,
     openModal,
     user
   } = useStore();
@@ -128,6 +130,10 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
   };
 
   const commitSearch = (value) => {
+    /* A search narrows the catalogue exactly like a filter chip does, so it
+       gets the same loading veil even though the control lives up here. */
+    raiseVeil(`Searching for \u201c${value}\u201d\u2026`);
+    setTimeout(() => lowerVeil(), 900);
     setFilters({ query: value, guild: 'all' });
     setSuggestOpen(false);
     if (location.pathname !== '/') navigate('/');

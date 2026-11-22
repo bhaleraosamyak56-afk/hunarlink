@@ -126,6 +126,9 @@ const initialState = {
   recentlyViewed: readRecentlyViewed(),
   compareList: [],
   toasts: [],
+  /* the catalogue-wide loading veil: raised by any control that narrows the
+     product grid, including the header search */
+  veil: { open: false, text: '' },
   ui: {
     drawer: null,           // 'cart' | 'wishlist' | null
     modal: null,            // { type, payload } | null
@@ -289,6 +292,8 @@ function reducer(state, action) {
       };
     case 'ui/filters':
       return { ...state, ui: { ...state.ui, filters: { ...state.ui.filters, ...action.patch } } };
+    case 'ui/veil':
+      return { ...state, veil: { open: action.open, text: action.text || '' } };
     case 'ui/filtersReset':
       return { ...state, ui: { ...state.ui, filters: DEFAULT_FILTERS } };
     case 'ui/loading':
@@ -464,6 +469,13 @@ export function StoreProvider({ children }) {
       openModal: (modal, payload) => dispatch({ type: 'ui/modal', modal, payload }),
       closeModal: () => dispatch({ type: 'ui/modal', modal: null }),
       setFilters: (patch) => dispatch({ type: 'ui/filters', patch }),
+      /* The filter veil used to be local state inside MarketplaceSection, which
+         meant the header search -- a filter control living in a different
+         component tree -- could not raise it. It is store state now so every
+         control that narrows the catalogue goes through the same loading
+         state. */
+      raiseVeil: (text) => dispatch({ type: 'ui/veil', open: true, text }),
+      lowerVeil: () => dispatch({ type: 'ui/veil', open: false }),
       resetFilters: () => dispatch({ type: 'ui/filtersReset' }),
       setLoadingProducts: (value) => dispatch({ type: 'ui/loading', value }),
 

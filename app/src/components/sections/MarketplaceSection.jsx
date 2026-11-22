@@ -29,6 +29,9 @@ const CAT_PILLS = [
 export default function MarketplaceSection() {
   const {
     ui,
+    veil,
+    raiseVeil,
+    lowerVeil,
     setFilters,
     resetFilters,
     catalogue,
@@ -39,7 +42,6 @@ export default function MarketplaceSection() {
   const f = ui.filters;
 
   /* ---------------------------------------------------------- filter veil */
-  const [veil, setVeil] = useState({ open: false, text: '' });
   const stageRef = useRef(null);
   const [veilBox, setVeilBox] = useState(null);
   const timers = useRef({});
@@ -90,14 +92,27 @@ export default function MarketplaceSection() {
   /* Any filter change paints the veil, commits the change, then lifts it after
      a guaranteed minimum. The reason string names the control that was used —
      deriving it from overall state made every later message misleading. */
+  /* Every filter control goes through here, the price slider included. The
+     slider used to bypass the veil so it could react on every pixel of
+     travel; that made it the one control with no loading state, which is what
+     was reported. The 140ms commit below is short enough that dragging still
+     feels live, and the veil is held for a guaranteed minimum so the change is
+     perceptible rather than a flicker. */
   const runFilter = (patch, reason) => {
+    const now = Date.now();
+    const sincePaint = now - (timers.current.lastPaint || 0);
+    timers.current.lastPaint = now;
+
     clearTimeout(timers.current.paint);
     clearTimeout(timers.current.hide);
-    setVeil({ open: true, text: reason });
+    raiseVeil(reason);
+    measure();
+
+    /* consecutive slider events keep the veil up instead of restarting it */
     timers.current.paint = setTimeout(() => {
       setFilters(patch);
-      timers.current.hide = setTimeout(() => setVeil((v) => ({ ...v, open: false })), LOADER_MIN_MS);
-    }, 200);
+      timers.current.hide = setTimeout(() => lowerVeil(), LOADER_MIN_MS);
+    }, sincePaint < 250 ? 40 : 140);
   };
 
   const toggleCat = (id) => {
@@ -173,11 +188,13 @@ export default function MarketplaceSection() {
               value={f.maxPrice}
               aria-describedby="price-match-count"
               onChange={(e) => {
-                /* The slider commits on every pixel of travel. Routing it
-                   through the veil made the grid sit still for 900ms after
-                   each drag, which is the opposite of what a slider is for.
-                   Everything else still gets the veil. */
-                setFilters({ maxPrice: Number(e.target.value) });
+                const v = Number(e.target.value);
+                runFilter(
+                  { maxPrice: v },
+                  v >= PRICE_BOUNDS.max
+                    ? 'Lifting the budget cap\u2026'
+                    : `Showing crafts under ${formatINR(v)}\u2026`
+                );
               }}
             />
             <div
@@ -286,7 +303,20 @@ export default function MarketplaceSection() {
                 </span>
               ))}
             </div>
-            <button type="button" className="btn-reset-filters" id="clear-filters-btn" onClick={() => resetFilters()}>
+            <button
+              type="button"
+              className="btn-reset-filters"
+              id="clear-filters-btn"
+              onClick={() => {
+                /* Reset used to call the store directly, so clearing six
+                   filters at once produced no loading state at all. */
+                raiseVeil('Returning to the full collection\u2026');
+                measure();
+                clearTimeout(timers.current.hide);
+                resetFilters();
+                timers.current.hide = setTimeout(() => lowerVeil(), LOADER_MIN_MS);
+              }}
+            >
               Reset All Filters
             </button>
           </div>
@@ -317,7 +347,17 @@ export default function MarketplaceSection() {
                 <p style={{ fontSize: '0.86rem', color: 'var(--text-500)', marginBottom: 16 }}>
                   Try broadening your price slider or resetting active guild filters.
                 </p>
-                <button type="button" className="btn-primary-forest" onClick={() => resetFilters()}>
+                <button
+                  type="button"
+                  className="btn-primary-forest"
+                  onClick={() => {
+                    raiseVeil('Returning to the full collection\u2026');
+                    measure();
+                    clearTimeout(timers.current.hide);
+                    resetFilters();
+                    timers.current.hide = setTimeout(() => lowerVeil(), LOADER_MIN_MS);
+                  }}
+                >
                   Reset All Filters
                 </button>
               </div>

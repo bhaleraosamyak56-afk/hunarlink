@@ -4255,10 +4255,10 @@ h1, h2, h3, h4,
   justify-content: center;
   /* a light veil, not a blackout — you can still see the grid behind it */
   background: linear-gradient(180deg,
-      rgba(250, 249, 245, 0.86) 0%,
-      rgba(250, 249, 245, 0.94) 40%,
-      rgba(250, 249, 245, 0.86) 100%);
-  backdrop-filter: blur(2px);
+      rgba(250, 249, 245, 0.9) 0%,
+      rgba(250, 249, 245, 0.97) 40%,
+      rgba(250, 249, 245, 0.9) 100%);
+  backdrop-filter: blur(3.5px) saturate(0.92);
   border-radius: 14px;
   opacity: 0;
   transition: opacity 0.14s ease;
