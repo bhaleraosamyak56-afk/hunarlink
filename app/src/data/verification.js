@@ -60,11 +60,11 @@ export const VERIFICATION_STEPS = {
 export const VERIFICATION_CARDS = [
   {
     n: 1,
-    icon: '\u{1F4CD}',
+    icon: 'map-pin',
     title: 'Artisan Geo-Verification',
     body:
       'Each piece is logged right at the artisan\u2019s loom in Srinagar, Budgam, or Anantnag with verified GPS location and family workshop credentials.',
-    benefit: '\u2713 Proves your craft was handmade in Kashmir',
+    benefit: 'Proves your craft was handmade in Kashmir',
     meterLabel: 'ARTISAN CLUSTER GPS',
     meterValue: 'SRINAGAR & BUDGAM \u2022 100%',
     meterPct: 100,
@@ -72,11 +72,11 @@ export const VERIFICATION_CARDS = [
   },
   {
     n: 2,
-    icon: '\u{1F52C}',
+    icon: 'scan',
     title: 'Material Purity Lab Review',
     body:
       'Certified fiber and weave testing confirms authentic sub-16-micron Changthangi Pashmina, pure mulberry silk knot density, and natural organic dyes.',
-    benefit: '\u2713 Guarantees zero synthetic blends or machine fakes',
+    benefit: 'Guarantees zero synthetic blends or machine fakes',
     meterLabel: 'SUB-16 MICRON (\u00b5m) PASHMINA',
     meterValue: '99.4% PURITY VERIFIED',
     meterPct: 99,
@@ -84,11 +84,11 @@ export const VERIFICATION_CARDS = [
   },
   {
     n: 3,
-    icon: '\u{1F6E1}\uFE0F',
+    icon: 'shield',
     title: 'GI Tag & Laser Seal',
     body:
       'Approved crafts receive a tamper-proof Government GI laser tag and a scannable Digital Craft Passport so you can verify provenance anytime on your phone.',
-    benefit: '\u2713 Instant phone scan confirms lifetime authenticity',
+    benefit: 'Instant phone scan confirms lifetime authenticity',
     meterLabel: 'GI REGISTRY CROSS-CHECK',
     meterValue: 'TAMPER-PROOF QR SEAL',
     meterPct: 100,

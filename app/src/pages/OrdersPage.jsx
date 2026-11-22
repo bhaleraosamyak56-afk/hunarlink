@@ -4,6 +4,7 @@ import { useStore } from '../state/StoreContext.jsx';
 import { formatINR, asset } from '../utils/legacy.js';
 import '../styles/portal.css';
 import PortalScope from '../components/PortalScope.jsx';
+import { IconHome, IconLogin, IconPackage, IconReceipt, IconSearchScan, IconShield, IconTruck, IconUser } from '../components/LineIcons.jsx';
 
 /* ==========================================================================
    OrdersPage — live loom-to-door tracking
@@ -105,7 +106,7 @@ export default function OrdersPage() {
         'GI Laser Seal verified at Srinagar Guild. Preparing insured heirloom packaging.',
       isNewForSeller: true
     });
-    toast(`\u2713 Live Order #${orderId} created & synced to Seller Portal!`, 'success');
+    toast(`Live Order #${orderId} created & synced to Seller Portal!`, 'success');
   };
 
   const submitReview = (e, order) => {
@@ -142,16 +143,16 @@ export default function OrdersPage() {
           </Link>
           <nav className="up-nav-links">
             <Link to="/" className="up-nav-pill">
-              &#127968; Storefront
+              <IconHome size={15} /> Storefront
             </Link>
             <Link to="/profile" className="up-nav-pill">
-              &#128100; My Profile
+              <IconUser size={15} /> My Profile
             </Link>
             <Link to="/orders" className="up-nav-pill active">
-              &#128230; Track Orders
+              <IconPackage size={15} /> Track Orders
             </Link>
             <Link to="/login" className="up-nav-pill" id="nav-auth-pill">
-              &#128272; User Login
+              <IconLogin size={15} /> User Login
             </Link>
           </nav>
         </div>
@@ -233,7 +234,7 @@ export default function OrdersPage() {
                     className="btn-orange"
                     style={{ width: '100%', justifyContent: 'center' }}
                   >
-                    &#128272; Sign in to view orders
+                    <IconLogin size={15} /> Sign in to view orders
                   </Link>
                 </div>
               )}
@@ -282,7 +283,7 @@ export default function OrdersPage() {
               style={{ width: '100%' }}
               onClick={placeSampleOrder}
             >
-              &#9889; Create Sample Order
+              Create Sample Order
             </button>
           </aside>
 
@@ -297,26 +298,26 @@ export default function OrdersPage() {
                 onChange={(e) => setQuery(e.target.value)}
               />
               <button type="button" className="btn-orange">
-                &#128269; Search Orders
+                <IconSearchScan size={15} /> Search Orders
               </button>
             </div>
 
             <div id="orders-list-wrap">
               {!signedIn ? (
                 <div className="fk-panel-card" style={{ textAlign: 'center', padding: '42px 20px' }}>
-                  <div style={{ fontSize: '2.2rem', marginBottom: 8 }}>&#128100;</div>
+                  <div style={{ fontSize: '2.2rem', marginBottom: 8 }}><IconUser size={15} /></div>
                   <h3>Sign in to view your orders</h3>
                   <p style={{ fontSize: '0.84rem', color: 'var(--text-500)', margin: '6px 0 18px' }}>
                     Orders are tied to the collector account, so they are hidden while you are
                     signed out.
                   </p>
                   <Link to="/login" className="btn-orange">
-                    &#128272; Sign in
+                    <IconLogin size={15} /> Sign in
                   </Link>
                 </div>
               ) : visible.length === 0 ? (
                 <div className="fk-panel-card" style={{ textAlign: 'center', padding: '42px 20px' }}>
-                  <div style={{ fontSize: '2.2rem', marginBottom: 8 }}>&#128230;</div>
+                  <div style={{ fontSize: '2.2rem', marginBottom: 8 }}><IconPackage size={15} /></div>
                   <h3>No orders found</h3>
                   <p style={{ fontSize: '0.84rem', color: 'var(--text-500)', margin: '6px 0 18px' }}>
                     Place an order on HunarLink or click below to create a live sample order for
@@ -329,7 +330,7 @@ export default function OrdersPage() {
                       Shop Kashmiri Crafts &rarr;
                     </Link>
                     <button type="button" className="btn-orange-outline" onClick={placeSampleOrder}>
-                      &#9889; Create Sample Order
+                      Create Sample Order
                     </button>
                   </div>
                 </div>
@@ -401,7 +402,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
             style={{ padding: '6px 12px', fontSize: '0.74rem' }}
             onClick={() => window.print()}
           >
-            &#128424;&#65039; GI Invoice
+            <IconReceipt size={15} />&#65039; GI Invoice
           </button>
         </div>
       </div>
@@ -459,7 +460,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
                   color: 'var(--heading-color)'
                 }}
               >
-                &#128666; Live Shipment Status &mdash; {stageInfo.desc}
+                <IconTruck size={15} /> Live Shipment Status &mdash; {stageInfo.desc}
               </span>
               {stage < 5 ? (
                 <button type="button" className="btn-link-edit" onClick={onAdvance}>
@@ -493,7 +494,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
 
           {o.sellerNote ? (
             <div className="seller-note-banner">
-              <strong>&#10022; Live Update from Artisan Workshop:</strong> {o.sellerNote}
+              <strong> Live Update from Artisan Workshop:</strong> {o.sellerNote}
             </div>
           ) : null}
 
@@ -514,9 +515,9 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
               onChange={(e) => onDraft({ rating: e.target.value })}
               aria-label="Rating"
             >
-              <option value="5">&#9733;&#9733;&#9733;&#9733;&#9733; (5)</option>
-              <option value="4">&#9733;&#9733;&#9733;&#9733;&#9734; (4)</option>
-              <option value="3">&#9733;&#9733;&#9733;&#9734;&#9734; (3)</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
             </select>
             <input
               type="text"
@@ -532,14 +533,14 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
               className="btn-orange"
               style={{ padding: '8px 14px', fontSize: '0.78rem' }}
             >
-              &#9733; Submit Review
+              Submit Review
             </button>
           </form>
         </div>
 
         <div className="fk-info-sidebar">
           <div className="fk-info-box">
-            <h4>&#128100; Delivery &amp; User Information</h4>
+            <h4><IconUser size={15} /> Delivery &amp; User Information</h4>
             <div style={{ fontWeight: 700, color: 'var(--text-900)', marginBottom: 3 }}>
               {buyerName}
               <span className="addr-type-chip" style={{ marginLeft: 6 }}>
@@ -558,7 +559,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
           </div>
 
           <div className="fk-info-box">
-            <h4>&#128179; Price &amp; Escrow Details</h4>
+            <h4><IconReceipt size={15} /> Price &amp; Escrow Details</h4>
             <div className="fk-price-line">
               <span>Craft Subtotal</span>
               <span>{formatINR(subtotal)}</span>
@@ -585,7 +586,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
                 marginTop: 6
               }}
             >
-              &#128737;&#65039; {o.paymentStatus || 'Protected by HunarLink Escrow'}
+              <IconShield size={15} />&#65039; {o.paymentStatus || 'Protected by HunarLink Escrow'}
             </div>
           </div>
         </div>

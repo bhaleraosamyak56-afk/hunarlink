@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { asset, formatINR } from '../../utils/legacy.js';
+import { IconBadgeCheck, IconHandshake, IconMapPin, IconSearchScan, IconShield } from '../../components/LineIcons.jsx';
 
 /* ==========================================================================
    HeroSection
@@ -28,7 +29,7 @@ const BENTO = [
     img: 'image_2.jpg',
     alt: 'Jamawar Heirloom Stole',
     main: true,
-    pill: '\u2713 GI Certified Loom #108',
+    pill: 'GI Certified Loom #108',
     kicker: 'Kani Masterweave \u2022 Srinagar',
     name: 'Jamawar Heirloom Stole'
   },
@@ -154,7 +155,7 @@ export default function HeroSection() {
                 id="hero-verify-btn"
                 onClick={() => openModal('giVerify', { giId: 'GI-JK-PASH-8810' })}
               >
-                <span>&#128737;&#65039;</span>
+                <span><IconShield size={15} /></span>
                 <span>Verify GI Tag / QR</span>
               </button>
             </div>
@@ -210,7 +211,7 @@ export default function HeroSection() {
             className="trust-item"
             onClick={() => scrollTo('craft-guilds-section')}
           >
-            <div className="trust-icon-box">&#127963;&#65039;</div>
+            <div className="trust-icon-box"><IconBadgeCheck size={16} /></div>
             <div>
               <div className="trust-value">2,400+</div>
               <div className="trust-label">Direct Valley Artisans</div>
@@ -222,7 +223,7 @@ export default function HeroSection() {
             className="trust-item"
             onClick={() => openModal('giVerify', { giId: 'GI-JK-PASH-8821' })}
           >
-            <div className="trust-icon-box">&#128205;</div>
+            <div className="trust-icon-box"><IconMapPin size={15} /></div>
             <div>
               <div className="trust-value">100% Origin</div>
               <div className="trust-label">Geo-Tagged Looms</div>
@@ -234,7 +235,7 @@ export default function HeroSection() {
             className="trust-item"
             onClick={() => scrollTo('verification-section')}
           >
-            <div className="trust-icon-box">&#128300;</div>
+            <div className="trust-icon-box"><IconSearchScan size={15} /></div>
             <div>
               <div className="trust-value">3-Layer GI</div>
               <div className="trust-label">Automated Lab Audit</div>
@@ -246,7 +247,7 @@ export default function HeroSection() {
             className="trust-item"
             onClick={() => openDrawer('cart')}
           >
-            <div className="trust-icon-box">&#129309;</div>
+            <div className="trust-icon-box"><IconHandshake size={16} /></div>
             <div>
               <div className="trust-value">Zero Cut</div>
               <div className="trust-label">Direct Artisan Payouts</div>

@@ -6,6 +6,7 @@ import { buildThumbnails, techniqueTag, techniqueSpec } from '../data/pdpThumbs.
 import ProductGallery from '../components/ProductGallery.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import '../styles/pdp.css';
+import { IconPackage, IconShield, IconTruck } from '../components/LineIcons.jsx';
 
 /* ==========================================================================
    ProductPage
@@ -132,7 +133,6 @@ export default function ProductPage() {
             thumbs={thumbs}
             wished={wished}
             onToggleWish={() => toggleWishlist(product.id)}
-            wishIcon={wished ? '\u2665' : '\u2661'}
           />
 
           <div className="pdp-details-col">
@@ -235,7 +235,7 @@ export default function ProductPage() {
 
             <div className="pdp-cta-row">
               <button type="button" className="btn-pdp-buy-now" id="btn-pdp-buy-now" onClick={buyNow}>
-                <span>&#128188;</span>BUY NOW
+                <span><IconPackage size={15} /></span>BUY NOW
               </button>
               <button
                 type="button"
@@ -274,12 +274,12 @@ export default function ProductPage() {
                 <div className="pdp-trust-tile-desc">Digital QR Seal</div>
               </div>
               <div className="pdp-trust-tile">
-                <div className="pdp-trust-tile-icon">&#128666;</div>
+                <div className="pdp-trust-tile-icon"><IconTruck size={15} /></div>
                 <div className="pdp-trust-tile-title">Insured Transit</div>
                 <div className="pdp-trust-tile-desc">India &amp; Overseas</div>
               </div>
               <div className="pdp-trust-tile">
-                <div className="pdp-trust-tile-icon">&#128274;</div>
+                <div className="pdp-trust-tile-icon"><IconShield size={14} /></div>
                 <div className="pdp-trust-tile-title">Sovereign Escrow</div>
                 <div className="pdp-trust-tile-desc">Protected Payment</div>
               </div>

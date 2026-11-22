@@ -324,7 +324,7 @@ export default function AuthMarkup(props) {
                     available on this device, a secure gallery-upload fallback appears automatically.</div>
                 </div>
                 <span className={`capture-status-pill${isCaptured('cert') ? ' is-done' : ''}`} id="cert-status-pill">
-                  {isCaptured('cert') ? '\u2713 Captured' : 'Required'}
+                  {isCaptured('cert') ? 'Captured' : 'Required'}
                 </span>
               </div>
 
@@ -380,7 +380,7 @@ export default function AuthMarkup(props) {
                   className={`capture-status-pill${cam('video').recording ? ' recording' : isCaptured('video') ? ' is-done' : ''}`}
                   id="video-status-pill"
                 >
-                  {cam('video').recording ? '● Recording...' : isCaptured('video') ? '\u2713 Recorded' : 'Required'}
+                  {cam('video').recording ? '● Recording...' : isCaptured('video') ? 'Recorded' : 'Required'}
                 </span>
               </div>
 
@@ -437,7 +437,7 @@ export default function AuthMarkup(props) {
                     Captured live via front camera — with upload fallback when no camera is present.</div>
                 </div>
                 <span className={`capture-status-pill${isCaptured('passport') ? ' is-done' : ''}`} id="passport-status-pill">
-                  {isCaptured('passport') ? '\u2713 Captured' : 'Required'}
+                  {isCaptured('passport') ? 'Captured' : 'Required'}
                 </span>
               </div>
 

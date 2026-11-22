@@ -49,8 +49,8 @@ export default function Footer() {
               worldwide&mdash;with zero middleman cut.
             </p>
             <div className="footer-badges-row">
-              <span className="footer-mini-badge">&#10003; GI Certified Partner</span>
-              <span className="footer-mini-badge">&#10003; J&amp;K Craft Board Aligned</span>
+              <span className="footer-mini-badge">GI Certified Partner</span>
+              <span className="footer-mini-badge"> J&amp;K Craft Board Aligned</span>
             </div>
           </div>
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { formatINR } from '../utils/legacy.js';
 import { Heart, Bag, ShieldCheck, Star } from './Icons.jsx';
+import { IconSpark } from '../components/LineIcons.jsx';
 
 /* ==========================================================================
    ProductCard
@@ -122,7 +123,7 @@ function ProductCard({ product: p, onBuyNow }) {
             title={`Buy ${p.title} Now`}
             aria-label={`Buy ${p.title} Now`}
           >
-            <span className="btn-icon">&#9889;</span> Buy Now
+            <span className="btn-icon"><IconSpark size={13} /></span> Buy Now
           </button>
         </div>
       </div>

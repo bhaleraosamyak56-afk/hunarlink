@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
 import Modal from '../Modal.jsx';
+import { IconShield } from '../../components/LineIcons.jsx';
 
 /* ==========================================================================
    CheckoutModal — four-step acquisition wizard
@@ -148,7 +149,7 @@ export default function CheckoutModal() {
     <Modal
       id="checkout-modal"
       width="900px"
-      title="&#128274; Insured Acquisition Checkout"
+      title="<IconShield size={14} /> Insured Acquisition Checkout"
       onClose={closeModal}
     >
       <div className="modal-body" id="checkout-modal-body">

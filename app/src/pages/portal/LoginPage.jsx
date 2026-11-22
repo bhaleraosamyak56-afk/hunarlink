@@ -325,7 +325,7 @@ export default function LoginPage() {
       isLoggedIn: true
     });
 
-    land(`\u2713 Welcome back, ${profile.fullName}! Opening your account...`, profile);
+    land(`Welcome back, ${profile.fullName}! Opening your account...`, profile);
   }
 
   function submitSignup(e) {
@@ -556,7 +556,7 @@ export default function LoginPage() {
       badge: match.badge || 'AR',
       isLoggedIn: true
     }, { silent: true });
-    toast(`\u2713 Welcome back, ${match.name}! Opening your workspace...`, 'success');
+    toast(`Welcome back, ${match.name}! Opening your workspace...`, 'success');
     window.setTimeout(() => navigate('/seller'), 800);
   }
 

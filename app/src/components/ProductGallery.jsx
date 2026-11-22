@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { asset } from '../utils/legacy.js';
+import { Heart } from './Icons.jsx';
 
 /* ==========================================================================
    ProductGallery — stage, thumbnails, and the Amazon-style magnifier
@@ -34,7 +35,7 @@ import { asset } from '../utils/legacy.js';
    at 1440px. */
 const ZOOM = { maxScale: 4, minScale: 2.2, gap: 18, maxUpscale: 2.35 };
 
-export default function ProductGallery({ product, thumbs, wished, onToggleWish, wishIcon }) {
+export default function ProductGallery({ product, thumbs, wished, onToggleWish }) {
   const stageRef = useRef(null);
   const imgRef = useRef(null);
   const lensRef = useRef(null);
@@ -254,7 +255,7 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish, 
           onClick={onToggleWish}
           aria-label="Toggle Wishlist"
         >
-          <span id="pdp-stage-wish-icon">{wishIcon}</span>
+          <span id="pdp-stage-wish-icon"><Heart filled={wished} size={19} /></span>
         </button>
 
         <img

@@ -4,6 +4,7 @@ import { useStore } from '../state/StoreContext.jsx';
 import { AUTH_CONFIG, DEMO_ARTISANS } from '../data/authConfig.js';
 import AuthMarkup from './auth/AuthMarkup.jsx';
 import '../styles/auth.css';
+import { IconFile, IconHammer, IconShield } from '../components/LineIcons.jsx';
 
 /* ==========================================================================
    AuthPage — Artisan login, registration and password reset
@@ -326,7 +327,7 @@ export default function AuthPage() {
       loginTime: new Date().toISOString()
     };
     setUser(authUser);
-    flash(`\u2713 Welcome ${authUser.name}! Verified Artisan Session Active. Opening Seller Portal...`);
+    flash(`Welcome ${authUser.name}! Verified Artisan Session Active. Opening Seller Portal...`);
     setTimeout(() => navigate('/seller'), 900);
   }
 
@@ -616,7 +617,7 @@ export default function AuthPage() {
               style={{ display: mode === 'login' ? 'flex' : 'none' }}
             >
               <div className="auth-pill-btn active" id="pill-artisan" style={{ cursor: 'default' }}>
-                <span className="pill-icon">&#128296;</span>{' '}
+                <span className="pill-icon"><IconHammer size={15} /></span>{' '}
                 <span id="pill-artisan-text">{conf.artisanPillText}</span>
               </div>
             </div>
@@ -637,7 +638,7 @@ export default function AuthPage() {
                 onClick={() => setGiMode('with_gi')}
               >
                 <span className="gi-choice-title">
-                  &#128737;&#65039; Have GI Certification / Tag
+                  <IconShield size={15} />&#65039; Have GI Certification / Tag
                 </span>
                 <span className="gi-choice-sub">
                   Enter GI ID + live camera &amp; skill verification
@@ -651,7 +652,7 @@ export default function AuthPage() {
                 aria-selected={giMode === 'no_gi'}
                 onClick={() => setGiMode('no_gi')}
               >
-                <span className="gi-choice-title">&#128221; No GI Certification / Tag</span>
+                <span className="gi-choice-title"><IconFile size={15} /> No GI Certification / Tag</span>
                 <span className="gi-choice-sub">Standard seller account registration</span>
               </button>
             </div>
@@ -755,7 +756,7 @@ export default function AuthPage() {
 
             <div className="demo-evaluator-card">
               <div className="demo-evaluator-header">
-                <span className="demo-evaluator-title">&#9889; Quick Evaluator Demo Logins</span>
+                <span className="demo-evaluator-title">Quick Evaluator Demo Logins</span>
                 <span className="demo-evaluator-badge">One-Tap Auth</span>
               </div>
               <div className="demo-pills-row">

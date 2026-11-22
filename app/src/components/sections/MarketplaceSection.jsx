@@ -207,8 +207,8 @@ export default function MarketplaceSection() {
               }
             >
               <option value="0">All Verified Ratings</option>
-              <option value="4.8">4.8 &#9733; &amp; Above</option>
-              <option value="4.9">4.9 &#9733; &amp; Above</option>
+              <option value="4.8">4.8 &amp; Above</option>
+              <option value="4.9">4.9 &amp; Above</option>
             </select>
           </div>
 

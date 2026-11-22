@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
+import { IconLogin, IconPackage, IconShield } from '../components/LineIcons.jsx';
 
 /* ==========================================================================
    UtilityBar — the thin strip above the header
@@ -37,20 +38,20 @@ export default function UtilityBar() {
         </div>
         <div className="utility-actions">
           <button type="button" className="utility-link-btn" onClick={() => navigate('/login')}>
-            &#128273; Artisan Login
+            <IconLogin size={15} /> Artisan Login
           </button>
           <button
             type="button"
             className="utility-link-btn"
             onClick={() => openModal('giVerify', { giId: 'GI-JK-PASH-8821' })}
           >
-            &#128737;&#65039; Verify GI Tag
+            <IconShield size={15} />&#65039; Verify GI Tag
           </button>
           <button type="button" className="utility-link-btn" onClick={() => openModal('orders')}>
-            &#128230; Track Orders
+            <IconPackage size={15} /> Track Orders
           </button>
           <button type="button" className="utility-link-btn" onClick={() => openModal('compare')}>
-            &#9878;&#65039; Compare Crafts
+            Compare Crafts
           </button>
           <button type="button" className="utility-link-btn" onClick={resetDemo}>
             &#8634; Reset Demo

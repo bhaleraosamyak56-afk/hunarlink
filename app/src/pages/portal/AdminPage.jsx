@@ -654,7 +654,7 @@ export default function AdminPage() {
                       </thead>
                       <tbody id="gi-audits-tbody">
                         {data.audits.length === 0 ? (
-                          <tr><td colSpan="9" className="loading-cell">No GI audits on record. Click '⚡ Run Test LLM Audit' above to test.</td></tr>
+                          <tr><td colSpan="9" className="loading-cell">No GI audits on record. Click 'Run Test LLM Audit' above to test.</td></tr>
                         ) : (
                           data.audits.map((a) => (
                             <tr key={a.audit_id}>

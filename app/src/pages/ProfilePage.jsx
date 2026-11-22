@@ -160,24 +160,24 @@ export default function ProfilePage() {
   function submitPersonal(e) {
     e.preventDefault();
     setEditing((ed) => ({ ...ed, personal: false }));
-    toast('\u2713 Personal information updated & synced across HunarLink!', 'success');
+    toast('Personal information updated & synced across HunarLink!', 'success');
   }
 
   function submitEmail(e) {
     e.preventDefault();
     setEditing((ed) => ({ ...ed, email: false }));
-    toast('\u2713 Email address saved!', 'success');
+    toast('Email address saved!', 'success');
   }
 
   function submitPhone(e) {
     e.preventDefault();
     setEditing((ed) => ({ ...ed, phone: false }));
-    toast('\u2713 Mobile number saved!', 'success');
+    toast('Mobile number saved!', 'success');
   }
 
   function selectAvatarColor(hex) {
     saveProfile({ avatarColor: hex, avatarPhoto: '' });
-    toast('\u2713 Avatar color updated!', 'success');
+    toast('Avatar color updated!', 'success');
   }
 
   /* Read the photo, then centre-crop it to a 180 px square so storage stays
@@ -216,7 +216,7 @@ export default function ProfilePage() {
       preferredUpi: payDraft.preferredUpi.trim(),
       preferredPayment: payDraft.preferredPayment
     });
-    toast('\u2713 Payment & UPI preferences saved!', 'success');
+    toast('Payment & UPI preferences saved!', 'success');
   }
 
   function submitAddress(e) {
@@ -233,7 +233,7 @@ export default function ProfilePage() {
     setAddresses((list) => [entry, ...list]);
     setAddrDraft({ name: '', phone: '', pincode: '', city: '', locality: '', type: 'Home' });
     setAddrOpen(false);
-    toast('\u2713 New delivery address saved & synced with HunarLink Checkout!', 'success');
+    toast('New delivery address saved & synced with HunarLink Checkout!', 'success');
   }
 
   function setDefaultAddress(id) {
@@ -244,7 +244,7 @@ export default function ProfilePage() {
       const [item] = copy.splice(idx, 1);
       return [item, ...copy];
     });
-    toast('\u2713 Default delivery address updated!', 'success');
+    toast('Default delivery address updated!', 'success');
   }
 
   function deleteAddress(id) {

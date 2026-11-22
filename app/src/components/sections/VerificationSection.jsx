@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../state/StoreContext.jsx';
+import { IconShield, IconMapPin, IconSearchScan, IconCheck } from '../../components/LineIcons.jsx';
 import {
   VERIFICATION_STEPS,
   VERIFICATION_CARDS,
@@ -98,12 +99,18 @@ export default function VerificationSection() {
                         {c.n === step
                           ? 'Viewing Step'
                           : c.n < step
-                          ? '\u2713 Checked'
+                          ? 'Checked'
                           : 'Click to Inspect'}
                       </span>
                     </div>
                     <span className="verify-step-icon" aria-hidden="true">
-                      {c.icon}
+                      {c.icon === 'map-pin' ? (
+                        <IconMapPin size={17} />
+                      ) : c.icon === 'scan' ? (
+                        <IconSearchScan size={17} />
+                      ) : (
+                        <IconShield size={17} />
+                      )}
                     </span>
                   </div>
                   <h3 className="verify-step-title">{c.title}</h3>
@@ -136,7 +143,7 @@ export default function VerificationSection() {
                 <ul className="verify-checklist">
                   {detail.checks.map((c) => (
                     <li key={c}>
-                      <span className="verify-check-icon">&#10003;</span>
+                      <span className="verify-check-icon"></span>
                       <span>{c}</span>
                     </li>
                   ))}
@@ -202,7 +209,7 @@ function QuickLookup({ onVerify }) {
   return (
     <div className="verify-quick-lookup">
       <div className="verify-quick-left">
-        <div className="verify-quick-title">&#128737;&#65039; Try Live GI Tag Verification</div>
+        <div className="verify-quick-title"><IconShield size={15} /> Try Live GI Tag Verification</div>
         <div className="verify-quick-sub">
           Enter any HunarLink GI code or tap a sample craft below to inspect its verified
           certificate.

@@ -109,7 +109,7 @@
     launcher.setAttribute("aria-label", "Open HunarSathi Buyer Assistant");
     launcher.innerHTML = `
       <span class="hs-launcher-inner">
-        <span class="hunarsathi-launcher-avatar">✦</span>
+        <span class="hunarsathi-launcher-avatar"></span>
         <span class="hunarsathi-launcher-text">HunarSathi</span>
         <span class="hunarsathi-launcher-pulse" aria-hidden="true"></span>
       </span>
@@ -122,7 +122,7 @@
     win.innerHTML = `
       <div class="hs-header">
         <div class="hs-header-left">
-          <div class="hs-bot-badge">✦</div>
+          <div class="hs-bot-badge"></div>
           <div>
             <div class="hs-bot-name">HunarSathi</div>
             <div class="hs-bot-sub">
@@ -133,7 +133,7 @@
         </div>
         <div class="hs-header-actions">
           <button type="button" class="hs-icon-btn" id="hs-reset-btn" title="Reset Chat">↺</button>
-          <button type="button" class="hs-icon-btn" id="hs-close-btn" title="Close">✕</button>
+          <button type="button" class="hs-icon-btn" id="hs-close-btn" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6"/></svg></button>
         </div>
       </div>
 
@@ -144,10 +144,10 @@
       <div class="hs-messages" id="hs-messages"></div>
 
       <div class="hs-chips-bar">
-        <button type="button" class="hs-chip" data-q="What are the Pashmina prices on HunarLink?">🧣 Pashmina Prices</button>
+        <button type="button" class="hs-chip" data-q="What are the Pashmina prices on HunarLink?">Pashmina Prices</button>
         <button type="button" class="hs-chip" data-q="How does HunarLink GI verification work?">GI Verification</button>
-        <button type="button" class="hs-chip" data-q="How do escrow payment and order tracking work?">📦 Orders &amp; Escrow</button>
-        <button type="button" class="hs-chip" data-q="Tell me about Papier-Mâché and Wholesale bulk orders.">🏭 Papier-Mâché &amp; Bulk</button>
+        <button type="button" class="hs-chip" data-q="How do escrow payment and order tracking work?">Orders &amp; Escrow</button>
+        <button type="button" class="hs-chip" data-q="Tell me about Papier-Mâché and Wholesale bulk orders.">Papier-Mâché &amp; Bulk</button>
       </div>
 
       <form class="hs-composer" id="hs-composer">

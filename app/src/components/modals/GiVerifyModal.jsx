@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../../state/StoreContext.jsx';
 import Modal from '../Modal.jsx';
+import { IconShield } from '../../components/LineIcons.jsx';
 
 /* ==========================================================================
    GiVerifyModal — GI registry lookup
@@ -40,7 +41,7 @@ export default function GiVerifyModal() {
     <Modal
       id="gi-verify-modal"
       width="620px"
-      title="&#128737;&#65039; Live Valley GI Tag &amp; Purity Registry Check"
+      title="<IconShield size={15} />&#65039; Live Valley GI Tag &amp; Purity Registry Check"
       onClose={closeModal}
     >
       <div className="modal-body">

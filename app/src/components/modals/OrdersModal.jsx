@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
 import Modal from '../Modal.jsx';
+import { IconPackage } from '../../components/LineIcons.jsx';
 
 /* ==========================================================================
    OrdersModal — receipt ledger for placed orders
@@ -25,7 +26,7 @@ export default function OrdersModal() {
     <Modal
       id="orders-modal"
       width="860px"
-      title="&#128230; Your Insured Order Ledger"
+      title="<IconPackage size={15} /> Your Insured Order Ledger"
       onClose={closeModal}
     >
       <div className="modal-body" id="orders-modal-body">
@@ -139,7 +140,7 @@ export default function OrdersModal() {
                               color: done ? 'var(--forest-900)' : 'var(--text-500)'
                             }}
                           >
-                            {done ? '\u2713 ' : ''}
+                            {done ? '' : ''}
                             {s}
                           </div>
                         );
