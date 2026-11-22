@@ -11,6 +11,7 @@ import Toasts from './components/Toasts.jsx';
 import ChatWidget from './components/ChatWidget.jsx';
 import AmbientField from './components/AmbientField.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import ScrollToTop from './components/ScrollToTop.jsx';
 import GiVerifyModal from './components/modals/GiVerifyModal.jsx';
 import LoginChoiceModal from './components/modals/LoginChoiceModal.jsx';
 import CompareModal from './components/modals/CompareModal.jsx';
@@ -101,7 +102,29 @@ export default function App() {
           straight to the brand link, which is exactly what the skip link
           exists to prevent. Points at #main-content, which every page body
           carries. */}
-      <a className="skip-link" href="#main-content">
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(e) => {
+          /* Native hash navigation scrolls but does not move keyboard focus,
+             so the next Tab restarted from the top of the document — the exact
+             thing a skip link exists to prevent. Doing both explicitly makes
+             the jump deterministic; the href stays for the no-JS case. */
+          const main = document.getElementById('main-content');
+          if (!main) return;
+          e.preventDefault();
+          main.setAttribute('tabindex', '-1');
+          main.focus({ preventScroll: true });
+          main.scrollIntoView({ behavior: 'auto', block: 'start' });
+          /* Restore the main element when focus leaves it, so the injected
+             attribute does not linger in the document. */
+          main.addEventListener(
+            'blur',
+            () => main.removeAttribute('tabindex'),
+            { once: true }
+          );
+        }}
+      >
         Skip to main content
       </a>
 
@@ -111,6 +134,10 @@ export default function App() {
       <AmbientField />
       <SpaRedirect />
       <LegacyRoutes />
+      {/* Mounted once, above the routes. React Router does not reset scroll on
+          navigation, so without this a product clicked from deep in the grid
+          landed at the bottom of the product page. */}
+      <ScrollToTop />
       {!isAuth && !isPortal && <UtilityBar />}
       {!isAuth && !isPortal && (
         <Header showSectionNav={onStorefront} activeSection={activeSection} />
