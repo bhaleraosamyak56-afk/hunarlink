@@ -664,8 +664,24 @@ export default function LoginPage() {
 
       {/* Dedicated User Login / Sign Up Split Card */}
       <main className="login-shell">
+        {/* Ambient craft photograph. Decorative only, so it is hidden from
+            assistive tech and never carries meaning the page relies on. */}
+        <div className="login-ambient" aria-hidden="true">
+          <img
+            className="login-ambient-img"
+            src={`${import.meta.env.BASE_URL}img/artisan-loom-light.jpg`}
+            alt=""
+            loading="eager"
+            decoding="async"
+          />
+        </div>
         <section className="login-card">
           <div className="login-left">
+            <div
+              className="login-rail-photo"
+              aria-hidden="true"
+              style={{ backgroundImage: `url(${import.meta.env.BASE_URL}img/artisan-loom-dark.jpg)` }}
+            />
             <div>
               <div className="login-pill" id="left-pill">
                 <IconSpark size={11} />

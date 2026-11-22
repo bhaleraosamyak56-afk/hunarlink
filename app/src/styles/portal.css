@@ -5494,3 +5494,90 @@ html.portal-wholesale body {
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
+
+/* ==========================================================================
+   Login page — ambient craft photograph
+   --------------------------------------------------------------------------
+   One quiet photograph of a weaver at the loom, used at very low opacity so it
+   reads as paper texture rather than as a hero image. Two crops of the same
+   frame:
+     - .login-ambient      the room, behind everything at ~9%
+     - .login-left photo   the same frame duotoned into the forest rail
+   Both are aria-hidden: they are decoration, so nothing here may be the only
+   carrier of information, and both are kept far below the text contrast budget.
+   ========================================================================== */
+
+.login-shell { position: relative; }
+
+.login-shell .login-ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-shell .login-ambient::after {
+  /* Weighted to the left, because the photograph is mirrored to put the weaver
+     in the open margin beside the card. The area behind the card is washed
+     almost to the page tint; the margin is left readable. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 50% 52% at 34% 48%,
+      rgba(247, 245, 238, 0.62),
+      rgba(247, 245, 238, 0.55) 45%,
+      rgba(247, 245, 238, 0.3) 100%
+    ),
+    linear-gradient(to bottom, rgba(247, 245, 238, 0.34), rgba(247, 245, 238, 0.46));
+}
+
+.login-shell .login-ambient-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 78% 32%;
+  opacity: 0.42;
+  filter: saturate(0.85);
+}
+
+.login-shell > .login-card {
+  position: relative;
+  z-index: 1;
+}
+
+/* the dark rail carries its own faint weave */
+.login-card .login-left {
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card .login-rail-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 35%;
+  opacity: 0.22;
+  pointer-events: none;
+  mix-blend-mode: luminosity;
+}
+
+.login-card .login-left > *:not(.login-rail-photo) {
+  position: relative;
+  z-index: 1;
+}
+
+/* On a narrow screen the card covers the whole width, so the photograph has
+   nowhere to breathe. Fade it back rather than let it muddy the fields. */
+@media (max-width: 900px) {
+  .login-shell .login-ambient-img {
+    opacity: 0.11;
+    object-position: 62% 28%;
+  }
+
+  .login-shell .login-ambient::after {
+    background: rgba(247, 245, 238, 0.72);
+  }
+}
