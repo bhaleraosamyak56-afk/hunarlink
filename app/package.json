@@ -6,7 +6,12 @@
     "dev": "vite",
     "build": "vite build",
     "build:root": "vite build --mode root",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "serve": "python3 ../tools/serve_pages.py",
+    "check:routes": "python3 ../tools/check_routes.py",
+    "check:a11y": "python3 ../tools/check_a11y.py",
+    "audit": "python3 ../tools/audit_migration.py",
+    "verify": "npm run check:routes && npm run check:a11y && npm run audit"
   },
   "keywords": [],
   "author": "",

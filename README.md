@@ -50,16 +50,45 @@ cd app
 npm run build        # vite build --mode root -> writes to ../dist
 ```
 
-Then copy the output to the repo root:
+Then copy the output to the repo root. The build now emits several chunks —
+the entry, the vendor chunks and one per lazily-loaded route — so copy them
+all, and drop the previously hashed ones:
 
 ```bash
+cd app
+npm run build:root
+cd ..
+rm -f assets/index-*.js assets/index-*.css assets/vendor-*.js \
+      assets/rolldown-runtime-*.js assets/AdminPage-*.js assets/SellerPage-*.js \
+      assets/LoginPage-*.js assets/OrdersPage-*.js assets/ProfilePage-*.js
 cp dist/index.html dist/404.html ./
-cp dist/assets/index-*.js dist/assets/index-*.css ../assets/   # when run from app/
+cp dist/assets/*.js dist/assets/*.css assets/
 ```
 
 `vite.config.js` sets `base: '/hunarlink/'` for the `root` mode so asset URLs match
 the deployment prefix. There is a second mode (`vite build`) that emits to `react/`
 for the older subpath deployment; the root mode is the one in use.
+
+### Checking a build
+
+`tools/` holds the three verification scripts, and `app/package.json` wires them
+up. They drive a real Chromium, so install the one dependency first:
+
+```bash
+pip install -r tools/requirements.txt && playwright install chromium
+```
+
+Start the preview in one terminal, then check in another:
+
+```bash
+cd app && npm run serve          # the repo, served the way Pages serves it, :8123
+npm run verify                   # all three checks below, in order
+npm run check:routes             # 15 routes: does each render, any console error?
+npm run check:a11y               # one h1, a distinct title, labelled fields
+npm run audit                    # 22 interaction checks across every page
+```
+
+Point them elsewhere with `HUNARLINK_BASE=https://example.com npm run check:routes`.
 
 ---
 
@@ -107,6 +136,7 @@ assets/               deployed static assets + the live hashed JS/CSS bundle
 index.html            the built SPA shell (committed)
 404.html              SPA deep-link fallback for GitHub Pages
 hunarsathi-chatbot/   vanilla-JS chat widget (injected by React, builds its own UI)
+tools/                verification scripts (routes, a11y, behaviour audit)
 ```
 
 ---
@@ -117,7 +147,13 @@ hunarsathi-chatbot/   vanilla-JS chat widget (injected by React, builds its own 
   cannot resolve; that page stashes the requested route and hands it back to the
   router. Visitors see the right page, but crawlers and link-preview bots see a 404.
   Fixing that needs a host with SPA rewrites.
-* **Cross-tab sync requires a reload.** Portals write `localStorage` directly, so a
-  change made in one tab shows up in another only after that tab reloads.
+* **Cross-tab sync is live.** `StoreContext` owns every key and listens for the
+  `storage` event, so a craft published in the seller portal appears in an open
+  storefront without a reload, and a cart added on a product page updates the
+  storefront badge.
+* **The bundle is split.** React, the router and the app core are separate
+  chunks, and the three consoles plus the two account pages load on demand, so
+  the storefront no longer ships the admin console. The storefront transfers
+  about 508 KB of JS against 639 KB when it was one file.
 * **The chatbot's backend is not included.** `hunarsathi-chatbot/widget.js` calls
   `127.0.0.1:5050`; with no backend it falls back to canned responses.

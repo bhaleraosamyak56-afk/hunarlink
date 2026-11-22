@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { useStore } from './state/StoreContext.jsx';
 import UtilityBar from './components/UtilityBar.jsx';
@@ -18,11 +18,16 @@ import HomePage from './pages/HomePage.jsx';
 import ProductPage from './pages/ProductPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import WholesalePage from './pages/WholesalePage.jsx';
-import AdminPage from './pages/portal/AdminPage.jsx';
-import SellerPage from './pages/portal/SellerPage.jsx';
-import LoginPage from './pages/portal/LoginPage.jsx';
-import OrdersPage from './pages/OrdersPage.jsx';
-import ProfilePage from './pages/ProfilePage.jsx';
+/* Split points. The storefront, product page and artisan auth are the hot
+   path — a visitor lands on one of them and only sometimes clicks onward — so
+   those stay in the main bundle. The consoles and the account pages are
+   reached by a direct URL or a nav click and nobody lands on them first; they
+   carry their own CSS and their own weight, so they load on demand. */
+const AdminPage = lazy(() => import('./pages/portal/AdminPage.jsx'));
+const SellerPage = lazy(() => import('./pages/portal/SellerPage.jsx'));
+const LoginPage = lazy(() => import('./pages/portal/LoginPage.jsx'));
+const OrdersPage = lazy(() => import('./pages/OrdersPage.jsx'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 import NotFound from './pages/NotFound.jsx';
 import SpaRedirect from './pages/SpaRedirect.jsx';
 import usePageTitle from './utils/usePageTitle.js';
@@ -39,6 +44,22 @@ import LegacyRoutes from './pages/LegacyRoutes.jsx';
    The section nav belongs to the storefront only, so it is suppressed on
    portal pages.
    ========================================================================== */
+
+/* Shown for the frame or two while a split chunk arrives. Deliberately quiet:
+   a spinner that flashes for 40 ms reads as a bug, so this is a reserved
+   block of the same height the page will occupy. */
+function PageFallback() {
+  return (
+    <main
+      className="up-container"
+      style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <span style={{ color: 'var(--text-500)', fontSize: '0.85rem' }}>Loading\u2026</span>
+    </main>
+  );
+}
 
 export default function App() {
   const { ui } = useStore();
@@ -70,6 +91,7 @@ export default function App() {
         <Header showSectionNav={onStorefront} activeSection={activeSection} />
       )}
 
+      <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<HomePage onSectionChange={handleSection} />} />
         <Route path="/index.html" element={<HomePage onSectionChange={handleSection} />} />
@@ -91,6 +113,7 @@ export default function App() {
         <Route path="/profile.html" element={<ProfilePage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
 
       {!isAuth && !isPortal && <Footer />}
 
