@@ -29,6 +29,10 @@ export const GUILDS = [
     label: 'Pashmina Textiles',
     short: 'Pashmina',
     blurb: 'Hand-spun Ladakhi Changthangi fleece on wooden pit looms.',
+    story:
+      'Changthangi fleece from the high pastures of Ladakh, hand-spun on a wooden charkha '
+        + 'and woven on a Srinagar pit loom. Whether the cloth stays bare or takes Kani or '
+        + 'Sozni work, the micron count of the yarn decides everything that follows.',
     techniques: ['handwoven', 'kani', 'sozni']
   },
   {
@@ -36,6 +40,11 @@ export const GUILDS = [
     label: 'Walnut Woodcarving',
     short: 'Walnut Wood',
     blurb: 'Seasoned walnut timber, hand-chiselled Chinar and Pinjrakari relief.',
+    story:
+      'Juglans regia timber seasoned for years before it is touched, then carved by hand '
+        + 'into deep Chinar relief or pierced with Pinjrakari jali. No lathe, no stencil and '
+        + 'no power tool — a chisel, a mallet and a family workshop.',
+    techniques: [],
     techniques: []
   },
   {
@@ -43,6 +52,10 @@ export const GUILDS = [
     label: 'Papier-M\u00e2ch\u00e9 Art',
     short: 'Papier-M\u00e2ch\u00e9',
     blurb: 'Sakhta pulp vessels illuminated with Hazara and Guldan naqashi.',
+    story:
+      'Sakhta paper pulp pressed into vessels by hand, lacquered, then lit up with naqashi '
+        + 'miniature painting in real gold and stone colour. The Hazara and Guldan patterns '
+        + 'carry Persian lineage into a Kashmiri hand.',
     techniques: []
   },
   {
@@ -50,6 +63,10 @@ export const GUILDS = [
     label: 'Silk-on-Silk Rugs',
     short: 'Silk Rugs',
     blurb: 'Hand-knotted mulberry silk carpets from Srinagar and Budgam.',
+    story:
+      'Mulberry silk on a cotton warp, knotted by hand at up to a thousand knots to the '
+        + 'square inch. A single carpet can hold a family at the loom for eighteen months, '
+        + 'and the back of it should read as cleanly as the front.',
     techniques: []
   }
 ];
@@ -62,17 +79,28 @@ export const TECHNIQUES = [
   {
     id: 'handwoven',
     label: 'Handwoven',
-    blurb: 'Plain hand-loomed pashmina, no figuring.'
+    blurb: 'Plain hand-loomed pashmina, no figuring.',
+    story:
+      'Woven plain on a pit loom with no embroidery and no tapestry inlay. The weave itself '
+        + 'is the ornament, which is why the cloth — not the motif — has to be perfect.',
   },
   {
     id: 'kani',
     label: 'Kani',
-    blurb: 'Wooden-bobbin tapestry weave worked from Talim code. The slowest, and the Kani name.'
+    blurb: 'Wooden-bobbin tapestry weave worked from Talim code. The slowest, and the Kani name.',
+    story:
+      'Thousands of small wooden bobbins, each carrying one colour, woven in twill tapestry '
+        + 'from a Talim code read aloud by a naqash. Two weavers can sit at one shawl for a '
+        + 'year. The pattern is not printed or embroidered on — it is the cloth itself.',
   },
   {
     id: 'sozni',
     label: 'Sozni',
-    blurb: 'Fine single-needle embroidery, mirrored front and reverse.'
+    blurb: 'Fine single-needle embroidery, mirrored front and reverse.',
+    story:
+      'Fine single-needle embroidery worked in silk thread on a hand-spun base, dense enough '
+        + 'that a single shawl can take years. Done properly it is mirrored on the reverse, '
+        + 'which is the test most machine work fails.',
   }
 ];
 

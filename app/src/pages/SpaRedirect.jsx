@@ -44,10 +44,17 @@ export default function SpaRedirect() {
     }
     if (!stashed) return;
 
-    const [rawPath, query = ''] = stashed.split('?');
-    const clean = (rawPath || '').replace(/^\/+/, '');
+    /* The hash is parked in the same string, so it has to be split off before
+       the path is rebuilt — otherwise '#marketplace-section' ends up inside a
+       path segment and the route does not match. */
+    const [rawPath, ...rest] = stashed.split('#');
+    const hashPart = rest.length ? `#${rest.join('#')}` : '';
+    const [pathOnly, query = ''] = rawPath.split('?');
+    const clean = (pathOnly || '').replace(/^\/+/, '');
+    /* A category URL is a real client route, so it is passed through as-is.
+       LEGACY only covers the old .html filenames. */
     const mapped = LEGACY[clean] || (clean ? `/${clean}` : '/');
-    navigate(`${mapped}${query ? `?${query}` : ''}`, { replace: true });
+    navigate(`${mapped}${query ? `?${query}` : ''}${hashPart}`, { replace: true });
   }, [navigate]);
 
   return null;

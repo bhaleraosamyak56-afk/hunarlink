@@ -22,15 +22,13 @@ const GUILD_LINKS = [
 
 export default function Footer() {
   const navigate = useNavigate();
-  const { setFilters, openModal, toast } = useStore();
+  const { openModal, toast } = useStore();
   const [email, setEmail] = useState('');
 
+  /* These links name a craft family, so they open that family's own page
+     rather than filtering the whole marketplace and scrolling to it. */
   const pickGuild = (guild) => {
-    setFilters({ guild, artisan: '' });
-    navigate('/');
-    setTimeout(() => {
-      document.getElementById('marketplace-section')?.scrollIntoView({ behavior: 'smooth' });
-    }, 120);
+    navigate(`/category/${guild}`);
   };
 
   return (

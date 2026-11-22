@@ -20,6 +20,7 @@ import OrdersModal from './components/modals/OrdersModal.jsx';
 
 import HomePage from './pages/HomePage.jsx';
 import ProductPage from './pages/ProductPage.jsx';
+import CategoryPage from './pages/CategoryPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import WholesalePage from './pages/WholesalePage.jsx';
 /* Split points. The storefront, product page and artisan auth are the hot
@@ -156,6 +157,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage onSectionChange={handleSection} />} />
         <Route path="/index.html" element={<HomePage onSectionChange={handleSection} />} />
+        {/* One template, any category: /category/pashmina (a guild) or
+            /category/pashmina-kani (a technique inside one). The product
+            breadcrumb links here instead of filtering the marketplace. */}
+        <Route path="/category/:slug" element={<CategoryPage />} />
         <Route path="/product" element={<ProductPage />} />
         <Route path="/product.html" element={<ProductPage />} />
         <Route path="/auth" element={<AuthPage />} />

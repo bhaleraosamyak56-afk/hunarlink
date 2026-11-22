@@ -51,8 +51,7 @@ export default function ProductPage() {
     addToCart,
     openModal,
     openDrawer,
-    clearRecentlyViewed,
-    setFilters
+    clearRecentlyViewed
   } = useStore();
 
   const id = params.get('id') || 'hl-waln-001';
@@ -115,22 +114,15 @@ export default function ProductPage() {
             <span className="pdp-bc-sep">/</span>
             <Link to="/#marketplace-section">EXPLORE CRAFTS</Link>
             <span className="pdp-bc-sep">/</span>
-            {/* The guild crumb used to be a plain link to /#marketplace-section,
-                which landed the visitor on all 96 products. Every guild did the
-                same thing, so the crumb promised a filter and delivered nothing —
-                a dead link dressed as navigation. It now applies the guild filter
-                through the store and then scrolls the marketplace into view. */}
+            {/* This crumb names a category, so it goes to that category's own
+                page. It has been wrong twice: first a link to the marketplace
+                that applied no filter at all, then one that applied a filter to
+                the whole store and scrolled you into it. Both promised a
+                category and delivered the catalogue. /category/:slug is the
+                page the crumb was always describing. */}
             <Link
-              to="/#marketplace-section"
+              to={`/category/${product.technique ? `${product.guild}-${product.technique}` : product.guild}`}
               className="pdp-bc-guild"
-              onClick={() => {
-                setFilters({ guild: product.guild, artisan: '' });
-                setTimeout(() => {
-                  document
-                    .getElementById('marketplace-section')
-                    ?.scrollIntoView({ behavior: 'auto' });
-                }, 120);
-              }}
             >
               {product.guildLabel.toUpperCase()}
               {product.technique ? ` / ${product.technique.toUpperCase()}` : ''}
