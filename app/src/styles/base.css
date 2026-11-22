@@ -6366,3 +6366,67 @@ picture {
   padding: 5px 10px 5px 6px;
   min-height: 34px;
 }
+
+/* ==========================================================================
+   Technique sub-filter
+   --------------------------------------------------------------------------
+   Sits under the guild pills and appears only inside a guild that has
+   techniques. Deliberately quieter than the guild row above it — it refines
+   that choice rather than competing with it — but the same 44px touch height
+   and the same focus ring, because it is a real control.
+   ========================================================================== */
+.technique-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 18px;
+}
+
+.technique-row-label {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--forest-700);
+  margin-right: 4px;
+}
+
+.technique-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #E2DCD0;
+  background: #FBF9F4;
+  color: #2C4A3C;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.technique-pill:hover {
+  border-color: var(--forest-700);
+  background: #F1EEE4;
+}
+
+.technique-pill.active {
+  background: var(--forest-900);
+  border-color: var(--forest-900);
+  color: #F7F5EE;
+}
+
+.technique-pill:focus-visible {
+  outline: 2px solid var(--btn-orange);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .technique-pill {
+    transition: none;
+  }
+}

@@ -41,12 +41,22 @@ const KEYS = {
   CART: 'hunarlink_cart'
 };
 
+/* One entry per guild, each listing the techniques that guild actually has.
+   Sellers used to be able to pick "Kani Jamawar & Sozni" as a category, which
+   filed an embroidery technique as if it were a different craft family. */
 const GUILD_META = {
-  pashmina: { label: 'Pashmina & Kani Shawls', defaultImg: 'assets/products/pashmina_01.jpg' },
-  walnut: { label: 'Walnut Woodcarving', defaultImg: 'assets/products/walnut_01.jpg' },
-  'papier-mache': { label: 'Papier-Mâché Art', defaultImg: 'assets/products/papier_01.jpg' },
-  'silk-rugs': { label: 'Silk-on-Silk Rugs', defaultImg: 'assets/products/silkrug_01.jpg' },
-  sozni: { label: 'Kani Jamawar & Sozni', defaultImg: 'assets/products/kani_01.jpg' }
+  pashmina: {
+    label: 'Pashmina Textiles',
+    defaultImg: 'assets/products/pashmina_01.jpg',
+    techniques: [
+      { id: 'handwoven', label: 'Handwoven Pashmina' },
+      { id: 'kani', label: 'Kani Tapestry Weave' },
+      { id: 'sozni', label: 'Sozni Needle Embroidery' }
+    ]
+  },
+  walnut: { label: 'Walnut Woodcarving', defaultImg: 'assets/products/walnut_01.jpg', techniques: [] },
+  'papier-mache': { label: 'Papier-Mâché Art', defaultImg: 'assets/products/papier_01.jpg', techniques: [] },
+  'silk-rugs': { label: 'Silk-on-Silk Rugs', defaultImg: 'assets/products/silkrug_01.jpg', techniques: [] }
 };
 
 const IMAGE_PRESETS = [
@@ -54,7 +64,8 @@ const IMAGE_PRESETS = [
   { key: 'walnut', label: 'Walnut', path: 'assets/products/walnut_01.jpg' },
   { key: 'papier-mache', label: 'Papier-Mâché', path: 'assets/products/papier_01.jpg' },
   { key: 'silk-rugs', label: 'Silk Rug', path: 'assets/products/silkrug_01.jpg' },
-  { key: 'sozni', label: 'Kani & Sozni', path: 'assets/products/kani_01.jpg' },
+  { key: 'kani', label: 'Kani Weave', path: 'assets/products/kani_01.jpg' },
+  { key: 'sozni', label: 'Sozni Embroidery', path: 'assets/products/sozni_01.jpg' },
   { key: 'loom', label: 'Kani Loom', path: 'assets/image_1.jpg' }
 ];
 
@@ -95,7 +106,8 @@ const DEMO_SEED_FALLBACK = [
     id: 'hl-pash-001',
     title: 'Royal Khudrang Pashmina Shawl',
     guild: 'pashmina',
-    guildLabel: 'Pashmina & Kani Guild',
+    technique: 'sozni',
+    guildLabel: 'Pashmina Textiles',
     artisan: 'Master Ghulam Qadir Mir',
     district: 'Srinagar',
     price: 1650,
@@ -117,7 +129,8 @@ const DEMO_SEED_FALLBACK = [
     id: 'hl-pash-002',
     title: 'Jamawar Heirloom Stole',
     guild: 'pashmina',
-    guildLabel: 'Pashmina & Kani Guild',
+    technique: '',
+    guildLabel: 'Pashmina Textiles',
     artisan: 'Master Ghulam Qadir Mir',
     district: 'Srinagar',
     price: 1850,
@@ -438,6 +451,7 @@ export default function SellerPage() {
       id: 'hl-seller-' + Date.now(),
       title: newForm.title.trim(),
       guild: newForm.guild,
+      technique: guildInfo.techniques.length ? newForm.technique || guildInfo.techniques[0].id : '',
       guildLabel: guildInfo.label,
       artisan: seller.name,
       sellerEmail: seller.email,
@@ -472,6 +486,7 @@ export default function SellerPage() {
     setEditForm({
       title: product.title || '',
       guild: product.guild || 'pashmina',
+      technique: product.technique || '',
       price: product.price || 1500,
       mrp: product.mrp || 1990,
       stock: product.stock ?? 1,
@@ -500,6 +515,9 @@ export default function SellerPage() {
     const updates = {
       title: editForm.title.trim(),
       guild,
+      technique: GUILD_META[guild]?.techniques.length
+        ? editForm.technique || GUILD_META[guild].techniques[0].id
+        : '',
       guildLabel: GUILD_META[guild]?.label || guild,
       price,
       mrp: Math.max(price, mrpInput),
@@ -976,13 +994,30 @@ export default function SellerPage() {
                           if (meta && !newImage.startsWith('data:')) setNewImage(meta.defaultImg);
                         }}
                       >
-                        <option value="pashmina">Pashmina &amp; Kani Shawls</option>
+                        <option value="pashmina">Pashmina Textiles</option>
                         <option value="walnut">Walnut Woodcarving</option>
                         <option value="papier-mache">Papier-Mâché Art</option>
                         <option value="silk-rugs">Silk-on-Silk Rugs</option>
-                        <option value="sozni">Kani Jamawar &amp; Sozni</option>
                       </select>
                     </div>
+
+                    {/* Technique only exists inside the guilds that have one,
+                        so this select appears for pashmina and hides for the
+                        wood, lacquer and rug guilds. */}
+                    {GUILD_META[newForm.guild]?.techniques.length > 0 && (
+                      <div className="field-group">
+                        <label className="field-label" htmlFor="np-technique">Technique *</label>
+                        <select
+                          id="np-technique" className="field-select" required
+                          value={newForm.technique || GUILD_META[newForm.guild].techniques[0].id}
+                          onChange={(e) => setNewForm({ ...newForm, technique: e.target.value })}
+                        >
+                          {GUILD_META[newForm.guild].techniques.map((t) => (
+                            <option key={t.id} value={t.id}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-grid-3" style={{ marginTop: '14px' }}>
@@ -1516,13 +1551,26 @@ export default function SellerPage() {
                       value={editForm.guild}
                       onChange={(e) => setEditForm({ ...editForm, guild: e.target.value })}
                     >
-                      <option value="pashmina">Pashmina &amp; Kani Shawls</option>
+                      <option value="pashmina">Pashmina Textiles</option>
                       <option value="walnut">Walnut Woodcarving</option>
                       <option value="papier-mache">Papier-Mâché Art</option>
                       <option value="silk-rugs">Silk-on-Silk Rugs</option>
-                      <option value="sozni">Kani Jamawar &amp; Sozni</option>
                     </select>
                   </div>
+                  {GUILD_META[editForm.guild]?.techniques.length > 0 && (
+                    <div className="field-group">
+                      <label className="field-label" htmlFor="edit-technique">Technique</label>
+                      <select
+                        id="edit-technique" className="field-select"
+                        value={editForm.technique || GUILD_META[editForm.guild].techniques[0].id}
+                        onChange={(e) => setEditForm({ ...editForm, technique: e.target.value })}
+                      >
+                        {GUILD_META[editForm.guild].techniques.map((t) => (
+                          <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-grid-3" style={{ marginTop: '12px' }}>

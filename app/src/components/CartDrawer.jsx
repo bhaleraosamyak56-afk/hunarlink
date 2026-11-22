@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
-import { formatINR } from '../utils/legacy.js';
+import { formatINR, asset } from '../utils/legacy.js';;
 import Drawer, { DrawerHeader } from './Drawer.jsx';
 import { ShieldCheck, ArrowRight } from './Icons.jsx';
 
@@ -122,7 +122,7 @@ export default function CartDrawer() {
                   onClick={() => goTo(p.id)}
                   aria-label={`Open ${p.title}`}
                 >
-                  <img loading="lazy" decoding="async" className="wl-thumb" src={p.image} alt="" />
+                  <img loading="lazy" decoding="async" className="wl-thumb" src={asset(p.image)} alt="" />
                   <span className="wl-copy">
                     <span className="wl-guild">{p.guildLabel}</span>
                     <span className="wl-title">{p.title}</span>
@@ -224,7 +224,7 @@ export default function CartDrawer() {
                         loading="lazy"
                         decoding="async"
                         className="wl-thumb bag-thumb-sm"
-                        src={p.image}
+                        src={asset(p.image)}
                         alt=""
                       />
                       <span className="wl-copy">

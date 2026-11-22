@@ -184,7 +184,7 @@ export default function HeroSection() {
                   {srcSetFor(`assets/${b.img}`) && (
                     <source
                       type="image/webp"
-                      srcSet={asset(srcSetFor(`assets/${b.img}`))}
+                      srcSet={srcSetFor(`assets/${b.img}`)}
                       sizes={b.main ? '(max-width: 760px) 92vw, 46vw' : '28vw'}
                     />
                   )}

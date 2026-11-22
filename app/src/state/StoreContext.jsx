@@ -100,6 +100,7 @@ export const PRICE_BOUNDS = { min: PRICE_MIN, max: PRICE_MAX };
 const DEFAULT_FILTERS = {
   query: '',
   guild: 'all',
+  technique: 'all',
   artisan: '',
   maxPrice: PRICE_MAX,
   minRating: 0,
@@ -290,8 +291,16 @@ function reducer(state, action) {
         ...state,
         ui: { ...state.ui, modal: action.modal ? { type: action.modal, payload: action.payload || {} } : null }
       };
-    case 'ui/filters':
-      return { ...state, ui: { ...state.ui, filters: { ...state.ui.filters, ...action.patch } } };
+    case 'ui/filters': {
+      const next = { ...state.ui.filters, ...action.patch };
+      /* Changing guild clears the technique. A technique belongs to a single
+         guild — Kani is a pashmina weave — so carrying it into Walnut would
+         quietly return zero results and read as a broken catalogue. */
+      if ('guild' in action.patch && !('technique' in action.patch)) {
+        next.technique = 'all';
+      }
+      return { ...state, ui: { ...state.ui, filters: next } };
+    }
     case 'ui/veil':
       return { ...state, veil: { open: action.open, text: action.text || '' } };
     case 'ui/filtersReset':
@@ -506,6 +515,10 @@ export function StoreProvider({ children }) {
             if (!hay.includes(q)) return false;
           }
           if (f.guild !== 'all' && p.guild !== f.guild) return false;
+          /* Technique is a second axis inside one guild. 'all' means no
+             narrowing, and products outside the pashmina family simply have no
+             technique field, so they are unaffected by this filter. */
+          if (f.technique && f.technique !== 'all' && p.technique !== f.technique) return false;
           if (f.artisan && p.artisan !== f.artisan) return false;
           if (p.price > f.maxPrice) return false;
           if (f.minRating > 0 && p.rating < f.minRating) return false;

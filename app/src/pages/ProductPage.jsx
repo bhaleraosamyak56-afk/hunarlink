@@ -7,6 +7,7 @@ import ProductGallery from '../components/ProductGallery.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import '../styles/pdp.css';
 import { IconPackage, IconShield, IconTruck } from '../components/LineIcons.jsx';
+import { describeCraft } from '../data/guilds.js';
 
 /* ==========================================================================
    ProductPage
@@ -50,7 +51,8 @@ export default function ProductPage() {
     addToCart,
     openModal,
     openDrawer,
-    clearRecentlyViewed
+    clearRecentlyViewed,
+    setFilters
   } = useStore();
 
   const id = params.get('id') || 'hl-waln-001';
@@ -113,8 +115,25 @@ export default function ProductPage() {
             <span className="pdp-bc-sep">/</span>
             <Link to="/#marketplace-section">EXPLORE CRAFTS</Link>
             <span className="pdp-bc-sep">/</span>
-            <Link to="/#marketplace-section" className="pdp-bc-guild">
+            {/* The guild crumb used to be a plain link to /#marketplace-section,
+                which landed the visitor on all 96 products. Every guild did the
+                same thing, so the crumb promised a filter and delivered nothing —
+                a dead link dressed as navigation. It now applies the guild filter
+                through the store and then scrolls the marketplace into view. */}
+            <Link
+              to="/#marketplace-section"
+              className="pdp-bc-guild"
+              onClick={() => {
+                setFilters({ guild: product.guild, artisan: '' });
+                setTimeout(() => {
+                  document
+                    .getElementById('marketplace-section')
+                    ?.scrollIntoView({ behavior: 'auto' });
+                }, 120);
+              }}
+            >
               {product.guildLabel.toUpperCase()}
+              {product.technique ? ` / ${product.technique.toUpperCase()}` : ''}
             </Link>
             <span className="pdp-bc-sep">/</span>
             <strong className="pdp-bc-current">{product.title.toUpperCase()}</strong>
@@ -141,7 +160,7 @@ export default function ProductPage() {
                 <ShieldIcon /> GI-CERTIFIED
               </span>
               <span className="pdp-badge-pill carved" id="pdp-tag-technique">
-                {techniqueTag(product.guild)}
+                {techniqueTag(product.guild, product.technique)}
               </span>
               <span className="pdp-badge-pill valley" id="pdp-tag-cluster">
                 {product.district.toUpperCase()} CLUSTER
@@ -152,7 +171,7 @@ export default function ProductPage() {
               {product.title}
             </h1>
             <div className="pdp-subtitle" id="pdp-subtitle">
-              {product.guildLabel} Heritage Kashmiri Masterpiece
+              {describeCraft(product.guild, product.technique)} &mdash; Heritage Kashmiri Masterpiece
             </div>
 
             <div className="pdp-artisan-box">
@@ -210,7 +229,7 @@ export default function ProductPage() {
               <div className="pdp-spec-box">
                 <div className="pdp-spec-label">TECHNIQUE</div>
                 <div className="pdp-spec-val" id="pdp-spec-technique-val">
-                  {techniqueSpec(product.guild, product.purityMetric)}
+                  {techniqueSpec(product.guild, product.purityMetric, product.technique)}
                 </div>
               </div>
               <div className="pdp-spec-box">

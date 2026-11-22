@@ -263,7 +263,7 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
           {srcSetFor(src) && (
             <source
               type="image/webp"
-              srcSet={asset(srcSetFor(src))}
+              srcSet={srcSetFor(src)}
               sizes="(max-width: 900px) 94vw, 52vw"
             />
           )}
@@ -316,7 +316,7 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
               {srcSetFor(t.img) && (
                 <source
                   type="image/webp"
-                  srcSet={asset(srcSetFor(t.img))}
+                  srcSet={srcSetFor(t.img)}
                   sizes="120px"
                 />
               )}

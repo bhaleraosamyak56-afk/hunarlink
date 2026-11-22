@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { Heart, Bag, Search, Close } from './Icons.jsx';
+import { asset } from '../utils/legacy.js';
 
 /* ==========================================================================
    Header
@@ -225,7 +226,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
                         navigate(`/product?id=${encodeURIComponent(p.id)}`);
                       }}
                     >
-                      <img src={p.image} alt="" className="suggestion-thumb" />
+                      <img src={asset(p.image)} alt="" className="suggestion-thumb" />
                       <span>
                         <span className="suggestion-title">{p.title}</span>
                         <span className="suggestion-meta">

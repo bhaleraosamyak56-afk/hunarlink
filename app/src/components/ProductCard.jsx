@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { srcSetFor } from '../data/imageVariants.js';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
-import { formatINR } from '../utils/legacy.js';
+import { formatINR, asset } from '../utils/legacy.js';;
 import { Heart, Bag, ShieldCheck, Star } from './Icons.jsx';
 import { IconSpark } from '../components/LineIcons.jsx';
 
@@ -61,7 +61,7 @@ function ProductCard({ product: p, onBuyNow }) {
             decoding="async"
             width="400"
             height="300"
-            src={p.image}
+            src={asset(p.image)}
             alt={p.title}
           />
         </picture>

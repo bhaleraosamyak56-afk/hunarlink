@@ -3,72 +3,83 @@
    the trailing "Discover Looms →" in the rug card was part of the original
    description text, so it is kept. */
 
-export const GUILD_CARDS = [
+/* ==========================================================================
+   The guild taxonomy
+   --------------------------------------------------------------------------
+   A guild is a *craft family*: one material, one workshop tradition. Before
+   this file was rewritten the storefront had five "guilds", two of which were
+   not guilds at all — "Kani Jamawar & Sozni" filed a weave and an embroidery
+   technique as if they were separate product families, alongside a pashmina
+   guild whose own name also said "Kani". A visitor could pick "Kani" from the
+   filter list and get zero results, because no product was ever filed under it.
+
+   The fix is one axis, not two:
+
+     guild      the family a piece belongs to  (pashmina, walnut, …)
+     technique  how a pashmina piece was made  (handwoven, kani, sozni)
+
+   Kani and Sozni are techniques applied to a pashmina base, so they now live
+   inside the pashmina guild as a second filter. Walnut, papier-mâché and silk
+   rugs are material-defined and carry no technique.
+   ========================================================================== */
+
+export const GUILDS = [
   {
     id: 'pashmina',
-    img: 'image_1.jpg',
-    alt: 'Pashmina and Kani Shawls Guild',
-    span2: true,
-    topTag: 'GI Registry #46 & #51 \u2022 840+ Looms',
-    kicker: 'Ladakhi Changthangi Fleece',
-    title: 'Pashmina & Kani Shawls',
-    desc:
-      'Hand-spun sub-16-micron mountain cashmere woven on wooden foot looms with traditional Talim notation.'
-  },
-  {
-    id: 'silk-rugs',
-    img: 'image_5.jpg',
-    alt: 'Silk-on-Silk Rugs Guild',
-    topTag: 'Up to 900 Knots / Sq.In',
-    kicker: 'Talim-Coded Medallion Carpets',
-    title: 'Silk-on-Silk Rugs',
-    desc:
-      'Hand-knotted mulberry silk carpets from Srinagar & Budgam looms. Discover Looms \u2192'
+    label: 'Pashmina Textiles',
+    short: 'Pashmina',
+    blurb: 'Hand-spun Ladakhi Changthangi fleece on wooden pit looms.',
+    techniques: ['handwoven', 'kani', 'sozni']
   },
   {
     id: 'walnut',
-    img: 'image_3.jpg',
-    alt: 'Walnut Woodcarving Guild',
-    topTag: 'GI Registered Craft',
-    kicker: 'Anantnag & Srinagar Tarkhans',
-    title: 'Walnut Woodcarving',
-    desc:
-      'Seasoned 300-year-old walnut timber hand-chiseled with deep Chinar and Pinjrakari lattice relief.'
+    label: 'Walnut Woodcarving',
+    short: 'Walnut Wood',
+    blurb: 'Seasoned walnut timber, hand-chiselled Chinar and Pinjrakari relief.',
+    techniques: []
   },
   {
     id: 'papier-mache',
-    img: 'image_4.jpg',
-    alt: 'Papier-Mache Art Guild',
-    topTag: '24K Gold Leaf Naqash',
-    kicker: 'Zadibal & Budgam Workshops',
-    title: 'Papier-M\u00e2ch\u00e9 Art',
-    desc:
-      'Hand-molded Sakhta pulp vessels illuminated with fine Hazara floral and Persian Guldan motifs.'
+    label: 'Papier-M\u00e2ch\u00e9 Art',
+    short: 'Papier-M\u00e2ch\u00e9',
+    blurb: 'Sakhta pulp vessels illuminated with Hazara and Guldan naqashi.',
+    techniques: []
   },
   {
-    id: 'sozni',
-    img: 'image_2.jpg',
-    alt: 'Kani Jamawar and Sozni Guild',
-    topTag: 'Heirloom Needle & Bobbin',
-    kicker: 'Kanihama & Old Srinagar',
-    title: 'Kani Jamawar & Sozni',
-    desc:
-      'Intricate wooden-bobbin Jamawar weaves and single-thread Sozni embroidery where reverse mirrors front.'
+    id: 'silk-rugs',
+    label: 'Silk-on-Silk Rugs',
+    short: 'Silk Rugs',
+    blurb: 'Hand-knotted mulberry silk carpets from Srinagar and Budgam.',
+    techniques: []
   }
 ];
 
-/* Filters for the marketplace toolbar. `chip` is the label as printed; the
-   count is computed live from the catalogue. */
-export const CRAFT_FILTERS = [
-  { id: 'all', label: 'All Crafts' },
-  { id: 'pashmina', label: 'Pashmina' },
-  { id: 'kani', label: 'Kani' },
-  { id: 'sozni', label: 'Sozni' },
-  { id: 'silk-rugs', label: 'Silk Rugs' },
-  { id: 'walnut', label: 'Walnut Wood' },
-  { id: 'papier-mache', label: 'Papier-M\u00e2ch\u00e9' }
+/* The techniques that can appear inside the pashmina guild. Kept separate from
+   GUILDS because they are not filterable on their own — a technique filter
+   only makes sense once a guild is chosen, otherwise it mixes a Kani shawl
+   with a walnut box that has no weave at all. */
+export const TECHNIQUES = [
+  {
+    id: 'handwoven',
+    label: 'Handwoven',
+    blurb: 'Plain hand-loomed pashmina, no figuring.'
+  },
+  {
+    id: 'kani',
+    label: 'Kani',
+    blurb: 'Wooden-bobbin tapestry weave worked from Talim code. The slowest, and the Kani name.'
+  },
+  {
+    id: 'sozni',
+    label: 'Sozni',
+    blurb: 'Fine single-needle embroidery, mirrored front and reverse.'
+  }
 ];
 
+/* Filter chips for the marketplace toolbar. `id` matches a guild above. */
+export const CRAFT_FILTERS = GUILDS.map((g) => ({ id: g.id, label: g.short }));
+
+/* Sort options. */
 export const SORT_OPTIONS = [
   { id: 'featured', label: 'Featured' },
   { id: 'price-asc', label: 'Price: Low to High' },
@@ -77,6 +88,7 @@ export const SORT_OPTIONS = [
   { id: 'loom', label: 'Loom Hours' }
 ];
 
+/* Price bands. */
 export const PRICE_BANDS = [
   { id: 'all', label: 'Any Price', min: 0, max: Infinity },
   { id: 'u5', label: 'Under \u20b95,000', min: 0, max: 5000 },
@@ -84,3 +96,20 @@ export const PRICE_BANDS = [
   { id: '15-50', label: '\u20b915,000 \u2013 \u20b950,000', min: 15000, max: 50000 },
   { id: '50p', label: '\u20b950,000 +', min: 50000, max: Infinity }
 ];
+
+/* Look-ups used by the product page and the crumbs. */
+export const guildById = (id) => GUILDS.find((g) => g.id === id) || null;
+export const techniqueById = (id) => TECHNIQUES.find((t) => t.id === id) || null;
+
+/* The label printed on a product card and crumb. Falls back to the family name
+   if a record is missing its technique, so a partial record cannot crash a
+   render. */
+export const CRAFT_ORDER = ['pashmina', 'walnut', 'papier-mache', 'silk-rugs'];
+
+export function describeCraft(guildId, techniqueId) {
+  const guild = guildById(guildId);
+  const tech = techniqueById(techniqueId);
+  if (!guild) return 'Valley Craft';
+  if (!tech) return guild.label;
+  return `${guild.label.replace(/ (Shawls|Textiles)$/, '')} \u00b7 ${tech.label}`;
+}

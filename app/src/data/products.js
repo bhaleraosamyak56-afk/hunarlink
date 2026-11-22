@@ -22,7 +22,7 @@ export const SEED_PRODUCTS = [
   /* ── PASHMINA (16 products) ─────────────────────────────────────────── */
   {
     id: "hl-pash-001", title: "Royal Khudrang Pashmina Shawl",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Master Ghulam Qadir Mir", district: "Srinagar",
     price: 26600, mrp: 36700,
     originalPrice: 36600, rating: 4.9, reviewCount: 42,
@@ -34,7 +34,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-002", title: "Jamawar Heirloom Stole",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Ghulam Qadir Mir", district: "Srinagar",
     price: 169400, mrp: 245750,
     originalPrice: 245650, rating: 4.9, reviewCount: 37,
@@ -46,7 +46,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-003", title: "Natural Ivory Ring Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustadani Zareena Bano", district: "Srinagar",
     price: 25200, mrp: 32850,
     originalPrice: 32750, rating: 4.8, reviewCount: 28,
@@ -58,7 +58,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-004", title: "Sozni Floral Pashmina Wrap",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Master Nazir Ahmad Wani", district: "Srinagar",
     price: 71000, mrp: 97700,
     originalPrice: 97600, rating: 4.9, reviewCount: 33,
@@ -70,7 +70,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-005", title: "Moonlit Shahtoosh-Grade Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustad Bashir Ahmad Lone", district: "Budgam",
     price: 178650, mrp: 259150,
     originalPrice: 259050, rating: 5.0, reviewCount: 21,
@@ -82,7 +82,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-006", title: "Badam Paisley Reversible Stole",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Master Farida Akhtar", district: "Pulwama",
     price: 24250, mrp: 31600,
     originalPrice: 31500, rating: 4.7, reviewCount: 44,
@@ -94,7 +94,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-007", title: "Crimson Kani-Border Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustad Mohammad Yusuf", district: "Srinagar",
     price: 151100, mrp: 207850,
     originalPrice: 207750, rating: 4.8, reviewCount: 26,
@@ -106,7 +106,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-008", title: "Sage Green Twill Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustadani Hameeda Begum", district: "Kupwara",
     price: 21350, mrp: 31050,
     originalPrice: 30950, rating: 4.6, reviewCount: 51,
@@ -118,7 +118,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-009", title: "Chinar Leaf Embossed Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Master Rafiq Ahmad Shah", district: "Baramulla",
     price: 27850, mrp: 36300,
     originalPrice: 36200, rating: 4.8, reviewCount: 39,
@@ -130,7 +130,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-010", title: "Midnight Blue Zari Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustad Shabir Ahmad", district: "Srinagar",
     price: 33900, mrp: 44150,
     originalPrice: 44050, rating: 4.9, reviewCount: 30,
@@ -142,7 +142,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-011", title: "Papier-Mâché Printed Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Master Manzoor Hussain", district: "Srinagar",
     price: 23450, mrp: 32350,
     originalPrice: 32250, rating: 4.7, reviewCount: 46,
@@ -154,7 +154,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-012", title: "Gold Embroidered Bridal Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustadani Ruksana Naqshbandi", district: "Srinagar",
     price: 95000, mrp: 137850,
     originalPrice: 137750, rating: 5.0, reviewCount: 17,
@@ -166,7 +166,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-017", title: "Striped Regency Pashmina Stole",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustad Tariq Wani", district: "Srinagar",
     price: 19900, mrp: 27450,
     originalPrice: 27350, rating: 4.5, reviewCount: 67,
@@ -178,7 +178,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-018", title: "Shaheen Eagle Kani Pashmina",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustad Nazir Ahmad Bhat", district: "Srinagar",
     price: 200000, mrp: 290100,
     originalPrice: 290000, rating: 5.0, reviewCount: 19,
@@ -190,7 +190,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-019", title: "Copper Autumn Pashmina Shawl",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Ustadani Nasreen Zargar", district: "Shopian",
     price: 22900, mrp: 29850,
     originalPrice: 29750, rating: 4.7, reviewCount: 41,
@@ -202,7 +202,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-pash-020", title: "Diamond Weave Pashmina Throw",
-    guild: "pashmina", guildLabel: "Pashmina & Kani Guild",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "handwoven",
     artisan: "Master Javid Ahmad", district: "Budgam",
     price: 23950, mrp: 31250,
     originalPrice: 31150, rating: 4.8, reviewCount: 36,
@@ -942,7 +942,7 @@ export const SEED_PRODUCTS = [
   /* ── KANI & SOZNI (20 products) ─────────────────────────────────────── */
   {
     id: "hl-kani-001", title: "Dar-i-Kani Jamawar Stole",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Ghulam Qadir Mir", district: "Budgam",
     price: 50000, mrp: 68850,
     originalPrice: 68750, rating: 5.0, reviewCount: 31,
@@ -954,7 +954,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-002", title: "Shaheen Eagle Kani Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustad Nazir Ahmad Bhat", district: "Srinagar",
     price: 50000, mrp: 72600,
     originalPrice: 72500, rating: 5.0, reviewCount: 19,
@@ -966,7 +966,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-003", title: "Crimson Full-Field Kani Wrap",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Mohammad Yusuf Mir", district: "Budgam",
     price: 50000, mrp: 65100,
     originalPrice: 65000, rating: 4.9, reviewCount: 24,
@@ -978,7 +978,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-004", title: "Moonlit Ivory Kani Border Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustadani Hameeda Kani", district: "Budgam",
     price: 41050, mrp: 56550,
     originalPrice: 56450, rating: 4.8, reviewCount: 32,
@@ -990,7 +990,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-005", title: "Aubergine Badam Kani Stole",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Ghulam Qadir Mir", district: "Budgam",
     price: 49000, mrp: 71150,
     originalPrice: 71050, rating: 4.9, reviewCount: 27,
@@ -1002,7 +1002,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-006", title: "Sozni Needle Chinar Embroidered Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Ustadani Fatima Zargar", district: "Pulwama",
     price: 34650, mrp: 45150,
     originalPrice: 45050, rating: 4.9, reviewCount: 36,
@@ -1014,7 +1014,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-007", title: "Teal Peacock Kani Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustad Bashir Ahmad Lone", district: "Budgam",
     price: 50000, mrp: 68850,
     originalPrice: 68750, rating: 5.0, reviewCount: 21,
@@ -1026,7 +1026,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-008", title: "Emerald Forest Sozni Stole",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Ustadani Ruksana Naqshbandi", district: "Srinagar",
     price: 36700, mrp: 53300,
     originalPrice: 53200, rating: 4.8, reviewCount: 30,
@@ -1038,7 +1038,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-009", title: "Wedding Gold Zari Kani Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Ghulam Hassan", district: "Budgam",
     price: 50000, mrp: 65100,
     originalPrice: 65000, rating: 5.0, reviewCount: 14,
@@ -1050,7 +1050,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-010", title: "Sozni Jamawar Wall Tapestry",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Nazir Ahmad Wani", district: "Srinagar",
     price: 50000, mrp: 65100,
     originalPrice: 65000, rating: 5.0, reviewCount: 9,
@@ -1062,7 +1062,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-011", title: "Rose Garden Sozni Dupatta",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Ustadani Nasreen Zargar", district: "Shopian",
     price: 25700, mrp: 35450,
     originalPrice: 35350, rating: 4.7, reviewCount: 44,
@@ -1074,7 +1074,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-012", title: "Sunrise Badam Border Kani Stole",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustad Mohammad Yusuf Mir", district: "Budgam",
     price: 43750, mrp: 63550,
     originalPrice: 63450, rating: 4.8, reviewCount: 28,
@@ -1086,7 +1086,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-013", title: "Black & Gold Kani Jamawar Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Ghulam Qadir Mir", district: "Budgam",
     price: 50000, mrp: 65100,
     originalPrice: 65000, rating: 5.0, reviewCount: 22,
@@ -1098,7 +1098,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-014", title: "Copper Lotus Sozni Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Ustadani Fatima Zargar", district: "Pulwama",
     price: 28950, mrp: 39900,
     originalPrice: 39800, rating: 4.7, reviewCount: 39,
@@ -1110,7 +1110,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-015", title: "Miniature Kani Coin Purse Set",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Ustadani Hameeda Kani", district: "Budgam",
     price: 9000, mrp: 13150,
     originalPrice: 13050, rating: 4.6, reviewCount: 72,
@@ -1122,7 +1122,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-016", title: "Violet Floral Kani Stole",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Bashir Ahmad Lone", district: "Budgam",
     price: 50000, mrp: 65100,
     originalPrice: 65000, rating: 4.8, reviewCount: 26,
@@ -1134,7 +1134,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-017", title: "Sozni Birds-in-Blossoms Stole",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Ustadani Zareena Bano", district: "Srinagar",
     price: 27000, mrp: 37200,
     originalPrice: 37100, rating: 4.7, reviewCount: 46,
@@ -1146,7 +1146,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-018", title: "Heirloom Tabard Kani Jacket",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Ghulam Hassan", district: "Budgam",
     price: 50000, mrp: 72600,
     originalPrice: 72500, rating: 5.0, reviewCount: 8,
@@ -1158,7 +1158,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-019", title: "Five-Colour Kani Suzani Panel",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "kani",
     artisan: "Master Nazir Ahmad Wani", district: "Srinagar",
     price: 50000, mrp: 65100,
     originalPrice: 65000, rating: 4.9, reviewCount: 15,
@@ -1170,7 +1170,7 @@ export const SEED_PRODUCTS = [
   },
   {
     id: "hl-kani-020", title: "Cream & Saffron Sozni Shawl",
-    guild: "sozni", guildLabel: "Kani Jamawar & Sozni",
+    guild: "pashmina", guildLabel: "Pashmina Textiles", technique: "sozni",
     artisan: "Ustadani Ruksana Naqshbandi", district: "Srinagar",
     price: 30150, mrp: 39300,
     originalPrice: 39200, rating: 4.8, reviewCount: 34,
@@ -1183,11 +1183,6 @@ export const SEED_PRODUCTS = [
 
 ];
 
-export const GUILDS = [
-  { key: 'pashmina',     label: 'Pashmina & Kani Guild' },
-  { key: 'walnut',       label: 'Walnut Woodcarving' },
-  { key: 'papier-mache', label: 'Papier-Mache Art' },
-  { key: 'silk-rugs',    label: 'Silk-on-Silk Rugs' },
-  { key: 'kani',         label: 'Kani Jamawar' },
-  { key: 'sozni',        label: 'Sozni Embroidery' }
-];
+/* The guild list lives in data/guilds.js and nowhere else. A second copy here
+   had drifted: it still advertised Kani and Sozni as guilds alongside
+   Pashmina. One taxonomy, one file. */

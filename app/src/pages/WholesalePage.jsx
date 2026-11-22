@@ -4,6 +4,7 @@ import PortalScope from '../components/PortalScope.jsx';
 import { useStore } from '../state/StoreContext';
 import { formatINR, loadStorage, saveStorage } from '../utils/legacy';
 import { appHref } from '../utils/href.js';
+import { asset } from '../utils/legacy.js';
 
 /* ==========================================================================
    WholesalePage
@@ -119,7 +120,12 @@ export default function WholesalePage() {
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
     return catalogue.filter((p) => {
-      if (category !== 'all' && p.guild !== category) return false;
+      /* Kani and Sozni are techniques of the pashmina guild, so they are
+         matched against p.technique while the four guilds match p.guild. */
+      const TECHNIQUES = ['kani', 'sozni', 'handwoven'];
+      if (TECHNIQUES.includes(category)) {
+        if (p.guild !== 'pashmina' || p.technique !== category) return false;
+      } else if (category !== 'all' && p.guild !== category) return false;
       if (!q) return true;
       const hay = `${p.title} ${p.artisan} ${p.district} ${p.giId} ${p.guildLabel || ''}`.toLowerCase();
       return hay.includes(q);
@@ -397,9 +403,15 @@ export default function WholesalePage() {
             <button type="button"
               className={`wp-cat-pill${category === 'silk-rugs' ? ' active' : ''}`}
               data-cat="silk-rugs" onClick={() => setCategory('silk-rugs')}>Silk Rugs</button>
+            {/* Kani and Sozni are techniques inside the pashmina guild, not
+                product categories of their own. This pill used to filter on a
+                guild id that no longer exists and returned an empty list. */}
+            <button type="button"
+              className={`wp-cat-pill${category === 'kani' ? ' active' : ''}`}
+              data-cat="kani" onClick={() => setCategory('kani')}>Kani Weave</button>
             <button type="button"
               className={`wp-cat-pill${category === 'sozni' ? ' active' : ''}`}
-              data-cat="sozni" onClick={() => setCategory('sozni')}>Kani &amp; Sozni</button>
+              data-cat="sozni" onClick={() => setCategory('sozni')}>Sozni Embroidery</button>
           </div>
 
           <div className="wp-search-row">
@@ -419,7 +431,7 @@ export default function WholesalePage() {
                   className={`wp-prod-option${p.id === selected.id ? ' selected' : ''}`}
                   onClick={() => setSelectedId(p.id)}
                 >
-                  <img src={p.image} alt={p.title} className="wp-prod-thumb" />
+                  <img src={asset(p.image)} alt={p.title} className="wp-prod-thumb" />
                   <div className="wp-prod-meta">
                     <div className="wp-prod-title">{p.title}</div>
                     <div className="wp-prod-artisan">Artisan: {p.artisan} ({p.district})</div>
@@ -438,7 +450,7 @@ export default function WholesalePage() {
               <>
                 <div className="wp-target-badge">Direct Routing → Specified HunarLink Seller (Artisan)</div>
                 <div className="wp-target-header">
-                  <img src={selected.image} alt={selected.title} className="wp-target-img" />
+                  <img src={asset(selected.image)} alt={selected.title} className="wp-target-img" />
                   <div>
                     <div className="wp-target-name">{selected.title}</div>
                     <div className="wp-target-artisan-row">

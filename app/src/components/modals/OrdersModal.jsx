@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
-import { formatINR } from '../../utils/legacy.js';
+import { formatINR, asset } from '../../utils/legacy.js';
 import Modal from '../Modal.jsx';
 import { IconPackage } from '../../components/LineIcons.jsx';
 
@@ -104,7 +104,7 @@ export default function OrdersModal() {
                       >
                         {it.image && (
                           <img
-                            src={it.image}
+                            src={asset(it.image)}
                             alt=""
                             style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: 6 }}
                           />

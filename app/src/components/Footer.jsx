@@ -11,11 +11,13 @@ import { useStore } from '../state/StoreContext.jsx';
    ========================================================================== */
 
 const GUILD_LINKS = [
-  { guild: 'pashmina', label: 'Pashmina & Kani Shawls' },
+  /* One entry per guild in the taxonomy. Kani and Sozni used to have their own
+     entry here; they are techniques inside the pashmina guild, so listing them
+     as siblings sent visitors to an empty filter. */
+  { guild: 'pashmina', label: 'Pashmina, Kani & Sozni Textiles' },
   { guild: 'walnut', label: 'Walnut Wood Carving' },
   { guild: 'papier-mache', label: 'Papier-M\u00e2ch\u00e9 & Naqash' },
-  { guild: 'silk-rugs', label: 'Silk-on-Silk Carpets' },
-  { guild: 'sozni', label: 'Sozni & Jamawar Guild' }
+  { guild: 'silk-rugs', label: 'Silk-on-Silk Carpets' }
 ];
 
 export default function Footer() {

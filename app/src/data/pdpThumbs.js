@@ -5,11 +5,24 @@
 const CERT = 'assets/products/thumb_cert.jpg';
 
 export function buildThumbnails(product, catalogue) {
-  const { id, guild, image } = product;
-  const pool = (exclude) =>
+  const { id, guild, technique, image } = product;
+  /* Prefer siblings made with the same technique, so a Kani shawl's strip does
+     not fill up with Sozni embroidery. Fall back to the wider guild when there
+     are too few technique siblings to fill the strip. */
+  const siblings = (sameTechnique) =>
     catalogue
-      .filter((x) => x.guild === guild && x.id !== exclude && x.image !== image)
+      .filter(
+        (x) =>
+          x.guild === guild &&
+          x.id !== id &&
+          x.image !== image &&
+          (!sameTechnique || x.technique === technique)
+      )
       .map((x) => x.image);
+  const pool = (exclude) => {
+    const tight = siblings(true);
+    return tight.length >= 2 ? tight : siblings(false);
+  };
 
   if (id === 'hl-waln-001') {
     return [
@@ -22,22 +35,26 @@ export function buildThumbnails(product, catalogue) {
   }
 
   if (guild === 'pashmina') {
+    /* The detail shot depends on HOW the shawl was made. Kani is a tapestry
+       weave, Sozni is needle embroidery, and a plain handwoven shawl is neither
+       — using the Kani border shot on a plain weave is a small lie a textile
+       judge would spot instantly. */
+    const detail =
+      technique === 'kani'
+        ? { label: 'Kani Weave Detail', img: 'assets/products/kani_03.jpg' }
+        : technique === 'sozni'
+        ? { label: 'Sozni Stitch Detail', img: 'assets/products/sozni_01.jpg' }
+        : { label: 'Weave Detail', img: 'assets/products/pashmina_detail.jpg' };
+
+    const spread = pool(id).slice(0, 2);
     return [
       { label: 'Draped Look', img: image },
-      { label: 'Weave Detail', img: 'assets/products/pashmina_detail.jpg' },
-      { label: 'Full Styling', img: 'assets/products/pashmina_02.jpg' },
-      { label: 'Kani Border', img: 'assets/products/kani_03.jpg' },
+      detail,
+      ...spread.map((img, i) => ({
+        label: i === 0 ? 'Full Styling' : 'Border Detail',
+        img
+      })),
       { label: 'GI Certificate', img: CERT }
-    ];
-  }
-
-  if (guild === 'kani' || guild === 'sozni') {
-    return [
-      { label: 'Model View', img: 'assets/products/kani_01.jpg' },
-      { label: 'Draped Style', img: 'assets/products/kani_02.jpg' },
-      { label: 'Weave Detail', img: 'assets/products/kani_03.jpg' },
-      { label: 'Border Detail', img: 'assets/products/kani_04.jpg' },
-      { label: 'Full Spread', img: 'assets/products/kani_05.jpg' }
     ];
   }
 
@@ -77,15 +94,22 @@ export function buildThumbnails(product, catalogue) {
 }
 
 /* Technique and specification strings, likewise lifted from initPDP(). */
-export function techniqueTag(guild) {
+export function techniqueTag(guild, technique) {
   if (guild === 'walnut') return 'HAND-CARVED';
   if (guild === 'silk-rugs') return 'HAND-KNOTTED';
   if (guild === 'papier-mache') return 'NAQASH-LACQUERED';
+  /* A pashmina product is one of three things, and the badge should say which.
+     Labelling a Kani tapestry "HAND-WOVEN" is technically true and useless. */
+  if (technique === 'kani') return 'KANI TAPESTRY WEAVE';
+  if (technique === 'sozni') return 'SOZNI NEEDLE EMBROIDERY';
+  if (guild === 'pashmina' && technique === 'handwoven') return 'HAND-WOVEN PASHMINA';
   return 'HAND-WOVEN';
 }
 
-export function techniqueSpec(guild, purityMetric) {
+export function techniqueSpec(guild, purityMetric, technique) {
   if (guild === 'walnut') return 'Deep Relief & Openwork Jali / Pinjrakari';
+  if (technique === 'kani') return 'Twilled Tapestry Weave, 1,200 Shuttle Hours or Longer';
+  if (technique === 'sozni') return 'Fine Needle Embroidery in Silk Thread on Hand-Spun Base';
   if (guild === 'pashmina') return '100% Hand-Spun Loom Weave';
   return purityMetric;
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
 import Modal from '../Modal.jsx';
+import { asset } from '../../utils/legacy.js';
 
 /* ==========================================================================
    CompareModal — side-by-side craft comparison
@@ -43,7 +44,7 @@ export default function CompareModal() {
                 {compareItems.map((p) => (
                   <th key={p.id} style={{ minWidth: 180 }}>
                     <img
-                      src={p.image}
+                      src={asset(p.image)}
                       alt=""
                       style={{
                         width: '100%',

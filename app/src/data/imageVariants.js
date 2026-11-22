@@ -137,11 +137,18 @@ export function widthsFor(path) {
 }
 
 /* A ready-to-use srcSet string, or null when the path has no variants. */
+/* Resolve against Vite's BASE_URL, exactly like utils/legacy.js asset().
+   A bare relative path in a srcset is resolved against the *document* URL, not
+   the bundle, so /hunarlink/ was dropped and every candidate 404'd on
+   /assets/... — the card then fell back to its JPEG, also relative, also 404.
+   That is why the grid looked empty on a cold paint. */
+const BASE = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+
 export function srcSetFor(path) {
   const widths = VARIANTS[path];
   if (!widths || !widths.length) return null;
   const stem = path.replace(/\.(jpe?g|png)$/i, '');
-  return widths.map((w) => `${stem}-${w}.webp ${w}w`).join(', ');
+  return widths.map((w) => `${BASE}/${stem}-${w}.webp ${w}w`).join(', ');
 }
 
 export default VARIANTS;

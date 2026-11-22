@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useStore, PRICE_BOUNDS } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
 import ProductCard from '../ProductCard.jsx';
+import { CRAFT_FILTERS, TECHNIQUES, guildById, techniqueById } from '../../data/guilds.js';
 
 /* ==========================================================================
    MarketplaceSection — Featured Heirloom Treasures
@@ -18,13 +19,11 @@ import ProductCard from '../ProductCard.jsx';
 
 const LOADER_MIN_MS = 700;
 
-const CAT_PILLS = [
-  { id: 'pashmina', label: 'Pashmina' },
-  { id: 'walnut', label: 'Walnut' },
-  { id: 'papier-mache', label: 'Papier-M\u00e2ch\u00e9' },
-  { id: 'silk-rugs', label: 'Silk Rugs' },
-  { id: 'sozni', label: 'Kani & Sozni' }
-];
+/* Pills come from the guild taxonomy rather than a local copy, so the toolbar,
+   the footer links and the product breadcrumbs can never disagree about what
+   the guilds are. See data/guilds.js for why Kani and Sozni are no longer
+   their own entries here. */
+const CAT_PILLS = CRAFT_FILTERS;
 
 export default function MarketplaceSection() {
   const {
@@ -130,7 +129,9 @@ export default function MarketplaceSection() {
   const shown = filteredProducts.length;
 
   const chips = [];
-  if (f.guild !== 'all') chips.push(`Guild: ${f.guild.toUpperCase()}`);
+  if (f.guild !== 'all') chips.push(`Guild: ${guildById(f.guild)?.label || f.guild}`);
+  if (f.technique && f.technique !== 'all')
+    chips.push(`Technique: ${techniqueById(f.technique)?.label || f.technique}`);
   if (f.artisan) chips.push(`Artisan: ${f.artisan}`);
   if (f.query) chips.push(`Search: "${f.query}"`);
   if (f.maxPrice < PRICE_BOUNDS.max) chips.push(`Max: ${formatINR(f.maxPrice)}`);
@@ -162,6 +163,42 @@ export default function MarketplaceSection() {
             ))}
           </div>
         </div>
+
+        {/* Technique sub-filter. Only pashmina has techniques — Kani is a
+            weave and Sozni is embroidery, both applied to a pashmina base — so
+            this row appears only when that guild is active. Showing it against
+            Walnut would offer a "Kani walnut box", which does not exist. */}
+        {f.guild === 'pashmina' && (
+          <div className="technique-row" role="group" aria-label="Pashmina technique">
+            <span className="technique-row-label">Technique</span>
+            <button
+              type="button"
+              className={`technique-pill${f.technique === 'all' ? ' active' : ''}`}
+              aria-pressed={f.technique === 'all'}
+              onClick={() => runFilter({ technique: 'all' }, 'Showing all pashmina techniques\u2026')}
+            >
+              All
+            </button>
+            {TECHNIQUES.map((t) => (
+              <button
+                type="button"
+                key={t.id}
+                className={`technique-pill${f.technique === t.id ? ' active' : ''}`}
+                data-technique={t.id}
+                aria-pressed={f.technique === t.id}
+                title={t.blurb}
+                onClick={() =>
+                  runFilter(
+                    { technique: t.id },
+                    `Filtering by ${t.label}\u2026`
+                  )
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flipkart-filter-bar">
           <div className="filter-group filter-group-price">

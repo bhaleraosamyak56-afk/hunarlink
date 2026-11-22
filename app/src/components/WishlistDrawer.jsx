@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
-import { formatINR } from '../utils/legacy.js';
+import { formatINR, asset } from '../utils/legacy.js';;
 import Drawer, { DrawerHeader } from './Drawer.jsx';
 
 /* ==========================================================================
@@ -62,7 +62,7 @@ export default function WishlistDrawer() {
                     }}
                     aria-label={`Open ${p.title}`}
                   >
-                    <img loading="lazy" decoding="async" className="wl-thumb" src={p.image} alt="" />
+                    <img loading="lazy" decoding="async" className="wl-thumb" src={asset(p.image)} alt="" />
                     <span className="wl-copy">
                       <span className="wl-guild">{p.guildLabel}</span>
                       <span className="wl-title">{p.title}</span>
