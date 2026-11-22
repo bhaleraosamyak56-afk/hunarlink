@@ -42,7 +42,8 @@ with sync_playwright() as p:
     pg.click("#login-btn")
     pg.wait_for_timeout(500)
     roles = pg.evaluate(
-        "()=>[...document.querySelectorAll('.login-choice-card')].map(e=>e.dataset.role)")
+        "()=>[...document.querySelectorAll('#login-choice-modal [data-role]')]"
+        ".map(e=>e.dataset.role)")
     print()
     print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles}")
     br.close()

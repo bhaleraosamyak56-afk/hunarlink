@@ -49,7 +49,7 @@ function RoleIcon({ kind }) {
   if (kind === 'artisan') {
     /* a craft mark — the site already uses a spark for the artisan side */
     return (
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" aria-hidden="true">
         <path
           d="M12 2.6 13.85 9.1l6.55 1.9-6.55 1.9L12 19.4l-1.85-6.5L3.6 11l6.55-1.9z"
           fill="currentColor"
@@ -59,7 +59,7 @@ function RoleIcon({ kind }) {
     );
   }
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" aria-hidden="true">
       <circle cx="12" cy="8.1" r="3.6" stroke="currentColor" strokeWidth="1.7" />
       <path
         d="M4.9 20c0-3.5 3.2-5.6 7.1-5.6s7.1 2.1 7.1 5.6"
@@ -90,7 +90,7 @@ export default function LoginChoiceModal() {
     <Modal
       id="login-choice-modal"
       title="Sign in"
-      width="600px"
+      width="760px"
       variant="split"
       onClose={closeModal}
     >
