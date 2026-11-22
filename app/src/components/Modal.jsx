@@ -19,7 +19,7 @@ import { useStore } from '../state/StoreContext.jsx';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export default function Modal({ id, width, title, children, onClose }) {
+export default function Modal({ id, width, title, children, onClose, variant }) {
   const panelRef = useRef(null);
   const restoreTo = useRef(null);
 
@@ -71,7 +71,10 @@ export default function Modal({ id, width, title, children, onClose }) {
     >
       <div
         ref={panelRef}
-        className="modal-card"
+        /* `variant` is additive: the base shell is unchanged, so the modals
+           that already exist render exactly as they did. 'split' opts into the
+           light header treatment used by the login picker. */
+        className={`modal-card${variant ? ` modal-card--${variant}` : ''}`}
         style={width ? { maxWidth: width } : undefined}
         role="dialog"
         aria-modal="true"

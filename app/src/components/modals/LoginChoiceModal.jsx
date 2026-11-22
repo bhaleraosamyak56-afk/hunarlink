@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import Modal from '../Modal.jsx';
-import { ArrowRight, ShieldCheck } from '../Icons.jsx';
+import { ArrowRight } from '../Icons.jsx';
 
 /* ==========================================================================
    LoginChoiceModal — "who are you signing in as?"
@@ -28,37 +28,45 @@ const ROLES = [
   {
     id: 'collector',
     to: '/login',
-    icon: 'collector',
-    title: 'Sign in as a Collector',
-    body: 'Track orders, keep a wishlist, save addresses and follow the artisans you buy from.',
-    cta: 'Collector sign in'
+    title: 'Collector',
+    sub: 'Buy and collect',
+    body: 'Track orders, keep a wishlist, save delivery addresses and follow the artisans you buy from.',
+    cta: 'Continue as collector',
+    points: ['Orders', 'Wishlist']
   },
   {
     id: 'artisan',
     to: '/auth',
-    icon: 'artisan',
-    title: 'Sign in as an Artisan',
-    body: 'Manage your listings, respond to buyers and publish new crafts to the storefront.',
-    cta: 'Artisan sign in'
+    title: 'Artisan',
+    sub: 'Sell your craft',
+    body: 'Manage your listings, answer buyer questions and publish new crafts straight to the storefront.',
+    cta: 'Continue as artisan',
+    points: ['Listings', 'GI papers']
   }
 ];
 
 function RoleIcon({ kind }) {
   if (kind === 'artisan') {
-    /* a loom / craft mark — the site already uses ✦ for the artisan side */
+    /* a craft mark — the site already uses a spark for the artisan side */
     return (
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" aria-hidden="true">
-        <path d="M12 2.5 13.9 9l6.6 1.9-6.6 1.9L12 19.4l-1.9-6.6L3.5 10.9 10.1 9z"
-              fill="currentColor" opacity="0.9" />
-        <circle cx="19" cy="19" r="2.1" fill="currentColor" />
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+        <path
+          d="M12 2.6 13.85 9.1l6.55 1.9-6.55 1.9L12 19.4l-1.85-6.5L3.6 11l6.55-1.9z"
+          fill="currentColor"
+        />
+        <circle cx="18.9" cy="18.9" r="2" fill="currentColor" opacity="0.75" />
       </svg>
     );
   }
   return (
-    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" aria-hidden="true">
-      <circle cx="12" cy="8.2" r="3.7" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4.6 20.2c0-3.6 3.3-5.8 7.4-5.8s7.4 2.2 7.4 5.8"
-            stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8.1" r="3.6" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M4.9 20c0-3.5 3.2-5.6 7.1-5.6s7.1 2.1 7.1 5.6"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -72,34 +80,62 @@ export default function LoginChoiceModal() {
     navigate(to);
   };
 
-  /* a signed-in visitor should not be asked to sign in again without a way out,
-     so the current session gets an explicit escape at the bottom */
-  const signedIn = user && user.isLoggedIn;
-  const signedInRole = user?.role === 'artisan' ? 'an artisan' : 'a collector';
+  /* A signed-in visitor should not be asked to sign in again without a way
+     out, so the current session gets an explicit escape at the bottom. */
+  const signedIn = Boolean(user && user.isLoggedIn);
+  const who = user?.name || user?.fullName || 'your account';
+  const roleLabel = user?.role === 'artisan' ? 'an artisan' : 'a collector';
 
   return (
-    <Modal id="login-choice-modal" title="Sign in to HunarLink" width="520px" onClose={closeModal}>
-      <div className="modal-body login-choice-body">
-        <p className="login-choice-lede">
-          Choose how you want to continue. Your account decides what you see once you are in.
-        </p>
+    <Modal
+      id="login-choice-modal"
+      title="Sign in"
+      width="600px"
+      variant="split"
+      onClose={closeModal}
+    >
+      <div className="modal-body lc-body">
+        <header className="lc-intro">
+          <p className="lc-eyebrow">Choose your account type</p>
+          <h2 className="lc-heading">How would you like to continue?</h2>
+          <p className="lc-lede">
+            Pick the side of the marketplace you are signing in to. You can hold both
+            accounts with the same email address.
+          </p>
+        </header>
 
-        <div className="login-choice-grid">
+        <div className="lc-options" role="list">
           {ROLES.map((role) => (
             <button
               key={role.id}
               type="button"
-              className="login-choice-card"
+              role="listitem"
+              className="lc-option"
               id={`login-choice-${role.id}`}
               data-role={role.id}
               onClick={() => go(role.to)}
             >
-              <span className="login-choice-icon" aria-hidden="true">
-                <RoleIcon kind={role.icon} />
+              <span className="lc-option-top">
+                <span className="lc-icon" aria-hidden="true">
+                  <RoleIcon kind={role.id} />
+                </span>
+                <span className="lc-option-heads">
+                  <span className="lc-option-title">{role.title}</span>
+                  <span className="lc-option-sub">{role.sub}</span>
+                </span>
               </span>
-              <span className="login-choice-title">{role.title}</span>
-              <span className="login-choice-body-text">{role.body}</span>
-              <span className="login-choice-cta">
+
+              <span className="lc-option-body">{role.body}</span>
+
+              <span className="lc-points">
+                {role.points.map((p) => (
+                  <span className="lc-point" key={p}>
+                    {p}
+                  </span>
+                ))}
+              </span>
+
+              <span className="lc-cta">
                 {role.cta}
                 <ArrowRight size={14} />
               </span>
@@ -107,20 +143,22 @@ export default function LoginChoiceModal() {
           ))}
         </div>
 
-        <p className="login-choice-foot">
-          <ShieldCheck size={14} />
-          <span>
+        <div className="lc-assurance">
+          <span className="lc-assurance-mark" aria-hidden="true">
+            &#10003;
+          </span>
+          <p>
             Every artefact carries a GI tag you can verify. Artisans are reviewed against
             the Valley Verification Flow before they can list.
-          </span>
-        </p>
+          </p>
+        </div>
 
         {signedIn && (
-          <p className="login-choice-session">
-            You are currently signed in as {signedInRole} &mdash; <strong>{user.name || user.fullName}</strong>.{' '}
+          <p className="lc-session">
+            Signed in as {roleLabel} &mdash; <strong>{who}</strong>.{' '}
             <button
               type="button"
-              className="login-choice-signout"
+              className="lc-signout"
               id="login-choice-signout"
               onClick={() => {
                 /* the store has no dedicated sign-out action; clearing the
