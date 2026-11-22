@@ -47,7 +47,7 @@ with sync_playwright() as p:
     pg.goto(B + "/login", wait_until="networkidle")
     pg.wait_for_timeout(900)
     roles = pg.evaluate(
-        "()=>[...document.querySelectorAll('.role-opt')]"
+        "()=>[...document.querySelectorAll('.seg-btn')]"
         ".map(e=>e.id.replace('role-',''))")
     print()
     print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles}")

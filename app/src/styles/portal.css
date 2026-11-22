@@ -4954,216 +4954,318 @@ html.portal-wholesale body {
    what they need; restoring the tokens above is the whole job. */
 
 /* ==========================================================================
-   Login page — role cards, artisan verification paths
+   Login page — account surfaces
    --------------------------------------------------------------------------
-   Everything here is scoped to .login-card / .login-right so it cannot leak
-   onto the seller, admin or profile surfaces that share portal.css. The
-   .modal-card lesson: scope by ancestry, never by bare element.
+   Scoped to .login-card so nothing here reaches the seller, admin or profile
+   screens that share portal.css.
+
+   The page previously read as machine-assembled: emoji standing in for icons,
+   every control boxed with a border, three type sizes competing above the
+   fold, and a heading that repeated what the tabs already said. What replaces
+   it:
+     - one stroke-icon set, inheriting colour (components/LineIcons.jsx)
+     - the role choice is a segmented control, not two decorated cards
+     - sign in / create account is an underlined tab pair, not a filled bar
+     - verification paths are a numbered list with rules, not stacked boxes
+     - exactly two weights of emphasis per screen instead of five
    ========================================================================== */
 
-.login-card .role-label {
-  font-size: 0.68rem;
-  letter-spacing: 0.13em;
+/* ---- left rail ---- */
+.login-card .login-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: 800;
-  color: var(--text-500);
-  margin: 0 0 8px;
-}
-
-.login-card .role-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 9px;
+  color: #E8B27C;
+  border: 1px solid rgba(232, 178, 124, 0.32);
+  border-radius: 999px;
+  padding: 4px 11px 4px 9px;
   margin-bottom: 18px;
 }
 
-.login-card .role-opt {
-  position: relative;
+.login-card .login-perks {
+  margin-top: auto;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  text-align: left;
-  padding: 11px 13px;
-  background: #FFFFFF;
-  border: 1.5px solid var(--border-light);
-  border-radius: 11px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
 }
 
-.login-card .role-opt:hover {
-  border-color: var(--border-mid);
-  background: #FCFBF6;
+.login-card .login-perks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 0;
+  font-size: 0.775rem;
+  line-height: 1.5;
+  color: #CFE0D7;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
 }
 
-.login-card .role-opt.is-on {
-  border-color: var(--forest-700);
-  background: var(--forest-50);
-  box-shadow: 0 0 0 3px rgba(31, 78, 59, 0.1);
+.login-card .login-perks li svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #E8B27C;
+  opacity: 0.92;
 }
 
-.login-card .role-row {
+/* ---- form heading ---- */
+.login-card .login-head {
+  margin-bottom: 18px;
+}
+
+.login-card .login-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.3rem, 1.7vw, 1.55rem);
+  font-weight: 700;
+  line-height: 1.22;
+  color: var(--heading-color);
+  margin: 0 0 5px;
+  letter-spacing: -0.005em;
+}
+
+.login-card .login-sub {
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: var(--text-500);
+  margin: 0;
+  max-width: 46ch;
+  text-wrap: pretty;
+}
+
+/* ---- segmented account control ---- */
+.login-card .seg {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.login-card .role-ico {
-  width: 24px;
-  height: 24px;
+.login-card .seg-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-500);
+  flex: 0 0 auto;
+  padding-top: 1px;
+}
+
+.login-card .seg-track {
+  display: flex;
+  flex: 1;
+  background: var(--bg-ivory-alt);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.login-card .seg-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 0;
   border-radius: 6px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 24px;
-  background: var(--forest-900);
-  color: #FFFFFF;
-  font-size: 0.72rem;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.755rem;
+  font-weight: 600;
+  color: var(--text-500);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
-.login-card .role-ico-artisan {
-  background: #FBE9DC;
+.login-card .seg-btn:hover {
+  color: var(--forest-800);
+}
+
+.login-card .seg-btn.is-on {
+  background: #FFFFFF;
+  color: var(--forest-900);
+  box-shadow: 0 1px 2px rgba(18, 33, 27, 0.13);
+}
+
+.login-card .seg-btn.is-on svg {
   color: var(--btn-orange);
 }
 
-.login-card .role-title {
-  font-family: var(--font-serif);
-  font-size: 1.16rem;
-  font-weight: 700;
-  color: var(--forest-900);
-  line-height: 1;
+/* ---- sign in / create account: quiet tabs with a rule ---- */
+.login-card .login-tabs {
+  display: flex;
+  gap: 22px;
+  /* the base .login-tabs rule paints a full 1px box; clear it before
+     re-drawing only the bottom rule */
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 18px;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.login-card .role-desc {
-  font-size: 0.7rem;
+.login-card .login-tab-btn {
+  position: relative;
+  border: 0;
+  outline: none;
+  background: none;
+  border-radius: 0;
+  padding: 0 0 9px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--text-500);
-  line-height: 1.4;
-  margin-left: 32px;
+  cursor: pointer;
+  transition: color 0.15s;
 }
 
-.login-card .role-tick {
+.login-card .login-tab-btn:hover {
+  color: var(--forest-800);
+}
+
+.login-card .login-tab-btn.active {
+  color: var(--forest-900);
+  font-weight: 700;
+  background: none;
+  box-shadow: none;
+}
+
+.login-card .login-tab-btn.active::after {
+  content: "";
   position: absolute;
-  top: 9px;
-  right: 9px;
-  width: 16px;
-  height: 16px;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--btn-orange);
+}
+
+/* ---- verification: numbered list, no boxes ---- */
+.login-card .verify-head {
+  margin: 18px 0 2px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-light);
+}
+
+.login-card .verify-head-title {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--forest-900);
+  margin-bottom: 3px;
+}
+
+.login-card .verify-head-sub {
+  display: block;
+  font-size: 0.735rem;
+  line-height: 1.5;
+  color: var(--text-500);
+}
+
+.login-card .path-list {
+  display: flex;
+  flex-direction: column;
+  margin: 5px 0 13px;
+}
+
+.login-card .path-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 2px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.14s;
+}
+
+.login-card .path-opt:last-child {
+  border-bottom: 0;
+}
+
+.login-card .path-opt:hover {
+  background: rgba(247, 245, 238, 0.7);
+}
+
+.login-card .path-opt.is-on {
+  background: none;
+}
+
+.login-card .path-dot {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
   border-radius: 50%;
   border: 1.5px solid var(--border-mid);
   background: #FFFFFF;
   display: grid;
   place-items: center;
-  font-size: 0.55rem;
-  color: transparent;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  color: #FFFFFF;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.login-card .role-opt.is-on .role-tick {
+.login-card .path-opt.is-on .path-dot {
   background: var(--forest-700);
   border-color: var(--forest-700);
-  color: #FFFFFF;
-}
-
-/* ---- field hint ---- */
-.login-card .field-hint {
-  font-size: 0.72rem;
-  color: var(--text-500);
-  line-height: 1.45;
-  margin-top: 5px;
-}
-
-/* ---- "how shall we verify your craft" ---- */
-.login-card .verify-head {
-  margin: 16px 0 9px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--border-light);
-}
-
-.login-card .verify-head-title {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: var(--forest-900);
-  margin-bottom: 2px;
-}
-
-.login-card .verify-head-sub {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--text-500);
-}
-
-/* ---- the three verification paths ---- */
-.login-card .path-list {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-bottom: 12px;
-}
-
-.login-card .path-opt {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  padding: 10px 12px;
-  background: #FFFFFF;
-  border: 1.5px solid var(--border-light);
-  border-radius: 10px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.16s, background 0.16s;
-}
-
-.login-card .path-opt:hover {
-  border-color: var(--border-mid);
-}
-
-.login-card .path-opt.is-on {
-  border-color: var(--forest-700);
-  background: var(--forest-50);
-}
-
-.login-card .path-ico {
-  font-size: 0.95rem;
-  line-height: 1;
-  flex: 0 0 auto;
 }
 
 .login-card .path-body {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  flex: 1;
   min-width: 0;
 }
 
 .login-card .path-title {
-  font-size: 0.79rem;
+  font-size: 0.775rem;
   font-weight: 700;
   color: var(--forest-900);
+  line-height: 1.35;
+}
+
+.login-card .path-opt.is-on .path-title {
+  color: var(--forest-800);
 }
 
 .login-card .path-blurb {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
   color: var(--text-500);
-  line-height: 1.4;
 }
 
-.login-card .path-dot {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-mid);
-  background: #FFFFFF;
+/* ---- field hint ---- */
+.login-card .field-hint {
+  font-size: 0.715rem;
+  line-height: 1.5;
+  color: var(--text-500);
+  margin-top: 5px;
 }
 
-.login-card .path-opt.is-on .path-dot {
-  border-color: var(--forest-700);
-  border-width: 4px;
+.login-card .field-hint strong {
+  color: var(--text-700);
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
-/* ---- reference code row ---- */
+/* ---- reference code ---- */
 .login-card .ref-row {
   display: flex;
   gap: 8px;
@@ -5172,21 +5274,21 @@ html.portal-wholesale body {
 
 .login-card .ref-input {
   flex: 1;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   font-weight: 600;
   text-transform: uppercase;
 }
 
 .login-card .ref-btn {
   flex: 0 0 auto;
-  padding: 0 18px;
-  border-radius: 9px;
-  border: 1.5px solid var(--forest-700);
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--forest-800);
   background: var(--forest-900);
   color: #FFF6E8;
   font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.755rem;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.16s;
 }
@@ -5198,17 +5300,24 @@ html.portal-wholesale body {
 .login-card .ref-result {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   margin-top: 9px;
   padding: 10px 12px;
-  border-radius: 9px;
-  font-size: 0.74rem;
-  line-height: 1.45;
+  border-radius: 7px;
+  font-size: 0.73rem;
+  line-height: 1.5;
 }
 
 .login-card .ref-result strong {
-  font-size: 0.78rem;
-  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.755rem;
+  font-weight: 700;
+}
+
+.login-card .ref-result strong svg {
+  flex: 0 0 auto;
 }
 
 .login-card .ref-result.ok {
@@ -5222,9 +5331,13 @@ html.portal-wholesale body {
 }
 
 .login-card .ref-result.bad {
-  background: #FDF1EC;
-  border: 1px solid #F5CDBE;
+  background: #FDF2ED;
+  border: 1px solid #F3D2C3;
   color: #8A3416;
+}
+
+.login-card .ref-result.bad strong {
+  color: #7A2E12;
 }
 
 .login-card .ref-note {
@@ -5233,23 +5346,27 @@ html.portal-wholesale body {
   margin-top: 2px;
 }
 
-/* ---- probation path ---- */
+/* ---- probation ---- */
 .login-card .probation-note {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   padding: 11px 13px;
-  border-radius: 10px;
-  background: #FDF7EA;
-  border: 1px solid #EBD9B0;
+  border-radius: 8px;
+  background: #FBF7EC;
+  border: 1px solid #E8DBBB;
   font-size: 0.73rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #6B4E13;
 }
 
 .login-card .probation-note strong {
-  color: #5A3F0B;
-  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #573E0C;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .login-card .probation-note em {
@@ -5257,26 +5374,29 @@ html.portal-wholesale body {
   font-weight: 700;
 }
 
-/* ---- sign in / create account swap line ---- */
+/* ---- swap line ---- */
 .login-card .login-swap {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 13px;
   border-top: 1px solid var(--border-light);
-  font-size: 0.78rem;
+  font-size: 0.775rem;
   color: var(--text-500);
 }
 
 .login-card .login-swap-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 0;
   background: none;
   padding: 0;
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.775rem;
   font-weight: 700;
   color: var(--btn-orange);
   cursor: pointer;
@@ -5286,8 +5406,30 @@ html.portal-wholesale body {
   text-decoration: underline;
 }
 
+.login-card .login-swap-link svg {
+  transition: transform 0.15s;
+}
+
+/* the submit button carries a label and an arrow, so it needs a flex row */
+.login-card button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-card .login-swap-link:hover svg {
+  transform: translateX(2px);
+}
+
 @media (max-width: 560px) {
-  .login-card .role-grid {
-    grid-template-columns: 1fr;
+  .login-card .seg {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .login-card .seg-label {
+    padding-top: 0;
   }
 }

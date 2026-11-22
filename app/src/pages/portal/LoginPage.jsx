@@ -2,6 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
+import {
+  IconUser,
+  IconSpark,
+  IconLogin,
+  IconUserPlus,
+  IconHandshake,
+  IconBadgeCheck,
+  IconSeedling,
+  IconTruck,
+  IconShield,
+  IconBookmark,
+  IconArrowRight,
+  IconCheck,
+  IconX
+} from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { appHref } from '../../utils/href.js';
 
@@ -66,21 +81,18 @@ const REFERENCE_REGISTRY = {
 const PATHS = {
   reference: {
     key: 'reference',
-    icon: '\u{1F91D}',
-    title: 'Guild Reference Code',
-    blurb: 'An existing artisan or guild member vouches for you.'
+    title: 'Guild reference code',
+    blurb: 'An artisan or guild office vouches for you. Fastest route.'
   },
   craftmark: {
     key: 'craftmark',
-    icon: '\u2702\uFE0F',
-    title: 'Craftmark / UID Card',
-    blurb: 'Have a Craft Development Institute identity number?'
+    title: 'Craftmark or CDI number',
+    blurb: 'You are already on the Craft Development Institute register.'
   },
   new: {
     key: 'new',
-    icon: '\u{1F331}',
-    title: 'New & Unregistered',
-    blurb: 'First time online. Start on Probation and get verified by video.'
+    title: 'Not registered yet',
+    blurb: 'Begin today and verify by video once you are taking orders.'
   }
 };
 
@@ -477,10 +489,12 @@ export default function LoginPage() {
             </div>
           </a>
           <nav className="up-nav-links">
-            <a href={appHref('/')} className="up-nav-pill">🏠 Storefront</a>
-            <a href={appHref('/profile')} className="up-nav-pill">👤 My Profile</a>
-            <a href={appHref('/orders')} className="up-nav-pill">📦 Track Orders</a>
-            <a href={appHref('/login')} className="up-nav-pill active" id="nav-auth-pill">🔐 User Login</a>
+            <a href={appHref('/')} className="up-nav-pill">Storefront</a>
+            <a href={appHref('/profile')} className="up-nav-pill">My Profile</a>
+            <a href={appHref('/orders')} className="up-nav-pill">Track Orders</a>
+            <a href={appHref('/login')} className="up-nav-pill active" id="nav-auth-pill">
+              <IconLogin size={13} /> My Account
+            </a>
           </nav>
         </div>
       </header>
@@ -490,9 +504,9 @@ export default function LoginPage() {
         <section className="login-card">
           <div className="login-left">
             <div>
-              <div
-                style={{display: 'inline-block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#FFB46B', border: '1px solid rgba(255,180,107,0.4)', borderRadius: '999px', padding: '4px 12px', marginBottom: '16px'}}>
-                ✦ HUNARLINK COLLECTOR ACCOUNT
+              <div className="login-pill" id="left-pill">
+                <IconSpark size={11} />
+                {role === 'artisan' ? 'Artisan account' : 'Collector account'}
               </div>
               <h1 id="left-heading">
                 {role === 'artisan'
@@ -505,55 +519,78 @@ export default function LoginPage() {
                       ? 'Sign in to manage your listings, answer buyer questions and publish new work straight to the storefront.'
                       : 'List your crafts, get verified against the Valley Verification Flow, and reach connoisseurs without middlemen.')
                   : (isSignin
-                      ? 'Sign in to customize your personal profile, manage saved delivery addresses, track your GI-certified Kashmiri handicraft orders live, and protect every purchase with HunarLink Escrow.'
-                      : 'Join HunarLink to follow every loom hour, verify GI provenance at your doorstep, and keep your acquisition history in one collector archive.')}
+                      ? 'Track every order from the loom, keep your addresses on file, and buy under HunarLink Escrow.'
+                      : 'Follow each piece from the maker\u2019s hands to your door, with its provenance on record.')}
               </p>
             </div>
 
-            <div className="login-perks">
-              <div className="login-perk-item"><span>📦</span> Live 5-stage order tracking &amp; GI invoices</div>
-              <div className="login-perk-item"><span>👤</span> Full Flipkart-style profile &amp; address manager</div>
-              <div className="login-perk-item"><span>🛡️</span> 100% GI-verified crafts with doorstep QR check</div>
-            </div>
+            <ul className="login-perks">
+              {role === 'artisan' ? (
+                <>
+                  <li><IconTruck size={14} /> Publish listings and track every order in one workspace</li>
+                  <li><IconBadgeCheck size={14} /> Guild and GI credentials carried on your storefront</li>
+                  <li><IconShield size={14} /> Buyer payments held in escrow until you ship</li>
+                </>
+              ) : (
+                <>
+                  <li><IconTruck size={14} /> Five-stage order tracking with GI invoices</li>
+                  <li><IconBookmark size={14} /> Saved addresses and a collector wishlist</li>
+                  <li><IconShield size={14} /> GI-verified crafts, checked at your door</li>
+                </>
+              )}
+            </ul>
           </div>
 
           <div className="login-right">
-            {/* ---- Step 1: who is signing in (shared by both tabs) ---- */}
-            <p className="role-label" id="role-label">
-              {isSignin ? 'I\u2019m signing in as' : 'I\u2019m registering as'}
-            </p>
-            <div className="role-grid" role="group" aria-labelledby="role-label">
-              <button
-                type="button"
-                className={`role-opt${role === 'user' ? ' is-on' : ''}`}
-                id="role-user"
-                aria-pressed={role === 'user'}
-                onClick={() => switchRole('user')}
-              >
-                <span className="role-tick" aria-hidden="true">&#10003;</span>
-                <span className="role-row">
-                  <span className="role-ico">&#128100;</span>
-                  <span className="role-title">User</span>
-                </span>
-                <span className="role-desc">Buy and collect</span>
-              </button>
-              <button
-                type="button"
-                className={`role-opt${role === 'artisan' ? ' is-on' : ''}`}
-                id="role-artisan"
-                aria-pressed={role === 'artisan'}
-                onClick={() => switchRole('artisan')}
-              >
-                <span className="role-tick" aria-hidden="true">&#10003;</span>
-                <span className="role-row">
-                  <span className="role-ico role-ico-artisan">&#10022;</span>
-                  <span className="role-title">Artisan</span>
-                </span>
-                <span className="role-desc">Sell your craft</span>
-              </button>
+            {/* ---- who is signing in. A segmented control, not two cards:
+                    the choice is binary and permanent, so it reads as a setting
+                    rather than a step that needs decorating. ---- */}
+            <div className="login-head">
+              <h2 className="login-title" id="login-title">
+                {isSignin
+                  ? 'Sign in to your account'
+                  : role === 'artisan'
+                    ? 'Register your workshop'
+                    : 'Create your account'}
+              </h2>
+              <p className="login-sub" id="login-sub">
+                {isSignin
+                  ? role === 'artisan'
+                    ? 'Manage your listings, buyer questions and payouts.'
+                    : 'Track orders, save favourites and follow the makers you collect.'
+                  : role === 'artisan'
+                    ? 'Tell us about your craft. Verification never asks for a GSTIN.'
+                    : 'It takes a minute, and your addresses carry over to checkout.'}
+              </p>
             </div>
 
-            {/* ---- Step 2: sign in or create an account ---- */}
+            <div className="seg" role="group" aria-labelledby="role-label">
+              <span className="seg-label" id="role-label">Account</span>
+              <div className="seg-track">
+                <button
+                  type="button"
+                  className={`seg-btn${role === 'user' ? ' is-on' : ''}`}
+                  id="role-user"
+                  aria-pressed={role === 'user'}
+                  onClick={() => switchRole('user')}
+                >
+                  <IconUser size={14} />
+                  Collector
+                </button>
+                <button
+                  type="button"
+                  className={`seg-btn${role === 'artisan' ? ' is-on' : ''}`}
+                  id="role-artisan"
+                  aria-pressed={role === 'artisan'}
+                  onClick={() => switchRole('artisan')}
+                >
+                  <IconSpark size={14} />
+                  Artisan
+                </button>
+              </div>
+            </div>
+
+            {/* ---- sign in vs register: quiet tabs, underlined, not filled ---- */}
             <div className="login-tabs" role="tablist">
               <button
                 type="button"
@@ -563,7 +600,7 @@ export default function LoginPage() {
                 aria-selected={isSignin}
                 onClick={() => setMode('signin')}
               >
-                &#128273; Sign In
+                Sign in
               </button>
               <button
                 type="button"
@@ -573,7 +610,7 @@ export default function LoginPage() {
                 aria-selected={!isSignin}
                 onClick={() => setMode('signup')}
               >
-                &#10024; Create Account
+                Create account
               </button>
             </div>
 
@@ -658,11 +695,12 @@ export default function LoginPage() {
                   />
                   <span>Login with 6-Digit OTP instead</span>
                 </label>
-                <button type="button" className="btn-link-edit" onClick={demoLogin}>⚡ 1-Tap Demo Login (Priya)</button>
+                <button type="button" className="btn-link-edit" onClick={demoLogin}>Use demo account</button>
               </div>
 
               <button type="submit" className="btn-orange" style={{width: '100%', height: '46px'}}>
-                Sign In to My Account →
+                <span>Sign in</span>
+                <IconArrowRight size={15} />
               </button>
             </form>
 
@@ -737,7 +775,8 @@ export default function LoginPage() {
                   </div>
 
                   <button type="submit" className="btn-orange" style={{width: '100%', height: '46px', marginTop: '4px'}}>
-                    Create User Account &amp; Open Profile &#8594;
+                    <span>Create account</span>
+                    <IconArrowRight size={15} />
                   </button>
                 </>
               )}
@@ -790,11 +829,13 @@ export default function LoginPage() {
 
                   {/* ---- how we verify a maker without a GSTIN ---- */}
                   <div className="verify-head">
-                    <span className="verify-head-title">How shall we verify your craft?</span>
-                    <span className="verify-head-sub">No GSTIN needed &mdash; we verify provenance, not turnover.</span>
+                    <span className="verify-head-title">Craft verification</span>
+                    <span className="verify-head-sub">
+                      We check provenance, not turnover &mdash; no GSTIN required.
+                    </span>
                   </div>
 
-                  <div className="path-list" role="radiogroup" aria-label="Artisan verification path">
+                  <div className="path-list" role="radiogroup" aria-label="Craft verification method">
                     {Object.values(PATHS).map((p) => (
                       <button
                         type="button"
@@ -805,12 +846,13 @@ export default function LoginPage() {
                         id={`path-${p.key}`}
                         onClick={() => { setPath(p.key); setRefCheck(null); setRefMatch(null); }}
                       >
-                        <span className="path-ico">{p.icon}</span>
+                        <span className="path-dot" aria-hidden="true">
+                          {path === p.key && <IconCheck size={9} />}
+                        </span>
                         <span className="path-body">
                           <span className="path-title">{p.title}</span>
                           <span className="path-blurb">{p.blurb}</span>
                         </span>
-                        <span className="path-dot" aria-hidden="true" />
                       </button>
                     ))}
                   </div>
@@ -835,7 +877,7 @@ export default function LoginPage() {
 
                       {refCheck === 'ok' && refMatch && (
                         <div className="ref-result ok" id="ref-result" role="status">
-                          <strong>&#10003; Vouched for by {refMatch.artisan}</strong>
+                          <strong><IconBadgeCheck size={13} /> Vouched for by {refMatch.artisan}</strong>
                           <span>{refMatch.guild} &middot; {refMatch.district}</span>
                           <span className="ref-note">
                             The guild office will ring you to confirm before your shop goes live.
@@ -844,7 +886,7 @@ export default function LoginPage() {
                       )}
                       {refCheck === 'bad' && (
                         <div className="ref-result bad" id="ref-result" role="alert">
-                          <strong>&#10007; We could not verify that code</strong>
+                          <strong><IconX size={12} /> We could not verify that code</strong>
                           <span>{refMatch?.reason}</span>
                         </div>
                       )}
@@ -873,7 +915,7 @@ export default function LoginPage() {
 
                   {path === 'new' && (
                     <div className="probation-note" id="probation-note">
-                      <strong>&#127793; You can start today.</strong>
+                      <strong><IconSeedling size={13} /> You can start today.</strong>
                       <span>
                         Register now and list your work straight away. A verifier books a short
                         video call to watch you at the loom, and your shop shows a
@@ -894,7 +936,8 @@ export default function LoginPage() {
                   </div>
 
                   <button type="submit" className="btn-orange" style={{width: '100%', height: '46px', marginTop: '4px'}}>
-                    Create My Shop &#8594;
+                    <span>Create my shop</span>
+                    <IconArrowRight size={15} />
                   </button>
                 </>
               )}
@@ -909,7 +952,8 @@ export default function LoginPage() {
                 className="login-swap-link"
                 onClick={() => setMode(isSignin ? 'signup' : 'signin')}
               >
-                {isSignin ? 'Create account \u2192' : 'Sign in \u2192'}
+                {isSignin ? 'Create account' : 'Sign in'}
+                <IconArrowRight size={13} />
               </button>
             </div>
           </div>
