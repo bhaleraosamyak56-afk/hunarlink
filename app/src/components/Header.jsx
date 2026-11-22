@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { Heart, Bag, Search, Close } from './Icons.jsx';
 import { asset } from '../utils/legacy.js';
+import { scrollToSection } from '../utils/scrollToSection.js';
 
 /* ==========================================================================
    Header
@@ -114,12 +115,10 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
   const goSection = (section) => {
     if (location.pathname !== '/') {
       navigate('/');
-      setTimeout(() => {
-        document.getElementById(section)?.scrollIntoView({ behavior: 'smooth' });
-      }, 120);
+      setTimeout(() => scrollToSection(section), 120);
       return;
     }
-    document.getElementById(section)?.scrollIntoView({ behavior: 'smooth' });
+    scrollToSection(section);
   };
 
   const commitSearch = (value) => {

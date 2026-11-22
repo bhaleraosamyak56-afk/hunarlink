@@ -46,24 +46,62 @@ const SECTIONS = [
 export default function HomePage({ onSectionChange }) {
   const [active, setActive] = useState('home');
 
+  /* Which section owns the viewport, expressed as a question that does not
+     care when the section mounted.
+
+     This replaced an IntersectionObserver for two reasons, both measured:
+
+     1. The store, artisans and wholesale sections are lazy chunks. They did not
+        exist yet when this effect first ran, so the observer never watched the
+        marketplace at all. Scrolling into the grid left "Home" highlighted,
+        which is the complaint this fixes.
+
+     2. Even when watched, the store section is ~11,000 px tall. Inside a
+        -45%/45% band its intersection ratio is 0.008, which rounds to nothing
+        and loses to whichever short section fired last — the highlight stuck
+        on Home while the visitor stood in the middle of the grid.
+
+     Walking the sections on scroll answers the actual question instead: the
+     active section is the last one whose top has passed the middle of the
+     screen. That is true for a 500 px hero and an 11,000 px grid alike, and it
+     keeps working when a chunk mounts late. */
   useEffect(() => {
-    const nodes = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean);
-    if (!nodes.length) return;
+    let raf = null;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visible) return;
-        const match = SECTIONS.find((s) => s.id === visible.target.id);
-        if (match) setActive(match.nav);
-      },
-      { rootMargin: '-45% 0px -45% 0px', threshold: [0, 0.25, 0.5, 1] }
-    );
+    const compute = () => {
+      raf = null;
+      const mid = window.innerHeight / 2;
+      let best = SECTIONS[0].nav;
+      for (const s of SECTIONS) {
+        const el = document.getElementById(s.id);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= mid) best = s.nav;
+      }
+      setActive(best);
+    };
 
-    nodes.forEach((n) => observer.observe(n));
-    return () => observer.disconnect();
+    const schedule = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(compute);
+    };
+
+    compute();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+
+    /* The lazy sections arrive after this effect runs, so re-measure when the
+       page body gains children rather than assuming the first pass saw
+       everything. */
+    const body = document.getElementById('main-content') || document.body;
+    const mo = new MutationObserver(schedule);
+    mo.observe(body, { childList: true, subtree: true });
+
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      mo.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { asset, formatINR } from '../../utils/legacy.js';
 import { IconBadgeCheck, IconHandshake, IconMapPin, IconSearchScan, IconShield } from '../../components/LineIcons.jsx';
+import { scrollToSection } from '../../utils/scrollToSection.js';
 
 /* ==========================================================================
    HeroSection
@@ -67,8 +68,7 @@ export default function HeroSection() {
     return () => clearInterval(t);
   }, []);
 
-  const scrollTo = (id) =>
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  const scrollTo = (id) => scrollToSection(id);
 
   return (
     <section className="hero-section" id="hero-section">
