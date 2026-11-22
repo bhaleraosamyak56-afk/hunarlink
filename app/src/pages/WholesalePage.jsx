@@ -406,7 +406,7 @@ export default function WholesalePage() {
           </div>
 
           <div className="wp-search-row">
-            <input type="search" id="wp-product-search" className="wp-input"
+            <input type="search" id="wp-product-search" aria-label="Search wholesale products" className="wp-input"
               placeholder="Search by product name, artisan, district, or GI Tag..."
               value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>

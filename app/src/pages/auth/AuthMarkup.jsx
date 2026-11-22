@@ -74,7 +74,7 @@ export default function AuthMarkup(props) {
                   <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
               </span>
-              <input type="email" id="login-email" className="input-field" placeholder="Enter your email" required
+              <input type="email" id="login-email" aria-label="Email address" className="input-field" placeholder="Enter your email" required
                 value={login.email || ''} onChange={setLoginField('email')} />
             </div>
           </div>
@@ -90,7 +90,7 @@ export default function AuthMarkup(props) {
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
               </span>
-              <input type={pwType('login-password')} id="login-password" className="input-field" placeholder="Enter your password" required
+              <input type={pwType('login-password')} id="login-password" aria-label="Password" className="input-field" placeholder="Enter your password" required
                 value={login.password || ''} onChange={setLoginField('password')} />
               <button type="button" className="input-btn-eye" onClick={() => togglePw('login-password')}
                 aria-label="Toggle password visibility">
@@ -144,7 +144,7 @@ export default function AuthMarkup(props) {
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
                 </span>
-                <input type="text" id="artisan-reg-name" className="input-field" placeholder="Enter your full name"
+                <input type="text" id="artisan-reg-name" aria-label="Full name" className="input-field" placeholder="Enter your full name"
                   required value={reg.name || ''} onChange={setRegField('name')} />
               </div>
             </div>
@@ -155,7 +155,7 @@ export default function AuthMarkup(props) {
                 <div className="phone-prefix-box">
                   <span className="phone-prefix">🇮🇳 +91</span>
                 </div>
-                <input type="tel" id="artisan-reg-phone" className="input-field" placeholder="Enter mobile number" required value={reg.phone || ''} onChange={setRegField('phone')} />
+                <input type="tel" id="artisan-reg-phone" aria-label="Mobile number" className="input-field" placeholder="Enter mobile number" required value={reg.phone || ''} onChange={setRegField('phone')} />
               </div>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function AuthMarkup(props) {
                     <polyline points="22,6 12,13 2,6"></polyline>
                   </svg>
                 </span>
-                <input type="email" id="artisan-reg-email" className="input-field" placeholder="Enter your email" required value={reg.email || ''} onChange={setRegField('email')} />
+                <input type="email" id="artisan-reg-email" aria-label="Email address" className="input-field" placeholder="Enter your email" required value={reg.email || ''} onChange={setRegField('email')} />
               </div>
             </div>
 
@@ -186,7 +186,7 @@ export default function AuthMarkup(props) {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
                 </span>
-                <input type={pwType('artisan-reg-password')} id="artisan-reg-password" className="input-field" placeholder="Create strong password"
+                <input type={pwType('artisan-reg-password')} id="artisan-reg-password" aria-label="Password" className="input-field" placeholder="Create strong password"
                   required value={reg.password || ''} onChange={setRegField('password')} />
                 <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-password')}
                   aria-label="Toggle password">
@@ -212,7 +212,7 @@ export default function AuthMarkup(props) {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
                 </span>
-                <input type={pwType('artisan-reg-cpassword')} id="artisan-reg-cpassword" className="input-field" placeholder="Re-enter password"
+                <input type={pwType('artisan-reg-cpassword')} id="artisan-reg-cpassword" aria-label="Confirm password" className="input-field" placeholder="Re-enter password"
                   required value={reg.cpassword || ''} onChange={setRegField('cpassword')} />
                 <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-cpassword')}
                   aria-label="Toggle password">
@@ -237,7 +237,7 @@ export default function AuthMarkup(props) {
                     <rect x="3" y="14" width="7" height="7"></rect>
                   </svg>
                 </span>
-                <select id="artisan-reg-craft" className="input-field" required value={reg.craft || ''} onChange={setRegField('craft')} >
+                <select id="artisan-reg-craft" aria-label="Craft category" className="input-field" required value={reg.craft || ''} onChange={setRegField('craft')} >
                   <option value="" disabled>Select Craft Discipline</option>
                   <option value="walnut">Walnut Woodcarving</option>
                   <option value="pashmina">Pashmina &amp; Cashmere Weaving</option>
@@ -261,7 +261,7 @@ export default function AuthMarkup(props) {
                     <polyline points="9 22 9 12 15 12 15 22"></polyline>
                   </svg>
                 </span>
-                <input type="text" id="artisan-reg-business" className="input-field"
+                <input type="text" id="artisan-reg-business" aria-label="Business or atelier name" className="input-field"
                   placeholder="e.g. Wani Woodcraft Atelier" required value={reg.business || ''} onChange={setRegField('business')} />
               </div>
             </div>
@@ -276,7 +276,7 @@ export default function AuthMarkup(props) {
                     <circle cx="12" cy="10" r="3"></circle>
                   </svg>
                 </span>
-                <select id="artisan-reg-district" className="input-field" required value={reg.district || ''} onChange={setRegField('district')} >
+                <select id="artisan-reg-district" aria-label="District cluster" className="input-field" required value={reg.district || ''} onChange={setRegField('district')} >
                   <option value="" disabled>Select J&amp;K Cluster</option>
                   <option value="Srinagar">Srinagar (Old City Craft Corridor)</option>
                   <option value="Anantnag">Anantnag (Mattan Wood &amp; Loom Cluster)</option>
@@ -362,7 +362,7 @@ export default function AuthMarkup(props) {
                   📁 Upload Certificate Photo (No Camera)
                 </button>
                 <input
-                  type="file" id="cert-file-input" accept="image/*" style={{display: 'none'}}
+                  type="file" id="cert-file-input" aria-label="Upload GI certificate photo" accept="image/*" style={{display: 'none'}}
                   ref={(el) => setFileEl && setFileEl('cert', el)}
                   onChange={(e) => handleCaptureFile('cert', e)}
                 />
@@ -424,7 +424,7 @@ export default function AuthMarkup(props) {
                   📁 Upload Workshop Video (No Camera)
                 </button>
                 <input
-                  type="file" id="video-file-input" accept="video/*" style={{display: 'none'}}
+                  type="file" id="video-file-input" aria-label="Upload workshop video" accept="video/*" style={{display: 'none'}}
                   ref={(el) => setFileEl && setFileEl('video', el)}
                   onChange={(e) => handleCaptureFile('video', e)}
                 />
@@ -483,7 +483,7 @@ export default function AuthMarkup(props) {
                   📁 Upload Passport Photo (No Camera)
                 </button>
                 <input
-                  type="file" id="passport-file-input" accept="image/*" style={{display: 'none'}}
+                  type="file" id="passport-file-input" aria-label="Upload passport photo" accept="image/*" style={{display: 'none'}}
                   ref={(el) => setFileEl && setFileEl('passport', el)}
                   onChange={(e) => handleCaptureFile('passport', e)}
                 />
@@ -542,7 +542,7 @@ export default function AuthMarkup(props) {
                     <polyline points="22,6 12,13 2,6"></polyline>
                   </svg>
                 </span>
-                <input type="email" id="forgot-email" className="input-field" placeholder="Enter your registered email"
+                <input type="email" id="forgot-email" aria-label="Registered email address" className="input-field" placeholder="Enter your registered email"
                   value={forgotEmail} onChange={setForgotEmail} required />
               </div>
             </div>

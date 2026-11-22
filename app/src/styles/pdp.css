@@ -160,7 +160,8 @@
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      opacity: 0.9;
+      /* was 0.9 — that lifted --text-500 to ~4.24:1 on white, under AA */
+      opacity: 1;
     }
 
     /* the outline that shows WHICH patch of the photo is magnified */

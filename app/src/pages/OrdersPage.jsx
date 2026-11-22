@@ -158,6 +158,8 @@ export default function OrdersPage() {
       </header>
 
       <main className="up-container">
+
+        <h1 className="up-page-h1">Live Order Tracking</h1>
         <div className="orders-layout">
           <aside className="orders-filter-card">
             <div
@@ -288,7 +290,7 @@ export default function OrdersPage() {
             <div className="orders-search-bar">
               <input
                 type="text"
-                id="orders-search-input"
+                id="orders-search-input" aria-label="Search your orders"
                 className="up-input"
                 placeholder="Search your orders by Order ID, craft title, artisan, or GI ID..."
                 value={query}

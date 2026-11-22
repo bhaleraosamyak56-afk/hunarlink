@@ -152,7 +152,7 @@
 
       <form class="hs-composer" id="hs-composer">
         <div class="hs-input-wrap">
-          <input type="text" id="hs-input" class="hs-input" placeholder="Ask HunarSathi about HunarLink..." autocomplete="off" required>
+          <input type="text" id="hs-input" class="hs-input" aria-label="Ask HunarSathi a question" placeholder="Ask HunarSathi about HunarLink..." autocomplete="off" required>
         </div>
         <button type="submit" id="hs-send-btn" class="hs-send-btn">
           <span class="hs-send-inner">Ask</span>

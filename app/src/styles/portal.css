@@ -405,6 +405,18 @@ h1, h2, h3, h4 {
 /* ==========================================================================
    PAGE 2: FLIPKART-STYLE USER PROFILE LAYOUT
    ========================================================================== */
+/* The collector profile and order pages had no <h1>: their header brand shows
+   the page name visually, but nothing carried it as a heading, so assistive
+   tech announced no page title. This is that heading — visible, matching the
+   brand-sub it replaces, and one per page. */
+.up-page-h1 {
+  font-size: clamp(1.05rem, 1.4vw, 1.3rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--heading-color);
+  margin: 0 0 14px;
+}
+
 .up-container {
   width: 100%;
   max-width: min(1400px, 95vw);

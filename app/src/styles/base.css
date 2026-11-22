@@ -23,7 +23,7 @@
   --text-900: #13201A;
   --text-700: #3A4A42;
   --text-500: #63736A;
-  --text-400: #87968E;
+  --text-400: #66756E;   /* was #87968E — 3.10:1 on white, below AA. 4.84:1 on white, 4.56:1 on ivory. */
   --border-light: #E3DFD2;
   --border-mid: #CFC9B8;
   --danger-600: #C93B2B;

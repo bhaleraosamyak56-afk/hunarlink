@@ -146,7 +146,7 @@ export default function Footer() {
             >
               <input
                 type="email"
-                id="newsletter-email"
+                id="newsletter-email" aria-label="Your email address for the newsletter"
                 className="newsletter-input"
                 required
                 placeholder="Enter collector email..."

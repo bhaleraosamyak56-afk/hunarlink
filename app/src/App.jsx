@@ -25,6 +25,7 @@ import OrdersPage from './pages/OrdersPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import NotFound from './pages/NotFound.jsx';
 import SpaRedirect from './pages/SpaRedirect.jsx';
+import usePageTitle from './utils/usePageTitle.js';
 import LegacyRoutes from './pages/LegacyRoutes.jsx';
 
 /* ==========================================================================
@@ -43,6 +44,7 @@ export default function App() {
   const { ui } = useStore();
   const [activeSection, setActiveSection] = useState('home');
   const location = useLocation();
+  usePageTitle();
 
   const handleSection = useCallback((id) => setActiveSection(id), []);
   const onStorefront = location.pathname === '/' || location.pathname === '/index.html';
