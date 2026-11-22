@@ -562,13 +562,26 @@ export default function LoginPage() {
 
   /* Switching role keeps the flow honest: the buyer form and the artisan form
      write to different stores, so we reset the OTP branch on the way across. */
+  /* The tab is React state; only the role is mirrored into the URL. So this
+     must NOT re-derive the mode from ?mode= — after clicking "Create account"
+     the URL still said nothing, and re-deriving it dropped the user back onto
+     sign in every time they switched role. The mode is left untouched. */
   function switchRole(next) {
     setUseOtp(false);
     setSignin({ identifier: '', password: '', otp: '' });
-    setMode(params.get('mode') === 'signup' ? 'signup' : 'signin');
     const nextParams = new URLSearchParams(params);
     if (next === 'artisan') nextParams.set('role', 'artisan');
     else nextParams.delete('role');
+    setParams(nextParams, { replace: true });
+  }
+
+  /* Switching tabs keeps the URL honest as well, so a refresh or a shared link
+     lands on the tab the sender was looking at. */
+  function switchMode(next) {
+    setMode(next);
+    const nextParams = new URLSearchParams(params);
+    if (next === 'signup') nextParams.set('mode', 'signup');
+    else nextParams.delete('mode');
     setParams(nextParams, { replace: true });
   }
 
@@ -748,7 +761,7 @@ export default function LoginPage() {
                 id="tab-signin"
                 role="tab"
                 aria-selected={isSignin}
-                onClick={() => setMode('signin')}
+                onClick={() => switchMode('signin')}
               >
                 Sign in
               </button>
@@ -758,7 +771,7 @@ export default function LoginPage() {
                 id="tab-signup"
                 role="tab"
                 aria-selected={!isSignin}
-                onClick={() => setMode('signup')}
+                onClick={() => switchMode('signup')}
               >
                 Create account
               </button>
@@ -1133,7 +1146,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="login-swap-link"
-                onClick={() => setMode(isSignin ? 'signup' : 'signin')}
+                onClick={() => switchMode(isSignin ? 'signup' : 'signin')}
               >
                 {isSignin ? 'Create account' : 'Sign in'}
                 <IconArrowRight size={13} />
