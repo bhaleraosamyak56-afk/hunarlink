@@ -1,0 +1,239 @@
+/* -------------------------------------------------------------------------
+   Artisan directory — /artisans
+   ------------------------------------------------------------------------- */
+.artisan-directory-page {
+  min-height: 65vh;
+  background: var(--bg-ivory);
+  color: var(--text-900);
+}
+
+.artisan-directory-wrap {
+  max-width: 1440px;
+}
+
+.artisan-directory-hero {
+  padding: clamp(28px, 4vw, 56px) 0 30px;
+  border-bottom: 1px solid var(--border-light);
+  background: rgba(250, 249, 245, 0.88);
+}
+
+.artisan-directory-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  color: var(--text-500);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.artisan-directory-back:hover {
+  color: var(--heading-color);
+}
+
+.artisan-directory-back span {
+  font-size: 1rem;
+}
+
+.artisan-directory-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.artisan-directory-kicker {
+  margin: 0 0 8px;
+  color: var(--forest-700);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.artisan-directory-heading h1 {
+  margin: 0;
+  color: var(--heading-color);
+  font-family: var(--font-serif);
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.artisan-directory-intro {
+  max-width: 620px;
+  margin: 14px 0 0;
+  color: var(--text-500);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+
+.artisan-directory-count {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-500);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.artisan-directory-count strong {
+  color: var(--heading-color);
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.artisan-directory-list {
+  padding: clamp(26px, 4vw, 48px) 0 clamp(48px, 7vw, 88px);
+}
+
+.artisan-directory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.artisan-directory-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(17, 42, 32, 0.045);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.artisan-directory-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--btn-orange-border);
+  box-shadow: 0 14px 30px rgba(17, 42, 32, 0.09);
+}
+
+.artisan-directory-image {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--bg-ivory-alt);
+}
+
+.artisan-directory-image picture,
+.artisan-directory-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.artisan-directory-image img {
+  object-fit: cover;
+  object-position: center 35%;
+  transition: transform 0.35s ease;
+}
+
+.artisan-directory-card:hover .artisan-directory-image img {
+  transform: scale(1.025);
+}
+
+.artisan-directory-featured {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
+  background: rgba(11, 30, 22, 0.76);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+}
+
+.artisan-directory-card-body {
+  padding: 17px 18px 18px;
+}
+
+.artisan-directory-craft {
+  margin: 0 0 6px;
+  color: var(--heading-accent);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.artisan-directory-card h2 {
+  margin: 0;
+  color: var(--forest-950);
+  font-family: var(--font-serif);
+  font-size: clamp(1.2rem, 1.8vw, 1.55rem);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.artisan-directory-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-light);
+  color: var(--text-500);
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+.artisan-directory-empty {
+  margin: 0;
+  padding: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text-500);
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .artisan-directory-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .artisan-directory-heading {
+    align-items: flex-start;
+  }
+
+  .artisan-directory-count {
+    padding: 8px 11px;
+    font-size: 0.72rem;
+  }
+
+  .artisan-directory-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .artisan-directory-card-body {
+    padding: 15px 16px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artisan-directory-card,
+  .artisan-directory-image img,
+  .artisan-directory-back {
+    transition: none;
+  }
+}

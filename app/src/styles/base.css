@@ -6413,3 +6413,58 @@ picture {
     transition: none;
   }
 }
+
+/* Compact link to the full artisan directory, beside the showcase intro. */
+.artisans-header-actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.artisan-show-more {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-mid);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--heading-color);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.artisan-show-more:hover {
+  border-color: var(--btn-orange);
+  background: #fff;
+  color: var(--btn-orange-dark);
+}
+
+.artisan-show-more:focus-visible {
+  outline: 2px solid var(--btn-orange);
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .artisans-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .artisans-header-actions .artisans-header-note {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .artisan-show-more {
+    margin-left: auto;
+  }
+}

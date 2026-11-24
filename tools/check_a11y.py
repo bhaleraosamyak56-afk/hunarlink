@@ -11,7 +11,7 @@ import os
 from playwright.sync_api import sync_playwright
 
 B = os.environ.get("HUNARLINK_BASE", "http://127.0.0.1:8123").rstrip("/") + "/hunarlink"
-ROUTES=["/","/product?id=hl-pash-001","/auth","/wholesale","/seller","/admin","/profile","/orders","/login"]
+ROUTES=["/","/product?id=hl-pash-001","/artisans","/auth","/wholesale","/seller","/admin","/profile","/orders","/login"]
 with sync_playwright() as p:
     br=p.chromium.launch(); pg=br.new_page(viewport={"width":1440,"height":950})
     print(f"{'route':26s} {'h1':>3s} {'title':38s} {'unlabelled':>10s}")
@@ -29,6 +29,16 @@ with sync_playwright() as p:
             .filter(i=>!i.labels?.length && !i.getAttribute('aria-label') && !i.getAttribute('aria-labelledby'))
             .filter(i=>!i.closest('#hunarsathi-window, .hs-window')).length""")
         print(f"{r:26s} {h1:3d} {title[:36]:38s} {unl:10d}")
+
+    # ---- artisan showcase directory link ----------------------------------
+    pg.goto(B + "/", wait_until="networkidle")
+    pg.wait_for_timeout(900)
+    pg.locator("#show-more-artisans").scroll_into_view_if_needed()
+    pg.click("#show-more-artisans")
+    pg.wait_for_timeout(700)
+    artisan_count = pg.locator(".artisan-directory-card").count()
+    directory_title = pg.locator("#artisan-directory-title").inner_text()
+    print(f"artisan directory route={pg.url.endswith('/artisans')} title={directory_title!r} listed={artisan_count}")
 
     # ---- the single login entry point -------------------------------------
     # One LOGIN button replaces the old user / artisan-login / studio trio, and

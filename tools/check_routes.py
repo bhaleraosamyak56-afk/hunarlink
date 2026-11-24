@@ -19,6 +19,7 @@ ROUTES=["/hunarlink/",
         # category pages: a guild, a technique inside one, and a bad slug
         "/hunarlink/category/pashmina","/hunarlink/category/pashmina-handwoven",
         "/hunarlink/category/walnut","/hunarlink/category/silk-rugs",
+        "/hunarlink/artisans",
         "/hunarlink/category/not-a-craft",
         # v1 URLs that must still resolve
         "/hunarlink/index.html","/hunarlink/user-portal/login.html",

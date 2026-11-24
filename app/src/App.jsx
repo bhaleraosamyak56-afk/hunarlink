@@ -41,6 +41,7 @@ const PortalStyles = lazy(() =>
 const LoginPage = lazy(() => import('./pages/portal/LoginPage.jsx'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
+const ArtisansPage = lazy(() => import('./pages/ArtisansPage.jsx'));
 import NotFound from './pages/NotFound.jsx';
 import SpaRedirect from './pages/SpaRedirect.jsx';
 import usePageTitle from './utils/usePageTitle.js';
@@ -161,6 +162,7 @@ export default function App() {
             /category/pashmina-kani (a technique inside one). The product
             breadcrumb links here instead of filtering the marketplace. */}
         <Route path="/category/:slug" element={<CategoryPage />} />
+        <Route path="/artisans" element={<ArtisansPage />} />
         <Route path="/product" element={<ProductPage />} />
         <Route path="/product.html" element={<ProductPage />} />
         <Route path="/auth" element={<AuthPage />} />

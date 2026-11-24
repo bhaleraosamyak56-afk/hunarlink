@@ -112,11 +112,22 @@ export default function ArtisansSection() {
             <div className="section-kicker">THE HANDS BEHIND THE HEIRLOOMS</div>
             <h2 className="section-title">Meet the Artisans</h2>
           </div>
-          <p className="section-desc artisans-header-note">
-            Six of the 2,400 registered workshops, one at a time. Every profile
-            carries the piece that artisan is known for and what buyers said
-            after it arrived.
-          </p>
+          <div className="artisans-header-actions">
+            <p className="section-desc artisans-header-note">
+              Six of the 2,400 registered workshops, one at a time. Every profile
+              carries the piece that artisan is known for and what buyers said
+              after it arrived.
+            </p>
+            <button
+              type="button"
+              id="show-more-artisans"
+              className="artisan-show-more"
+              onClick={() => navigate('/artisans')}
+              aria-label="Show more artisans"
+            >
+              Show more <span aria-hidden="true">&rarr;</span>
+            </button>
+          </div>
         </div>
 
         <div

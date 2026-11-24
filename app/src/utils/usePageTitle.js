@@ -21,6 +21,7 @@ const TITLES = {
   '/index.html': 'Storefront',
   '/product': 'Product',
   '/product.html': 'Product',
+  '/artisans': 'Our Artisans',
   '/auth': 'Artisan Sign In & Verification',
   '/auth.html': 'Artisan Sign In & Verification',
   '/wholesale': 'Wholesale Desk',
