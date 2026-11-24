@@ -3,7 +3,7 @@ import { srcSetFor } from '../../data/imageVariants.js';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { asset, formatINR } from '../../utils/legacy.js';
-import { IconBadgeCheck, IconHandshake, IconMapPin, IconSearchScan, IconShield } from '../../components/LineIcons.jsx';
+import { IconBadgeCheck, IconMapPin, IconRupeeCoin, IconSearchScan, IconShield } from '../../components/LineIcons.jsx';
 import { scrollToSection } from '../../utils/scrollToSection.js';
 
 /* ==========================================================================
@@ -253,7 +253,7 @@ export default function HeroSection() {
             className="trust-item"
             onClick={() => openDrawer('cart')}
           >
-            <div className="trust-icon-box"><IconHandshake size={16} /></div>
+            <div className="trust-icon-box"><IconRupeeCoin size={18} /></div>
             <div>
               <div className="trust-value">Zero Cut</div>
               <div className="trust-label">Direct Artisan Payouts</div>
