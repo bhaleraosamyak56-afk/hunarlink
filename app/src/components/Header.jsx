@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { Heart, Bag, Search, Close } from './Icons.jsx';
-import { IconUser } from './LineIcons.jsx';
 import { asset } from '../utils/legacy.js';
 import { scrollToSection } from '../utils/scrollToSection.js';
 
@@ -18,8 +17,8 @@ import { scrollToSection } from '../utils/scrollToSection.js';
 
 const NAV = [
   { id: 'home', label: 'Home', to: '/#hero-section', section: 'hero-section' },
-  { id: 'artisans', label: 'Our Artisans', to: '/#artisan-showcase-section', section: 'artisan-showcase-section' },
   { id: 'verify', label: 'Valley Verification Flow', to: '/#verification-section', section: 'verification-section' },
+  { id: 'artisans', label: 'Our Artisans', to: '/#artisan-showcase-section', section: 'artisan-showcase-section' },
   { id: 'store', label: 'J&K Heritage Store', to: '/#marketplace-section', section: 'marketplace-section' },
   { id: 'wholesale', label: 'Wholesale', to: '/#b2b-wholesale-section', section: 'b2b-wholesale-section' }
 ];
@@ -146,7 +145,15 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
             aria-label="HunarLink — back to the top of the store"
             onClick={goHome}
           >
-            <span className="brand-mark" aria-hidden="true">H</span>
+            {/* The real mark, traced to vector. The old forest square with a
+                gold "H" in it was a placeholder standing in for this. */}
+            <img
+              src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+              alt=""
+              className="brand-mark"
+              height="40"
+              fetchPriority="high"
+            />
             <span className="brand-text-wrap">
               <span className="brand-title">HunarLink</span>
               <span className="brand-subtitle">
@@ -155,6 +162,8 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
               </span>
             </span>
           </button>
+
+          <span className="header-divider" aria-hidden="true" />
 
           <div className="header-search-wrap" ref={wrapRef}>
             <div className="header-search-box">
@@ -257,55 +266,29 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
               </span>
             </button>
 
+            {/* One way in, was three. The role question is asked once, by the
+                modal, and each answer routes to the page that already owns
+                that job: /login for a collector, /auth for an artisan. */}
+            <button
+              type="button"
+              className="btn-login"
+              id="login-btn"
+              title="Sign in as a collector or an artisan"
+              data-testid="login-btn"
+              onClick={() => navigate('/login')}
+            >
+              {/* Always reads LOGIN. Who you are is answered in the modal and
+                  shown by the avatar beside it, not by relabelling this. */}
+              <span className="btn-login-label" id="login-btn-text">LOGIN</span>
+            </button>
+
             <div className="profile-dropdown-wrap">
-              <button
-                type="button"
-                className="header-account-chip"
-                id="account-menu-btn"
-                aria-label={`Open account menu for ${user?.name || 'Priya'}`}
-                aria-controls="profile-menu"
-                aria-expanded={profileOpen}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setProfileOpen((v) => !v);
-                }}
-              >
-                <IconUser size={15} />
-                <span>{user?.name || user?.fullName?.split(/\s+/)[0] || 'Priya'}</span>
-              </button>
-
-              <button
-                type="button"
-                className="seller-login-chip"
-                id="seller-login-btn"
-                aria-label="Seller Login"
-                onClick={() => navigate('/auth?mode=login&role=artisan')}
-              >
-                <svg className="seller-key-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <circle cx="8" cy="8" r="3.1" />
-                  <path d="m10.3 10.3 9.2 9.2m-4.8-4.8 2.2-2.2m1.4 5 2.2-2.2" />
-                </svg>
-                <span>Seller Login</span>
-              </button>
-
-              <button
-                type="button"
-                className="artisan-studio-btn"
-                id="artisan-studio-btn"
-                title="Open Artisan Studio"
-                onClick={() => navigate('/seller')}
-              >
-                <span className="artisan-studio-spark" aria-hidden="true">✦</span>
-                <span className="artisan-studio-label">ARTISAN STUDIO</span>
-              </button>
-
               <button
                 type="button"
                 className="profile-avatar-btn"
                 id="profile-menu-btn"
                 ref={profileBtnRef}
                 aria-label="User Profile Menu"
-                aria-controls="profile-menu"
                 aria-expanded={profileOpen}
                 onClick={(e) => {
                   e.stopPropagation();

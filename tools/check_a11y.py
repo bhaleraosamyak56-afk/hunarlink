@@ -30,19 +30,25 @@ with sync_playwright() as p:
             .filter(i=>!i.closest('#hunarsathi-window, .hs-window')).length""")
         print(f"{r:26s} {h1:3d} {title[:36]:38s} {unl:10d}")
 
-    # ---- storefront header account and artisan actions -------------------
+    # ---- the single login entry point -------------------------------------
+    # One LOGIN button replaces the old user / artisan-login / studio trio, and
+    # it must offer both roles and route each to the page that owns the job.
     pg.goto(B + "/", wait_until="networkidle")
     pg.wait_for_timeout(900)
-    pg.click("#account-menu-btn")
-    menu_open = "open" in (pg.locator("#profile-menu").get_attribute("class") or "")
-    pg.click("#seller-login-btn")
-    pg.wait_for_timeout(600)
-    seller_route = "/auth" in pg.url and "role=artisan" in pg.url
-    pg.goto(B + "/", wait_until="networkidle")
-    pg.wait_for_timeout(600)
-    pg.click("#artisan-studio-btn")
-    pg.wait_for_timeout(600)
-    studio_route = "/seller" in pg.url
+    legacy = pg.evaluate(
+        "()=>['#user-login-btn','#seller-login-btn','#artisan-studio-btn']"
+        ".filter(s=>document.querySelector(s))")
+    has_login = pg.evaluate("()=>!!document.querySelector('#login-btn')")
+    pg.click("#login-btn")
+    pg.wait_for_timeout(500)
+    # LOGIN now goes straight to /login, which offers the two roles as an
+    # always-visible choice above the sign-in / register tabs. Check them there
+    # rather than in the retired #login-choice-modal.
+    pg.goto(B + "/login", wait_until="networkidle")
+    pg.wait_for_timeout(900)
+    roles = pg.evaluate(
+        "()=>[...document.querySelectorAll('.seg-btn')]"
+        ".map(e=>e.id.replace('role-',''))")
     print()
-    print(f"header actions account menu={menu_open} seller login route={seller_route} artisan studio route={studio_route}")
+    print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles}")
     br.close()
