@@ -19,7 +19,17 @@ with sync_playwright() as p:
     for r in ROUTES:
         pg.goto(B+r, wait_until="networkidle"); pg.wait_for_timeout(700)
         if r=="/admin":
-            pg.evaluate("()=>localStorage.setItem('hunarlink_admin_token','d')"); pg.reload(wait_until="networkidle"); pg.wait_for_timeout(900)
+            # Check the unauthenticated sign-in screen first, then seed a
+            # session to audit the existing authenticated console as well.
+            pg.evaluate("()=>localStorage.removeItem('hunarlink_admin_token')")
+            pg.reload(wait_until="networkidle"); pg.wait_for_timeout(700)
+            login_visible=pg.locator('.admin-login-card').is_visible()
+            login_h1=pg.locator('h1').count()
+            login_labels=pg.locator('label[for=admin-login-identifier]').count()==1 and pg.locator('label[for=admin-login-password]').count()==1
+            login_title=pg.title().startswith('Admin Login')
+            print(f"admin login screen visible={login_visible} h1={login_h1} labelled_fields={login_labels} title={login_title}")
+            pg.evaluate("()=>localStorage.setItem('hunarlink_admin_token',JSON.stringify('d'))")
+            pg.reload(wait_until="networkidle"); pg.wait_for_timeout(900)
         if r=="/seller":
             pg.evaluate("()=>localStorage.setItem('hunarlink_auth_user',JSON.stringify({name:'A',role:'artisan',isLoggedIn:true}))"); pg.reload(wait_until="networkidle"); pg.wait_for_timeout(700)
         h1=pg.evaluate("document.querySelectorAll('h1').length")
@@ -43,7 +53,11 @@ with sync_playwright() as p:
     # ---- the single login entry point -------------------------------------
     # One LOGIN button replaces the old user / artisan-login / studio trio, and
     # it must offer both roles and route each to the page that owns the job.
+    # Clear the artisan session seeded above so the signed-out header shortcut
+    # is tested in the state shown on the sign-in page.
     pg.goto(B + "/", wait_until="networkidle")
+    pg.evaluate("()=>{localStorage.removeItem('hunarlink_auth_user');localStorage.removeItem('hunarlink_buyer_profile')}")
+    pg.reload(wait_until="networkidle")
     pg.wait_for_timeout(900)
     legacy = pg.evaluate(
         "()=>['#user-login-btn','#seller-login-btn','#artisan-studio-btn']"
@@ -59,6 +73,8 @@ with sync_playwright() as p:
     roles = pg.evaluate(
         "()=>[...document.querySelectorAll('.seg-btn')]"
         ".map(e=>e.id.replace('role-',''))")
+    admin_link = pg.locator('.login-admin-link')
+    admin_shortcut = admin_link.is_visible() and admin_link.inner_text().strip() == 'Admin Login' and admin_link.get_attribute('href').endswith('/admin')
     print()
-    print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles}")
+    print(f"login entry    single button={has_login} legacy controls left={legacy or 'none'} roles={roles} admin shortcut={admin_shortcut}")
     br.close()

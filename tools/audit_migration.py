@@ -103,22 +103,32 @@ with sync_playwright() as p:
     report("WHOLESALE  (WholesalePage.jsx)", r)
 
     # ---------------- ADMIN ----------------
-    pg.goto(B + "/admin", wait_until="networkidle"); pg.wait_for_timeout(600)
+    pg.goto(B + "/admin", wait_until="networkidle"); pg.wait_for_timeout(700)
     r = []
-    gate = pg.locator("#admin-login-modal").is_visible()
-    r.append(("login gate shown", gate, "requesting super-admin session" if gate else "no gate"))
-    if gate:
-        pg.click("#admin-login-form button[type=submit]"); pg.wait_for_timeout(1600)
-    r.append(("session established", not pg.locator("#admin-login-modal").is_visible(),
-              "token stored" if pg.evaluate("localStorage.getItem('hunarlink_admin_token')") else "no token"))
-    for t in ["customers", "sellers", "gi", "suppliers", "wholesale", "settings"]:
-        pg.click(f'.sidebar-nav .nav-item[data-tab={t}]'); pg.wait_for_timeout(300)
-    pg.click('.sidebar-nav .nav-item[data-tab=audit]'); pg.wait_for_timeout(500)
-    rows = pg.locator("#audit-logs-tbody tr").count()
-    r.append(("audit table populated", rows > 0, f"{rows} audit rows"))
-    pg.click('.sidebar-nav .nav-item[data-tab=dashboard]'); pg.wait_for_timeout(500)
-    gmv = pg.inner_text("#kpi-retail-gmv")
-    r.append(("KPI data loaded", gmv.startswith("₹") and gmv != "₹0.00", gmv))
+    login_page = pg.locator(".admin-login-card").is_visible()
+    r.append(("dedicated login page shown", login_page,
+              "separate admin sign-in screen" if login_page else "login screen missing"))
+    r.append(("login fields labelled", pg.locator("label[for=admin-login-identifier]").count() == 1
+              and pg.locator("label[for=admin-login-password]").count() == 1,
+              "email and password labels"))
+    if login_page:
+        pg.click("#admin-login-submit"); pg.wait_for_selector("#admin-shell", timeout=10000)
+        pg.wait_for_timeout(1000)
+    console_open = pg.locator("#admin-shell").is_visible()
+    r.append(("session opens existing console", console_open and bool(
+        pg.evaluate("localStorage.getItem('hunarlink_admin_token')")),
+        "token stored" if console_open else "console did not open"))
+    if console_open:
+        for t in ["customers", "sellers", "gi", "suppliers", "wholesale", "settings"]:
+            pg.click(f'.sidebar-nav .nav-item[data-tab={t}]'); pg.wait_for_timeout(300)
+        pg.click('.sidebar-nav .nav-item[data-tab=audit]'); pg.wait_for_timeout(500)
+        rows = pg.locator("#audit-logs-tbody tr").count()
+        r.append(("audit table populated", rows > 0, f"{rows} audit rows"))
+        pg.click('.sidebar-nav .nav-item[data-tab=dashboard]'); pg.wait_for_timeout(500)
+        gmv = pg.inner_text("#kpi-retail-gmv")
+        r.append(("KPI data loaded", gmv.startswith("₹") and gmv != "₹0.00", gmv))
+        pg.click("#btn-logout"); pg.wait_for_selector(".admin-login-card", timeout=5000)
+        r.append(("logout returns to login", pg.locator(".admin-login-card").is_visible(), "dedicated login restored"))
     report("ADMIN  (portal/AdminPage.jsx)", r)
 
     # ---------------- SELLER ----------------

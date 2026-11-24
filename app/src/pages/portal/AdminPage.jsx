@@ -4,6 +4,7 @@ import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { demoApi } from '../../data/adminDemo.js';
 import { appHref } from '../../utils/href.js';
+import AdminLoginPage from './AdminLoginPage.jsx';
 import { IconGrid, IconUsers, IconPalette, IconSearchScan, IconMapPin, IconReceipt, IconTag,
          IconFile, IconSeedling, IconBuilding, IconHandshake, IconPackage, IconShield, IconLog, IconGear } from '../../components/LineIcons.jsx';
 
@@ -88,9 +89,6 @@ export default function AdminPage() {
   const [activeLot, setActiveLot] = useState(null);
   const [matching, setMatching] = useState({ open: false, busy: false, dealers: [] });
 
-  /* login gate */
-  const [login, setLogin] = useState({ identifier: 'admin@hunarlink.com', password: 'AdminPass@123' });
-
   /* reason prompts, replacing the controller's window.prompt() flows */
   const [prompt, setPrompt] = useState(null);
   const [promptValue, setPromptValue] = useState('');
@@ -154,24 +152,6 @@ export default function AdminPage() {
   );
 
   /* ---- actions ------------------------------------------------------- */
-  async function submitLogin(e) {
-    e.preventDefault();
-    if (!login.identifier.trim() || !login.password.trim()) {
-      toast('Enter the admin identifier and security key.');
-      return;
-    }
-    const res = await demoApi('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ identifier: login.identifier.trim(), password: login.password.trim() })
-    });
-    if (res && res.access_token) {
-      setAdminToken(res.access_token);
-      toast('Administrative session authenticated.', 'success');
-    } else {
-      toast('Authentication failed — invalid credentials.', 'error');
-    }
-  }
-
   function logout() {
     setAdminToken(null);
     setData(EMPTY);
@@ -303,47 +283,15 @@ export default function AdminPage() {
 
   const kpis = data.metrics?.kpis;
 
+  /* The admin route is a true sign-in page until a persisted session exists.
+     Once authenticated, keep this same console and its existing logout flow. */
+  if (!adminToken) return <AdminLoginPage />;
+
   /* ==================================================================== */
   return (
     <>
       <PortalScope family="admin" />
       <div className="admin-page-root">
-        {/* ADMIN LOGIN GATE */}
-        {!adminToken && (
-          <div id="admin-login-modal" className="modal-overlay" style={{ display: 'flex' }}>
-            <div className="modal-card">
-              <div className="modal-header">
-                <div className="brand-crest">H</div>
-                <h2>Administrative Access Gate</h2>
-                <p>Verify Clerk credentials or use authorized Super Admin session.</p>
-              </div>
-              <form id="admin-login-form" onSubmit={submitLogin}>
-                <div className="form-group">
-                  <label>Admin Identifier (Email / Clerk UID)</label>
-                  <input
-                    type="text" id="login-identifier" required
-                    aria-label="Admin email address"
-                    value={login.identifier}
-                    onChange={(e) => setLogin({ ...login, identifier: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Password / Security Key</label>
-                  <input
-                    type="password" id="login-password" required
-                    aria-label="Admin password"
-                    value={login.password}
-                    onChange={(e) => setLogin({ ...login, password: e.target.value })}
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                  Authenticate Session →
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
         {/* MAIN SHELL */}
         <div className="admin-shell" id="admin-shell">
           <aside className={`admin-sidebar${drawerOpen ? ' is-open' : ''}`} id="admin-sidebar">

@@ -667,7 +667,9 @@ export default function LoginPage() {
                 Sign out
               </button>
             ) : (
-              <span className="login-header-hint">New to HunarLink? Pick an account above.</span>
+              <a href={appHref('/admin')} className="login-header-hint login-admin-link">
+                Admin Login
+              </a>
             )}
           </nav>
         </div>

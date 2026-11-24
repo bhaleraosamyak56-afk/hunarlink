@@ -3,9 +3,27 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
   const atRoot = mode === 'root'
+  const adminPreview = process.env.HUNARLINK_ADMIN_PREVIEW === '1'
+  const adminPreviewEntry = adminPreview ? {
+    name: 'admin-login-preview-entry',
+    configureServer(server) {
+      /* This review server opens at /; show the user sign-in page immediately
+         so its new Admin Login link is visible and clickable in the preview. */
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url || '').split('?')[0]
+        if (path === '/' || path === '/index.html') {
+          res.statusCode = 302
+          res.setHeader('Location', '/login')
+          res.end()
+          return
+        }
+        next()
+      })
+    }
+  } : null
   return {
-    plugins: [react()],
-    base: atRoot ? '/hunarlink/' : '/hunarlink/react/',
+    plugins: [react(), ...(adminPreviewEntry ? [adminPreviewEntry] : [])],
+    base: adminPreview ? '/' : atRoot ? '/hunarlink/' : '/hunarlink/react/',
     build: {
       outDir: atRoot ? '../dist' : '../react',
       emptyOutDir: true,

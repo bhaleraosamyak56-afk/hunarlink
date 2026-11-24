@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useStore } from '../state/StoreContext.jsx';
 
 /* ==========================================================================
    usePageTitle
@@ -40,14 +41,16 @@ const TITLES = {
 
 export default function usePageTitle() {
   const { pathname } = useLocation();
+  const { adminToken } = useStore();
 
   useEffect(() => {
-    const label = TITLES[pathname];
+    const isAdminRoute = pathname === '/admin' || pathname === '/admin.html';
+    const label = isAdminRoute && !adminToken ? 'Admin Login' : TITLES[pathname];
     /* '/' is the storefront, so it takes the brand title alone */
     if (!label || pathname === '/' || pathname === '/index.html') {
       document.title = SUFFIX;
       return;
     }
     document.title = `${label} · ${SUFFIX}`;
-  }, [pathname]);
+  }, [pathname, adminToken]);
 }

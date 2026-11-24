@@ -3067,13 +3067,6 @@ body {
     gap: 8px;
   }
 
-  /* the login modal must never exceed the viewport */
-  #admin-login-modal > div,
-  #admin-login-modal .login-card {
-    width: calc(100vw - 32px) !important;
-    max-width: 420px;
-  }
-
   /* keep the offline-data banner readable on a phone */
   #admin-demo-banner {
     font-size: 10.5px !important;
@@ -5441,20 +5434,32 @@ html.portal-wholesale body {
 }
 
 .login-header .login-header-hint {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 2px 0 8px;
+  color: var(--heading-color);
   font-size: 0.775rem;
-  color: var(--text-500);
-  padding-left: 2px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.login-header .login-admin-link:hover {
+  color: var(--btn-orange);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login-header .login-admin-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--btn-orange);
+  outline-offset: 3px;
 }
 
 .login-header button.up-nav-pill {
   font-family: inherit;
   cursor: pointer;
-}
-
-@media (max-width: 720px) {
-  .login-header .login-header-hint {
-    display: none;
-  }
 }
 
 /* ---- login helper row + artisan card number ---- */
