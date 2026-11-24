@@ -6430,3 +6430,641 @@ picture {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Storefront header — compact account/action rail
+   --------------------------------------------------------------------------
+   Match the updated HunarLink header: monogram, centered pill search, buyer
+   and seller actions, then a compact section row. Keep the controls real and
+   preserve the existing IDs/hooks used by the storefront.
+   ========================================================================== */
+.site-header {
+  background: rgba(249, 247, 241, 0.98);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.site-header .header-inner {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  height: 77px;
+  min-height: 77px;
+  padding: 0 40px;
+  gap: 0;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.site-header .brand-logo {
+  flex: 0 0 225px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.site-header .brand-mark {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--btn-orange);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.site-header .brand-title {
+  color: var(--heading-color);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+
+.site-header .brand-subtitle {
+  margin-top: 5px;
+  gap: 6px;
+  font-size: 7.8px;
+  letter-spacing: 0.15em;
+}
+
+.site-header .brand-sub-rule {
+  width: 12px;
+}
+
+.site-header .header-divider {
+  display: none;
+}
+
+.site-header .header-search-wrap {
+  flex: 0 1 390px;
+  width: 390px;
+  min-width: 250px;
+  max-width: 390px;
+  margin: 0 auto;
+}
+
+.site-header .header-search-box {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 34px;
+  gap: 9px;
+  padding: 0 13px;
+  border: 1px solid #ded9cc;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.site-header .header-search-box:focus-within {
+  border-color: var(--btn-orange-border);
+  box-shadow: 0 0 0 3px rgba(224, 90, 23, 0.08);
+}
+
+.site-header .search-icon-svg {
+  position: static;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: #89918b;
+  pointer-events: none;
+}
+
+.site-header .header-search-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-900);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+  outline: 0;
+  box-shadow: none;
+}
+
+.site-header .header-search-input:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.site-header .header-search-input::placeholder {
+  color: #929a95;
+  opacity: 1;
+}
+
+.site-header .search-kbd {
+  display: none;
+}
+
+.site-header .search-clear-btn {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.site-header .header-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  margin-left: 0;
+}
+
+.site-header .icon-badge-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #ebe6dc;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--forest-700);
+  box-shadow: none;
+}
+
+.site-header .icon-badge-btn:hover {
+  border-color: var(--btn-orange-border);
+  background: #fffaf6;
+  color: var(--heading-color);
+}
+
+.site-header .icon-badge-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.site-header .badge-counter {
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid #fff;
+  background: var(--btn-orange);
+  color: #fff;
+  font-size: 9px;
+  box-shadow: none;
+}
+
+.site-header .badge-counter.gold {
+  background: var(--btn-orange);
+}
+
+.site-header .profile-dropdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.site-header .header-account-chip,
+.site-header .seller-login-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 13px;
+  border: 1px solid var(--btn-orange-border);
+  border-radius: 999px;
+  background: #fff4eb;
+  color: var(--heading-color);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.site-header .header-account-chip:hover,
+.site-header .seller-login-chip:hover {
+  border-color: var(--btn-orange);
+  background: #fff0e4;
+  transform: translateY(-1px);
+}
+
+.site-header .header-account-chip svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: #66458a;
+  stroke-width: 2;
+}
+
+.site-header .seller-login-chip {
+  background: #f2eee5;
+}
+
+.site-header .seller-key-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.site-header .artisan-studio-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 37px;
+  padding: 8px 15px;
+  border: 1px solid var(--btn-orange);
+  border-radius: 999px;
+  background: var(--btn-orange);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.015em;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(180, 71, 31, 0.15);
+  transition: background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.site-header .artisan-studio-btn:hover {
+  background: var(--btn-orange-hover);
+  border-color: var(--btn-orange-hover);
+  box-shadow: 0 4px 10px rgba(180, 71, 31, 0.2);
+  transform: translateY(-1px);
+}
+
+.site-header .artisan-studio-spark {
+  color: #ffe1bd;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.site-header .profile-avatar-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #f0a77f;
+  border-radius: 50%;
+  background: var(--btn-orange);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: none;
+}
+
+.site-header .profile-avatar-btn:hover {
+  border-color: var(--btn-orange-hover);
+  background: var(--btn-orange-hover);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(224, 90, 23, 0.1);
+}
+
+.site-header .header-account-chip:focus-visible,
+.site-header .seller-login-chip:focus-visible,
+.site-header .artisan-studio-btn:focus-visible,
+.site-header .profile-avatar-btn:focus-visible,
+.site-header .icon-badge-btn:focus-visible {
+  outline: 2px solid var(--btn-orange);
+  outline-offset: 3px;
+}
+
+/* The reference keeps the navigation compact, with the active rule sized to
+   its label rather than stretching across a wide equal-width cell. */
+.section-nav-bar {
+  background: var(--bg-ivory);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.section-nav-track {
+  width: min(808px, calc(100% - 32px));
+  max-width: 808px;
+  padding: 0;
+}
+
+.section-nav-inner {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0;
+  min-height: 54px;
+  padding: 0;
+  overflow: visible;
+}
+
+.snav-item {
+  flex: 0 0 auto;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0;
+  color: var(--text-700);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.snav-item:hover {
+  background: transparent;
+  color: var(--heading-color);
+}
+
+.snav-item.active {
+  color: var(--heading-color);
+  font-weight: 600;
+}
+
+.snav-item.active::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 0;
+  background: var(--btn-orange);
+}
+
+@media (max-width: 1190px) {
+  .site-header .header-inner {
+    padding-right: 28px;
+    padding-left: 28px;
+  }
+
+  .site-header .brand-logo {
+    flex-basis: 190px;
+  }
+
+  .site-header .header-search-wrap {
+    flex-basis: 300px;
+    width: 300px;
+    min-width: 220px;
+    max-width: 300px;
+  }
+
+  .site-header .header-controls {
+    gap: 6px;
+  }
+
+  .site-header .profile-dropdown-wrap {
+    gap: 6px;
+  }
+
+  .site-header .header-account-chip,
+  .site-header .seller-login-chip {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .site-header .artisan-studio-btn {
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 920px) {
+  .site-header .header-inner {
+    height: auto;
+    min-height: 0;
+    padding: 9px 28px 0;
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .site-header .header-search-wrap {
+    order: 3;
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0 0 10px;
+  }
+
+  .site-header .header-search-box {
+    max-width: 100%;
+  }
+
+  .site-header .header-controls {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header .header-account-chip,
+  .site-header .seller-login-chip {
+    display: none;
+  }
+
+  .site-header .artisan-studio-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .site-header .artisan-studio-label {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  html {
+    --header-h: 105px;
+  }
+
+  .site-header .header-inner {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    padding: 8px 16px 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .site-header .brand-logo {
+    flex: 0 1 auto;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .site-header .brand-mark {
+    width: 34px !important;
+    height: 34px !important;
+    flex-basis: 34px;
+    font-size: 20px;
+  }
+
+  .site-header .brand-title {
+    font-size: 17px;
+  }
+
+  .site-header .brand-subtitle {
+    display: none;
+  }
+
+  .site-header .header-controls {
+    order: 2;
+    flex: 0 0 auto;
+    width: auto;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .site-header .profile-dropdown-wrap {
+    gap: 6px;
+  }
+
+  .site-header .header-search-wrap {
+    order: 3;
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0 0 8px;
+  }
+
+  .site-header .header-search-box {
+    height: 36px;
+  }
+
+  .site-header .icon-badge-btn {
+    width: 29px;
+    height: 29px;
+  }
+
+  .site-header .icon-badge-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .site-header .profile-avatar-btn {
+    width: 31px;
+    height: 31px;
+    font-size: 9px;
+  }
+
+  .section-nav-track {
+    width: 100%;
+    max-width: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 14px;
+  }
+
+  .section-nav-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .section-nav-inner {
+    width: max-content;
+    justify-content: flex-start;
+    gap: 26px;
+    min-height: 48px;
+  }
+
+  .snav-item {
+    min-height: 48px;
+    font-size: 13px;
+  }
+}
+
+/* Fine alignment and key glyph for the header reference dimensions. */
+@media (min-width: 1191px) {
+  html { --header-h: 80px; }
+
+  .site-header .header-inner {
+    height: 80px;
+    min-height: 80px;
+  }
+
+  .site-header .brand-logo {
+    flex-basis: 212px;
+  }
+
+  .site-header .header-controls {
+    gap: 10px;
+  }
+
+  .site-header .profile-dropdown-wrap {
+    gap: 10px;
+  }
+
+  .site-header .icon-badge-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .site-header .header-account-chip {
+    padding-right: 15px;
+    padding-left: 15px;
+  }
+
+  .site-header .seller-login-chip {
+    padding-right: 17px;
+    padding-left: 17px;
+  }
+
+  .site-header .artisan-studio-btn {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+}
+
+.site-header .seller-key-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  fill: none;
+  stroke: #c69b37;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (min-width: 1191px) {
+  .site-header .header-inner {
+    padding-top: 4px;
+  }
+
+  .site-header .header-account-chip {
+    min-width: 88px;
+  }
+
+  .site-header .seller-login-chip {
+    min-width: 132px;
+  }
+
+  .site-header .artisan-studio-btn {
+    min-width: 164px;
+  }
+
+  .site-header .brand-title {
+    font-size: 23px;
+  }
+
+  .site-header .brand-subtitle {
+    font-size: 8px;
+    letter-spacing: 0.19em;
+  }
+}
+
+@media (min-width: 641px) {
+  .snav-item {
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 16px;
+  }
+}
