@@ -4718,23 +4718,6 @@ h1, h2, h3, h4,
   box-shadow: 0 0 0 3px rgba(180, 71, 31, 0.09);
 }
 
-/* letterpress double rule on the header's bottom edge */
-.site-header::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 3px;
-  height: 1px;
-  background: linear-gradient(90deg,
-      transparent 0%,
-      var(--border-mid) 6%,
-      var(--border-mid) 94%,
-      transparent 100%);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
 /* ---- responsive ---------------------------------------------------------- */
 @media (max-width: 1100px) {
   .header-divider { margin: 0 16px; }
