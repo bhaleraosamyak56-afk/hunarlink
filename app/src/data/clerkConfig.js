@@ -1,11 +1,11 @@
-import { useCallback } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 
 /* ==========================================================================
    Clerk — wired but inert, and useful even before a key exists
    --------------------------------------------------------------------------
    Is Clerk frontend or backend? Both, and that split is the point of this file.
 
-   FRONTEND (this file): @clerk/clerk-react is a React SDK. It renders the
+   FRONTEND (this file): @clerk/react is a React SDK. It renders the
    sign-in UI, holds the session token in the browser and exposes hooks like
    useUser(). Shipping it is purely a client-side concern.
 
@@ -40,9 +40,22 @@ const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
    an unconfigured build behaves exactly like today's build. */
 export const CLERK_ENABLED = PUBLISHABLE_KEY.startsWith('pk_');
 
+/* A pk_test_ key belongs to a DEVELOPMENT instance, which Clerk restricts to
+   the browser that owns the Clerk dashboard session. Every other visitor —
+   a judge, a phone, a stranger — is refused with dev_browser_unauthenticated.
+   That is not a bug to route around: it is Clerk's own guard, and opening it
+   up would mean defeating a security control.
+
+   Only a PRODUCTION instance (pk_live_) is usable by the public, and that
+   requires a domain you own plus your own Google OAuth client. Until then the
+   sign-in UI says so up front rather than letting a visitor discover it by
+   clicking into a dead end. */
+export const CLERK_IS_DEV_INSTANCE = PUBLISHABLE_KEY.startsWith('pk_test_');
+
 export const clerkConfig = {
   enabled: CLERK_ENABLED,
   publishableKey: PUBLISHABLE_KEY || null,
+  isDevInstance: CLERK_IS_DEV_INSTANCE,
 
   /* Demo sign-in must survive a key being added, or a judge evaluating the
      site could no longer get in with the documented demo accounts. Clerk
@@ -79,26 +92,60 @@ export function toSessionUser(clerkUser) {
 }
 
 /* --------------------------------------------------------------------------
+   The auth context
+   --------------------------------------------------------------------------
+   Created here rather than in ClerkBoundary.jsx so the dependency points one
+   way only: ClerkBoundary imports this module, and this module imports no
+   Clerk code at all. Pages can read the session without the SDK ever entering
+   their module graph.
+
+   The value is provided by ClerkBoundary when a key is configured. With no
+   key there is no provider, so every consumer reads CLERK_DISABLED_VALUE —
+   which is exactly what this app returned before Clerk was wired at all.
+   -------------------------------------------------------------------------- */
+export const ClerkAuthContext = createContext(null);
+
+export const CLERK_DISABLED_VALUE = Object.freeze({
+  isLoaded: true,
+  isSignedIn: false,
+  user: null,
+  rawUser: null,
+  signOut: async () => {},
+  signInWith: async () => ({ ok: false, message: 'Clerk is not configured.' }),
+  enabled: false
+});
+
+/* --------------------------------------------------------------------------
    useClerkAuth
    --------------------------------------------------------------------------
-   In the real implementation this delegates to @clerk/clerk-react. It is the
-   seam where that code goes, and the reason the login page does not need to
-   know whether Clerk is configured.
+   Returns the current Clerk session, or the disabled value when no key is
+   configured. The return shape is identical in both cases, which is why the
+   login page needs no conditional logic of its own.
+
+   Two deliberate constraints:
+
+   1. This does NOT call useUser() or useClerk(). Those hooks throw outside a
+      <ClerkProvider>, and this module is imported by pages that may render
+      when no provider exists. The real hooks are called in ClerkBoundary's
+      ClerkIdentity, which is only ever rendered inside the provider.
+   2. The callback signature stays stable so call sites written against the
+      old stub keep working unchanged.
    -------------------------------------------------------------------------- */
 export function useClerkAuth() {
-  /* The real version calls useUser() and useClerk() here. Those hooks throw
-     when there is no <ClerkProvider> above them, which is why this is not
-     called unconditionally today — see the note in main.jsx. */
-  const isLoaded = true;
-  const isSignedIn = false;
-  const user = null;
+  const ctx = useContext(ClerkAuthContext);
 
-  const signOut = useCallback(async () => {
-    if (!CLERK_ENABLED) return;
-    /* Real version: await clerk.signOut() */
-  }, []);
+  /* signOut is a no-op fallback for the unconfigured case. It is declared
+     unconditionally because hooks may not be called conditionally — the
+     branch happens on the value, not on the hook. */
+  const noopSignOut = useCallback(async () => {}, []);
 
-  return { isLoaded, isSignedIn, user, signOut, enabled: CLERK_ENABLED };
+  if (!ctx) {
+    return CLERK_ENABLED
+      ? { ...CLERK_DISABLED_VALUE, signOut: noopSignOut, enabled: true }
+      : CLERK_DISABLED_VALUE;
+  }
+
+  return ctx;
 }
 
 /* What a backend would need in order to verify a session token. Recorded so

@@ -17,21 +17,21 @@ with sync_playwright() as p:
     print(f"{'route':26s} {'h1':>3s} {'title':38s} {'unlabelled':>10s}")
     print("-"*84)
     for r in ROUTES:
-        pg.goto(B+r, wait_until="networkidle"); pg.wait_for_timeout(700)
+        pg.goto(B+r, wait_until="load"); pg.wait_for_timeout(700)
         if r=="/admin":
             # Check the unauthenticated sign-in screen first, then seed a
             # session to audit the existing authenticated console as well.
             pg.evaluate("()=>localStorage.removeItem('hunarlink_admin_token')")
-            pg.reload(wait_until="networkidle"); pg.wait_for_timeout(700)
+            pg.reload(wait_until="load"); pg.wait_for_timeout(700)
             login_visible=pg.locator('.admin-login-card').is_visible()
             login_h1=pg.locator('h1').count()
             login_labels=pg.locator('label[for=admin-login-identifier]').count()==1 and pg.locator('label[for=admin-login-password]').count()==1
             login_title=pg.title().startswith('Admin Login')
             print(f"admin login screen visible={login_visible} h1={login_h1} labelled_fields={login_labels} title={login_title}")
             pg.evaluate("()=>localStorage.setItem('hunarlink_admin_token',JSON.stringify('d'))")
-            pg.reload(wait_until="networkidle"); pg.wait_for_timeout(900)
+            pg.reload(wait_until="load"); pg.wait_for_timeout(900)
         if r=="/seller":
-            pg.evaluate("()=>localStorage.setItem('hunarlink_auth_user',JSON.stringify({name:'A',role:'artisan',isLoggedIn:true}))"); pg.reload(wait_until="networkidle"); pg.wait_for_timeout(700)
+            pg.evaluate("()=>localStorage.setItem('hunarlink_auth_user',JSON.stringify({name:'A',role:'artisan',isLoggedIn:true}))"); pg.reload(wait_until="load"); pg.wait_for_timeout(700)
         h1=pg.evaluate("document.querySelectorAll('h1').length")
         title=pg.title()
         unl=pg.evaluate("""()=>[...document.querySelectorAll('input,select,textarea')]
@@ -41,7 +41,7 @@ with sync_playwright() as p:
         print(f"{r:26s} {h1:3d} {title[:36]:38s} {unl:10d}")
 
     # ---- artisan showcase directory link ----------------------------------
-    pg.goto(B + "/", wait_until="networkidle")
+    pg.goto(B + "/", wait_until="load")
     pg.wait_for_timeout(900)
     pg.locator("#show-more-artisans").scroll_into_view_if_needed()
     pg.click("#show-more-artisans")
@@ -55,9 +55,9 @@ with sync_playwright() as p:
     # it must offer both roles and route each to the page that owns the job.
     # Clear the artisan session seeded above so the signed-out header shortcut
     # is tested in the state shown on the sign-in page.
-    pg.goto(B + "/", wait_until="networkidle")
+    pg.goto(B + "/", wait_until="load")
     pg.evaluate("()=>{localStorage.removeItem('hunarlink_auth_user');localStorage.removeItem('hunarlink_buyer_profile')}")
-    pg.reload(wait_until="networkidle")
+    pg.reload(wait_until="load")
     pg.wait_for_timeout(900)
     legacy = pg.evaluate(
         "()=>['#user-login-btn','#seller-login-btn','#artisan-studio-btn']"
@@ -68,7 +68,7 @@ with sync_playwright() as p:
     # LOGIN now goes straight to /login, which offers the two roles as an
     # always-visible choice above the sign-in / register tabs. Check them there
     # rather than in the retired #login-choice-modal.
-    pg.goto(B + "/login", wait_until="networkidle")
+    pg.goto(B + "/login", wait_until="load")
     pg.wait_for_timeout(900)
     roles = pg.evaluate(
         "()=>[...document.querySelectorAll('.seg-btn')]"

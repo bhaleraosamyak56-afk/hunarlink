@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
@@ -18,7 +18,7 @@ import {
   IconX
 } from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
-import { CLERK_ENABLED, useClerkAuth, toSessionUser } from '../../data/clerkConfig.js';
+import { CLERK_ENABLED, CLERK_IS_DEV_INSTANCE, useClerkAuth, toSessionUser } from '../../data/clerkConfig.js';
 import { appHref } from '../../utils/href.js';
 
 /* ==========================================================================
@@ -215,6 +215,12 @@ export default function LoginPage() {
   };
 
   const [mode, setMode] = useState(() => (params.get('mode') === 'signup' ? 'signup' : 'signin'));
+  /* Demo mode is explicit and OFF by default when Clerk is configured.
+     Real Clerk sign-in is the front door; the fixture accounts sit behind a
+     labelled toggle so a judge can still get in without a Google account.
+     With no publishable key demo mode is the only path, so it starts on. */
+  const [demoMode, setDemoMode] = useState(() => !CLERK_ENABLED);
+  const clerkAdopted = useRef(false);
   const [useOtp, setUseOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [signin, setSignin] = useState({ identifier: '', password: '', otp: '' });
@@ -240,6 +246,41 @@ export default function LoginPage() {
     district: 'Srinagar',
     cardNo: ''
   });
+
+  /* ---------------------------------------------------------------- Clerk
+     Adopt a real Clerk session once it exists: after the OAuth redirect
+     returns, and on a normal visit by someone already signed in. The Clerk
+     identity is authoritative — the stored buyer profile is overwritten from
+     it. An active artisan session is left alone, so a maker opening /login is
+     not signed out of their own workspace. */
+  useEffect(() => {
+    if (!clerk.enabled || !clerk.isSignedIn || !clerk.user) return;
+
+    const live = (() => {
+      try {
+        return JSON.parse(window.localStorage.getItem(AUTH_KEY) || 'null');
+      } catch {
+        return null;
+      }
+    })();
+    if (live && live.role === 'artisan' && live.isLoggedIn) return;
+    if (clerkAdopted.current) return;
+    clerkAdopted.current = true;
+
+    writeProfile({
+      firstName: clerk.user.name,
+      lastName: '',
+      fullName: clerk.user.fullName,
+      email: clerk.user.email,
+      phone: clerk.user.phone || '',
+      isLoggedIn: true
+    });
+
+    setDemoMode(false);
+    toast(`\u2713 Signed in with Clerk as ${clerk.user.fullName}.`, 'success');
+    window.setTimeout(() => navigate(params.get('redirect') || '/profile'), 600);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerk.enabled, clerk.isSignedIn, clerk.user?.email]);
 
   /* Keep the storefront header pill in step with whatever session is on disk.
      An artisan session is never overwritten from this page: doing so silently
@@ -290,9 +331,45 @@ export default function LoginPage() {
     toast(`\u2709\ufe0f 6-digit OTP (${code}) generated & ready!`, 'success');
   }
 
+  /* Real Clerk sign-in. The visitor leaves for the provider and returns signed
+     in; the effect below adopts the identity when they come back. */
+  async function clerkSignIn(strategy) {
+    /* A successful OAuth start navigates away, so this promise often never
+       settles. Racing it against a timer is what makes a stalled start explain
+       itself instead of leaving the button looking dead. */
+    const stalled = new Promise((resolve) =>
+      setTimeout(() => resolve({ ok: false, stalled: true }), 4000)
+    );
+    const res = await Promise.race([clerk.signInWith(strategy), stalled]);
+    if (res.ok) return;
+
+    if (res.stalled) {
+      toast(
+        '\u26a0\ufe0f Sign-in did not start. This is a Clerk development instance \u2014 it only signs in the browser that owns the Clerk dashboard. Turn on Demo mode to continue.',
+        'error'
+      );
+      return;
+    }
+    const devInstance = /dev_browser_unauthenticated|development instance/i.test(res.message || '');
+    toast(
+      devInstance
+        ? '\u26a0\ufe0f This Clerk instance is a development instance \u2014 it only signs in the browser that owns the Clerk dashboard. Turn on Demo mode to continue.'
+        : `\u26a0\ufe0f ${res.message}`,
+      'error'
+    );
+  }
+
   function submitSignin(e) {
     e.preventDefault();
     const identifier = signin.identifier.trim();
+
+    /* With Clerk configured this form is the DEMO form, reachable only through
+       the demo toggle. A stray submit must not mint a session while real auth
+       is meant to be in charge. */
+    if (!demoMode) {
+      toast('Use "Continue with Google" to sign in, or turn on Demo mode.', 'error');
+      return;
+    }
 
     if (!identifier) {
       toast('\u26a0\ufe0f Please enter your email address or mobile number.');
@@ -309,24 +386,23 @@ export default function LoginPage() {
       return;
     }
 
+    /* Name derivation is from the typed identifier ONLY.
+       This previously fell back to the stored profile when the identifier was
+       not an email, so any unrecognised string (typing "garbage") signed you in
+       as whoever was last on the device. A demo fixture may invent a name; it
+       must never adopt someone else's identity from a text field. */
     const existing = readProfile(buyerProfile);
     const isEmail = identifier.includes('@');
-    const nameFromEmail = isEmail
-      ? identifier
-          .split('@')[0]
-          .replace(/[._-]+/g, ' ')
-          .replace(/\b\w/g, (c) => c.toUpperCase())
-      : existing.fullName;
-    const parts = nameFromEmail.split(' ');
+    const local = isEmail ? identifier.split('@')[0].replace(/[._-]+/g, ' ') : '';
+    const pretty = local.replace(/\b\w/g, (c) => c.toUpperCase());
+    const parts = pretty ? pretty.split(' ') : ['Demo', 'Collector'];
 
-    /* The static build only adopted the typed name when the identifier
-       differed, so re-signing in as the saved collector keeps their details. */
     const samePerson = String(existing.email || '').toLowerCase() === identifier.toLowerCase();
 
     const profile = writeProfile({
-      firstName: samePerson ? existing.firstName : parts[0] || existing.firstName,
-      lastName: samePerson ? existing.lastName : parts.slice(1).join(' ') || existing.lastName,
-      email: isEmail ? identifier : existing.email,
+      firstName: samePerson ? existing.firstName : parts[0],
+      lastName: samePerson ? existing.lastName : parts.slice(1).join(' ') || 'Collector',
+      email: isEmail ? identifier : `demo-${Date.now()}@hunarlink.local`,
       phone: !isEmail ? identifier : existing.phone,
       isLoggedIn: true
     });
@@ -924,7 +1000,68 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <button type="submit" className="btn-orange" style={{width: '100%', height: '46px'}}>
+              {/* Real sign-in. Shown only while the demo fixture is off, so the
+                  page never pretends both paths are the same thing. OAuth means
+                  no password passes through this app, which is the honest fix
+                  for a frontend that cannot verify one. */}
+              {clerk.enabled && !demoMode && (
+                <div className="clerk-auth-block">
+                  {/* Say it before the click. A development Clerk instance only
+                      signs in the browser that owns the Clerk dashboard session,
+                      so for anyone else this button leads to a refusal. */}
+                  {CLERK_IS_DEV_INSTANCE && (
+                    <p className="clerk-auth-warning">
+                      <strong>Preview build.</strong> This Clerk instance is in
+                      development mode, so Google sign-in only completes in the
+                      developer&rsquo;s own browser. Use <em>Demo mode</em> below
+                      to explore the account flows.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-orange"
+                    style={{ width: '100%', height: '46px' }}
+                    onClick={() => clerkSignIn('oauth_google')}
+                  >
+                    <span>Continue with Google</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    style={{ width: '100%', height: '46px', marginTop: '8px' }}
+                    onClick={() => clerkSignIn('oauth_apple')}
+                  >
+                    <span>Continue with Apple</span>
+                  </button>
+                  <p className="clerk-auth-note">
+                    Verified by Clerk. Your password is never handled by this site.
+                  </p>
+                </div>
+              )}
+
+              {/* Demo fixture, behind an explicit label and off by default
+                  whenever Clerk is configured. */}
+              {clerk.enabled && (
+                <div className="login-row-help" style={{ marginTop: '10px' }}>
+                  <label className="login-check">
+                    <input
+                      type="checkbox"
+                      id="toggle-demo-mode"
+                      checked={demoMode}
+                      onChange={(e) => setDemoMode(e.target.checked)}
+                    />
+                    <span>
+                      Demo mode &mdash; password is <strong>not</strong> verified
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn-orange"
+                style={{ width: '100%', height: '46px', display: (clerk.enabled && !demoMode) ? 'none' : 'block' }}
+              >
                 <span>Sign in</span>
                 <IconArrowRight size={15} />
               </button>

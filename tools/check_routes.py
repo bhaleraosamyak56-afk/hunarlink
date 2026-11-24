@@ -29,8 +29,8 @@ with sync_playwright() as p:
     for r in ROUTES:
         errs=[]
         pg.on("pageerror", lambda e: errs.append(str(e)))
-        resp=pg.goto(BASE+r, wait_until="networkidle")
-        pg.wait_for_timeout(1000)
+        resp=pg.goto(BASE+r, wait_until="load")
+        pg.wait_for_timeout(1400)
         root=pg.evaluate("document.querySelectorAll('main,header,section').length")
         txt=pg.evaluate("document.body.innerText.replace(/\\s+/g,' ').slice(0,52)")
         print(f"{r:48} http={resp.status} blocks={root:3} err={len(errs)} | {txt}")

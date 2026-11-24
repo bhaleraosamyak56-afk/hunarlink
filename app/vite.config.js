@@ -35,6 +35,14 @@ export default defineConfig(({ mode }) => {
              code then leaves the vendor chunks cached in the browser. */
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              /* Clerk MUST be tested before the 'react' test below, because
+                 `@clerk/react` and `@clerk/clerk-react` both contain the
+                 substring 'react' and would otherwise be swept into
+                 vendor-react. That chunk is modulepreloaded by index.html on
+                 every page, so Clerk would download for every visitor —
+                 including the many who never see a login screen. Returning
+                 undefined leaves Clerk in the lazy ClerkBoundary chunk. */
+              if (id.includes('@clerk')) return undefined
               if (id.includes('react-router')) return 'vendor-router'
               if (id.includes('react')) return 'vendor-react'
               return 'vendor'

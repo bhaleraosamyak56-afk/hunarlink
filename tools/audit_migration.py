@@ -21,7 +21,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: None)
 
     # ---------------- HOME ----------------
-    pg.goto(B + "/", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    pg.goto(B + "/", wait_until="load"); pg.wait_for_timeout(1200)
     r = []
     tw = pg.evaluate("document.querySelectorAll('.guild-bento-card,.product-card').length")
     r.append(("product/guild cards present", tw > 0, f"{tw} cards"))
@@ -36,7 +36,7 @@ with sync_playwright() as p:
         link.click(); pg.wait_for_timeout(1600)
         r.append(("product card navigates to PDP", "/product" in pg.url, pg.url.replace(B, "")))
     # search box
-    pg.goto(B + "/", wait_until="networkidle"); pg.wait_for_timeout(1000)
+    pg.goto(B + "/", wait_until="load"); pg.wait_for_timeout(1000)
     sb = pg.locator("input[type=search], .search-input, #search-input").first
     if sb.count():
         sb.fill("walnut"); pg.wait_for_timeout(900)
@@ -45,7 +45,7 @@ with sync_playwright() as p:
     report("HOME  (HomePage.jsx renders sections/ components)", r)
 
     # ---------------- PDP ----------------
-    pg.goto(B + "/product?id=hl-pash-001", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    pg.goto(B + "/product?id=hl-pash-001", wait_until="load"); pg.wait_for_timeout(1200)
     r = []
     r.append(("title rendered", pg.locator("h1").count() > 0, pg.inner_text("h1")[:40]))
     thumbs = pg.evaluate("document.querySelectorAll('[class*=thumb], .gallery-thumb').length")
@@ -58,7 +58,7 @@ with sync_playwright() as p:
     report("PRODUCT DETAIL  (ProductPage.jsx)", r)
 
     # ---------------- AUTH ----------------
-    pg.goto(B + "/auth", wait_until="networkidle"); pg.wait_for_timeout(1000)
+    pg.goto(B + "/auth", wait_until="load"); pg.wait_for_timeout(1000)
     r = []
     pg.fill("#login-email", "nobody@nowhere.in"); pg.fill("#login-password", "x")
     pg.click("#login-submit-btn"); pg.wait_for_timeout(800)
@@ -68,14 +68,14 @@ with sync_playwright() as p:
     report("AUTH  (AuthPage.jsx)", r)
 
     # ---------------- ORDERS ----------------
-    pg.goto(B + "/orders", wait_until="networkidle"); pg.wait_for_timeout(800)
+    pg.goto(B + "/orders", wait_until="load"); pg.wait_for_timeout(800)
     pg.evaluate("""()=>localStorage.setItem('hunarlink_orders', JSON.stringify([{
         id:'HL-ORD-2026-7781', date:'12 Nov 2026', stage:2, total:1650, subtotal:1650,
         address:'Priya Sharma, New Delhi - 110024', paymentMethod:'UPI Verified Escrow',
         buyer:{name:'Priya Sharma', phone:'+91 98112 77420', city:'New Delhi', pincode:'110024'},
         items:[{productId:'hl-pash-001', title:'Royal Khudrang Pashmina Shawl', qty:1, price:1650, lineTotal:1650}]
       }]))""")
-    pg.reload(wait_until="networkidle"); pg.wait_for_timeout(1200)
+    pg.reload(wait_until="load"); pg.wait_for_timeout(1200)
     r = []
     n = pg.locator(".fk-order-card").count()
     r.append(("orders rendered", n > 0, f"{n} order cards"))
@@ -85,7 +85,7 @@ with sync_playwright() as p:
     report("ORDERS  (OrdersPage.jsx)", r)
 
     # ---------------- PROFILE ----------------
-    pg.goto(B + "/profile", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    pg.goto(B + "/profile", wait_until="load"); pg.wait_for_timeout(1200)
     r = []
     pg.locator("[data-view='addresses']").click(); pg.wait_for_timeout(500)
     active = pg.evaluate("()=>[...document.querySelectorAll('.fk-tab-view.active')].map(e=>e.id)")
@@ -93,7 +93,7 @@ with sync_playwright() as p:
     report("PROFILE  (ProfilePage.jsx)", r)
 
     # ---------------- WHOLESALE ----------------
-    pg.goto(B + "/wholesale", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    pg.goto(B + "/wholesale", wait_until="load"); pg.wait_for_timeout(1200)
     r = []
     n = pg.locator(".wp-prod-option").count()
     r.append(("product selector populated", n > 0, f"{n} products"))
@@ -103,7 +103,7 @@ with sync_playwright() as p:
     report("WHOLESALE  (WholesalePage.jsx)", r)
 
     # ---------------- ADMIN ----------------
-    pg.goto(B + "/admin", wait_until="networkidle"); pg.wait_for_timeout(700)
+    pg.goto(B + "/admin", wait_until="load"); pg.wait_for_timeout(700)
     r = []
     login_page = pg.locator(".admin-login-card").is_visible()
     r.append(("dedicated login page shown", login_page,
@@ -132,10 +132,10 @@ with sync_playwright() as p:
     report("ADMIN  (portal/AdminPage.jsx)", r)
 
     # ---------------- SELLER ----------------
-    pg.goto(B + "/seller", wait_until="networkidle")
+    pg.goto(B + "/seller", wait_until="load")
     pg.evaluate("""()=>localStorage.setItem('hunarlink_auth_user', JSON.stringify(
         {name:'Test Artisan', business:'Atelier', role:'artisan', isLoggedIn:true, badge:'TA'}))""")
-    pg.reload(wait_until="networkidle"); pg.wait_for_timeout(1400)
+    pg.reload(wait_until="load"); pg.wait_for_timeout(1400)
     r = []
     r.append(("workspace unlocked", pg.eval_on_selector("#portal-shell", "e=>getComputedStyle(e).display") == "grid", "grid"))
     btns = pg.locator(".nav-tab-btn")
@@ -150,8 +150,14 @@ with sync_playwright() as p:
     report("SELLER  (portal/SellerPage.jsx)", r)
 
     # ---------------- LOGIN ----------------
-    pg.goto(B + "/login", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    pg.goto(B + "/login", wait_until="load"); pg.wait_for_timeout(1200)
     r = []
+    # Clerk is configured on this build, so the demo form sits behind an
+    # explicit toggle and real OAuth is the default path. Fixture sign-in is
+    # only reachable with demo mode on — the documented judge route.
+    demo = pg.locator("#toggle-demo-mode")
+    if demo.count():
+        demo.check(); pg.wait_for_timeout(500)
     pg.fill("#signin-identifier", "test@collector.in"); pg.fill("#signin-password", "pw")
     before = pg.url
     sub = pg.locator("#user-signin-form button[type=submit]")
