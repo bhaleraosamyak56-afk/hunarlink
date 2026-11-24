@@ -6414,12 +6414,11 @@ picture {
   }
 }
 
-/* Compact link to the full artisan directory, beside the showcase intro. */
-.artisans-header-actions {
+/* Compact directory link below the featured artisan carousel. */
+.artisan-directory-cta-row {
   display: flex;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: 14px;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 .artisan-show-more {
@@ -6452,19 +6451,9 @@ picture {
   outline-offset: 3px;
 }
 
-@media (max-width: 760px) {
-  .artisans-header-actions {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .artisans-header-actions .artisans-header-note {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-
-  .artisan-show-more {
-    margin-left: auto;
+@media (max-width: 680px) {
+  .artisan-directory-cta-row {
+    justify-content: center;
+    margin-top: 12px;
   }
 }
