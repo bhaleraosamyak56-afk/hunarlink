@@ -152,12 +152,6 @@ with sync_playwright() as p:
     # ---------------- LOGIN ----------------
     pg.goto(B + "/login", wait_until="load"); pg.wait_for_timeout(1200)
     r = []
-    # Clerk is configured on this build, so the demo form sits behind an
-    # explicit toggle and real OAuth is the default path. Fixture sign-in is
-    # only reachable with demo mode on — the documented judge route.
-    demo = pg.locator("#toggle-demo-mode")
-    if demo.count():
-        demo.check(); pg.wait_for_timeout(500)
     pg.fill("#signin-identifier", "test@collector.in"); pg.fill("#signin-password", "pw")
     before = pg.url
     sub = pg.locator("#user-signin-form button[type=submit]")

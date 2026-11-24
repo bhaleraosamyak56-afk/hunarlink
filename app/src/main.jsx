@@ -1,20 +1,9 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { StoreProvider } from './state/StoreContext.jsx';
-
-import { CLERK_ENABLED, clerkConfig } from './data/clerkConfig.js';
-
-/* Clerk is reached ONLY through a dynamic import, and only when a publishable
-   key is present. A static import would ship ~90 KB to every visitor,
-   including the many who never open a login screen, and ClerkProvider throws
-   on mount if the key is malformed — so loading it behind the check keeps the
-   storefront alive even if the key is wrong. */
-const ClerkBoundary = CLERK_ENABLED
-  ? lazy(() => import('./components/ClerkBoundary.jsx'))
-  : null;
 
 import './styles/base.css';
 import './styles/craft.css';
@@ -46,33 +35,8 @@ function resolveBasename() {
 
 const basename = resolveBasename();
 
-/* ==========================================================================
-   Clerk provider — deliberately conditional
-   --------------------------------------------------------------------------
-   The dependency is installed and the seam exists (data/clerkConfig.js), but
-   there is no publishable key, so no ClerkProvider is mounted today.
-
-   That is not laziness. ClerkProvider throws on mount if the key is missing
-   or malformed, and the site must keep running on the demo session path. The
-   provider is mounted only when CLERK_ENABLED is true, which is only true
-   when VITE_CLERK_PUBLISHABLE_KEY starts with "pk_".
-
-   To finish the frontend half: put the key in app/.env.local as
-     VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxx
-   rebuild, and wrap <App /> in <ClerkProvider publishableKey={...}>. The
-   server half cannot be done without a backend — see clerkConfig.js.
-   ========================================================================== */
-if (CLERK_ENABLED) {
-  // eslint-disable-next-line no-console
-  console.info('[HunarLink] Clerk publishable key detected — frontend auth available.');
-} else if (clerkConfig.publishableKey) {
-  // eslint-disable-next-line no-console
-  console.warn('[HunarLink] VITE_CLERK_PUBLISHABLE_KEY is set but does not look like a key.');
-}
-
-/* The tree in one place, so the Clerk-wrapped and unwrapped versions cannot
-   drift apart. With no key this is exactly the tree that shipped before. */
-const app = (
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
     <BrowserRouter basename={basename}>
       {/* Outermost safety net. This one catches a throw from the provider
           itself (a broken reducer, a corrupt localStorage value read during
@@ -84,19 +48,5 @@ const app = (
         </StoreProvider>
       </ErrorBoundary>
     </BrowserRouter>
-);
-
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    {ClerkBoundary ? (
-      /* Required because ClerkBoundary is a lazy chunk. An empty fallback is
-         deliberate: a spinner here would flash for milliseconds over a shell
-         the visitor is already loading. */
-      <Suspense fallback={null}>
-        <ClerkBoundary>{app}</ClerkBoundary>
-      </Suspense>
-    ) : (
-      app
-    )}
   </React.StrictMode>
 );
