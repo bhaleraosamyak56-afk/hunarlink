@@ -68,7 +68,7 @@ const BLANK_SELLER = {
 
 export default function WholesalePage() {
   const [params] = useSearchParams();
-  const { catalogue, toast } = useStore();
+  const { catalogue, addInquiry, toast } = useStore();
 
   const [tab, setTab] = useState(() => {
     const role = params.get('role') || params.get('mode');
@@ -198,22 +198,18 @@ export default function WholesalePage() {
 
     setSellerRequests((list) => [record, ...list]);
 
-    /* Mirror into the artisan's product responses, exactly as the static build
-       did, so a bulk lot also surfaces inside the seller portal. */
-    const inquiries = loadStorage(WS_KEYS.SELLER_INQUIRIES, []);
-    saveStorage(WS_KEYS.SELLER_INQUIRIES, [
-      {
-        id: 'inq-whl-' + Date.now(),
-        type: `Wholesale Bulk Request (${quantity} Units → ${selected.artisan})`,
-        author: `${record.buyer.name} (${record.buyer.company}, ${record.buyer.city})`,
-        productTitle: selected.title,
-        date: `${record.date}, ${record.time}`,
-        rating: 5,
-        comment: `Bulk Order Ref ${reqId}: ${quantity} units @ ${formatINR(unitWholesale)}/unit (Total ${formatINR(totalLotValue)}). Contact: ${record.buyer.phone} | ${record.buyer.email}. Notes: ${record.notes}`,
-        reply: ''
-      },
-      ...inquiries
-    ]);
+    /* Mirror into the artisan's product responses through StoreContext so it
+       never gets overwritten by the store's persist effect. */
+    addInquiry({
+      id: 'inq-whl-' + Date.now(),
+      type: `Wholesale Bulk Request (${quantity} Units → ${selected.artisan})`,
+      author: `${record.buyer.name} (${record.buyer.company}, ${record.buyer.city})`,
+      productTitle: selected.title,
+      date: `${record.date}, ${record.time}`,
+      rating: 5,
+      comment: `Bulk Order Ref ${reqId}: ${quantity} units @ ${formatINR(unitWholesale)}/unit (Total ${formatINR(totalLotValue)}). Contact: ${record.buyer.phone} | ${record.buyer.email}. Notes: ${record.notes}`,
+      reply: ''
+    });
 
     setBuyerReceipt({
       id: reqId,
@@ -298,7 +294,7 @@ export default function WholesalePage() {
         </a>
         <a href={appHref('/profile')} className="wp-nav-btn">My Profile
         </a>
-        <button type="button" className="wp-nav-btn primary">Live Routing Desk (<span id="nav-total-requests">{totalRequests}</span>)
+        <button type="button" className="wp-nav-btn primary" onClick={() => setTab('tracker')}>Live Routing Desk (<span id="nav-total-requests">{totalRequests}</span>)
         </button>
       </nav>
     </div>
@@ -340,7 +336,7 @@ export default function WholesalePage() {
   </section>
 
   {/* Main Workspace */}
-  <main className="wp-main">
+  <main className="wp-main" id="main-content">
     {/* 3-Mode Tab Bar */}
     <div className="wp-tabs-bar" role="tablist">
       <button type="button" className={`wp-tab-btn${tab === 'buyer' ? ' active' : ''}`} id="tab-btn-buyer"
@@ -732,8 +728,8 @@ export default function WholesalePage() {
 
             <div className="wp-field">
               <label className="wp-label" htmlFor="ls-capacity">Available Bulk Supply Quantity (Units) *</label>
-              <input type="number" id="ls-capacity" className="wp-input" value={seller.supplyCapacity}
-                onChange={(e) => setSellerField('supplyCapacity')(e.target.value)} min="10" max="5000" value="50" required />
+                <input type="number" id="ls-capacity" className="wp-input" value={seller.supplyCapacity}
+                  onChange={(e) => setSellerField('supplyCapacity')(e.target.value)} min="10" max="5000" required />
             </div>
 
             <div className="wp-field">

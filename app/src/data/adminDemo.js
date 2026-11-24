@@ -86,6 +86,9 @@ function clone(x) { return JSON.parse(JSON.stringify(x)); }
     ]
   };
 
+  var nextAuditId = 3100;
+  var nextLogId = 710;
+
   function route(method, path) {
     var q = path.split('?')[0].replace(/\/+$/, '');
     var m = method.toUpperCase();
@@ -98,15 +101,15 @@ function clone(x) { return JSON.parse(JSON.stringify(x)); }
     if (/^\/admin\/customers\/\d+\/status$/.test(q)) return { ok: true };
     if (q === '/admin/sellers') return clone(DB.sellers);
     if (/^\/admin\/sellers\/\d+\/moderate$/.test(q)) {
-      var sid = parseInt(q.split('/')[4], 10);
+      var sid = parseInt(q.split('/')[3], 10);
       var s = DB.sellers.find(function (x) { return x.seller_id === sid; });
-      if (s) s.status = 'APPROVED';
       return { ok: true, seller: s };
     }
     if (q === '/admin/verifications/gi') return clone(DB.gi_audits);
     if (q === '/admin/verifications/gi/run-audit') {
+      nextAuditId += 1;
       var fresh = {
-        audit_id: 900 + Math.floor(Math.random() * 99),
+        audit_id: nextAuditId,
         applicant_name: 'Ghulam Nabi Mir (Zadibal Weavers)',
         claimed_gi_code: 'GI-JK-PASH-8821',
         llm_provider: 'google-genai',
@@ -133,6 +136,11 @@ function clone(x) { return JSON.parse(JSON.stringify(x)); }
       return { ok: true, audit: a };
     }
     if (q === '/admin/verifications/non-gi') return clone(DB.non_gi);
+    if (/^\/admin\/verifications\/non-gi\/\d+\/decide$/.test(q)) {
+      var ngid = parseInt(q.split('/')[4], 10);
+      var ng = DB.non_gi.find(function (x) { return x.verification_id === ngid; });
+      return { ok: true, verification: ng };
+    }
     if (q === '/admin/procurement/lots') return clone(DB.lots);
     if (/^\/admin\/procurement\/lots\/\d+\/rank-dealers$/.test(q)) {
       return { lot_id: parseInt(q.split('/')[4], 10), ranked_dealers: clone(DB.dealers) };
@@ -164,6 +172,14 @@ function clone(x) { return JSON.parse(JSON.stringify(x)); }
       var ga = DB.gi_audits.find(function (x) { return x.audit_id === parseInt(giDecide[1], 10); });
       if (ga) { ga.admin_decision = body.decision; ga.admin_remarks = body.decision_notes || ''; }
     }
+    var nonGiDecide = endpoint.split('?')[0].match(/^\/admin\/verifications\/non-gi\/(\d+)\/decide$/);
+    if (nonGiDecide && body) {
+      var ngItem = DB.non_gi.find(function (x) { return x.verification_id === parseInt(nonGiDecide[1], 10); });
+      if (ngItem) {
+        if (body.status) ngItem.status = body.status;
+        if (body.admin_remarks !== undefined) ngItem.admin_remarks = body.admin_remarks;
+      }
+    }
     if (/^\/admin\/procurement\/assign$/.test(endpoint.split('?')[0]) && body && body.lot_id) {
       var al = DB.lots.find(function (x) { return x.lot_id === parseInt(body.lot_id, 10); });
       if (al) al.status = 'ASSIGNED';
@@ -188,8 +204,9 @@ function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
     /* only state-changing calls belong in the trail */
     if (method !== 'GET' && !/^\/auth\/login$/.test(q)) {
+      nextLogId += 1;
       DB.audit_logs.unshift({
-        id: 700 + Math.floor(Math.random() * 200),
+        id: nextLogId,
         created_at: new Date().toISOString(),
         admin_email: 'admin@hunarlink.com',
         admin_role: 'SUPER_ADMIN',

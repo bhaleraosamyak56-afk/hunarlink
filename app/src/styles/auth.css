@@ -558,9 +558,20 @@
     /* Social Buttons (Google & Apple) */
     .social-btns-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      grid-template-columns: 1fr;
+      gap: 10px;
       margin-bottom: 24px;
+    }
+
+    .terms-inline-link {
+      border: 0;
+      padding: 0;
+      background: none;
+      font: inherit;
+      font-weight: 700;
+      color: #195C38;
+      text-decoration: underline;
+      cursor: pointer;
     }
 
     .btn-social {

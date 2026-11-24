@@ -44,7 +44,6 @@ export const GUILDS = [
       'Juglans regia timber seasoned for years before it is touched, then carved by hand '
         + 'into deep Chinar relief or pierced with Pinjrakari jali. No lathe, no stencil and '
         + 'no power tool — a chisel, a mallet and a family workshop.',
-    techniques: [],
     techniques: []
   },
   {

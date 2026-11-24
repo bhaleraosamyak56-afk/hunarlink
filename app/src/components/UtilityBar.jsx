@@ -37,7 +37,7 @@ export default function UtilityBar() {
           </span>
         </div>
         <div className="utility-actions">
-          <button type="button" className="utility-link-btn" onClick={() => navigate('/login')}>
+          <button type="button" className="utility-link-btn" onClick={() => navigate('/login?role=artisan')}>
             <IconLogin size={15} /> Artisan Login
           </button>
           <button
@@ -45,7 +45,7 @@ export default function UtilityBar() {
             className="utility-link-btn"
             onClick={() => openModal('giVerify', { giId: 'GI-JK-PASH-8821' })}
           >
-            <IconShield size={15} />&#65039; Verify GI Tag
+            <IconShield size={15} /> Verify GI Tag
           </button>
           <button type="button" className="utility-link-btn" onClick={() => openModal('orders')}>
             <IconPackage size={15} /> Track Orders

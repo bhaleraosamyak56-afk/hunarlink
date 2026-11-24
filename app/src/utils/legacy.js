@@ -40,8 +40,9 @@ export function formatINR(num) {
 
 /* ---------------------------------------------------------------- products */
 
-export function buildCatalogue(customProducts = []) {
-  const overrides = loadStorage('hunarlink_product_overrides', {});
+export function buildCatalogue(customProducts = [], productOverrides = null) {
+  const overrides =
+    productOverrides !== null ? productOverrides : loadStorage('hunarlink_product_overrides', {});
   const merged = [...customProducts, ...SEED_PRODUCTS].map((p) => {
     const ov = overrides && overrides[p.id];
     return ov ? { ...p, ...ov } : p;
@@ -50,7 +51,7 @@ export function buildCatalogue(customProducts = []) {
 }
 
 export function findProduct(catalogue, id) {
-  return catalogue.find((p) => p.id === id) || catalogue[0];
+  return catalogue.find((p) => p.id === id) || null;
 }
 
 /* -------------------------------------------------------------------- cart */

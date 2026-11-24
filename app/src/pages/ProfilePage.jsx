@@ -43,8 +43,19 @@ const FALLBACK_ADDRESS = {
 
 /* Both readers take their value from the store, which already loaded these
    keys at boot. Nothing here touches localStorage. */
-function readProfile(buyerProfile) {
-  return buyerProfile ? { ...DEFAULT_PROFILE, ...buyerProfile } : { ...DEFAULT_PROFILE };
+function readProfile(buyerProfile, storeUser) {
+  if (buyerProfile) return { ...DEFAULT_PROFILE, ...buyerProfile };
+  if (storeUser && storeUser.role !== 'artisan' && storeUser.isLoggedIn) {
+    return {
+      ...DEFAULT_PROFILE,
+      firstName: storeUser.name || DEFAULT_PROFILE.firstName,
+      fullName: storeUser.fullName || DEFAULT_PROFILE.fullName,
+      email: storeUser.email || DEFAULT_PROFILE.email,
+      badge: storeUser.badge || DEFAULT_PROFILE.badge,
+      isLoggedIn: true
+    };
+  }
+  return { ...DEFAULT_PROFILE };
 }
 
 function readAddresses(addresses) {
@@ -80,7 +91,8 @@ export default function ProfilePage() {
     toast
   } = useStore();
 
-  const [profile, setProfile] = useState(() => readProfile(buyerProfile));
+  const [profile, setProfile] = useState(() => readProfile(buyerProfile, user));
+  const [savedSnapshot, setSavedSnapshot] = useState(null);
   const [addresses, setAddresses] = useState(() => readAddresses(storeAddresses));
   const [tab, setTab] = useState(() => {
     const requested = params.get('tab');
@@ -124,7 +136,7 @@ export default function ProfilePage() {
         title: 'Verified Valley Buyer \u2022 J&K',
         badge: profile.badge,
         isLoggedIn: profile.isLoggedIn
-      });
+      }, { silent: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
@@ -153,24 +165,32 @@ export default function ProfilePage() {
 
   function toggleSectionEdit(section) {
     const next = !editing[section];
+    if (next) {
+      setSavedSnapshot({ ...profile });
+    } else if (savedSnapshot) {
+      setProfile(savedSnapshot);
+      setSavedSnapshot(null);
+    }
     setEditing((e) => ({ ...e, [section]: next }));
-    if (!next) setProfile((p) => ({ ...p })); /* cancel re-renders saved values */
   }
 
   function submitPersonal(e) {
     e.preventDefault();
+    setSavedSnapshot(null);
     setEditing((ed) => ({ ...ed, personal: false }));
     toast('Personal information updated & synced across HunarLink!', 'success');
   }
 
   function submitEmail(e) {
     e.preventDefault();
+    setSavedSnapshot(null);
     setEditing((ed) => ({ ...ed, email: false }));
     toast('Email address saved!', 'success');
   }
 
   function submitPhone(e) {
     e.preventDefault();
+    setSavedSnapshot(null);
     setEditing((ed) => ({ ...ed, phone: false }));
     toast('Mobile number saved!', 'success');
   }
@@ -293,7 +313,7 @@ export default function ProfilePage() {
   </header>
 
   {/* Flipkart-Style Two-Column Account Layout */}
-  <main className="up-container">
+  <main className="up-container" id="main-content">
     {/* the page had no h1 at all — every section started at h2, so assistive
         tech had no page name to announce */}
     <h1 className="up-page-h1">User Account &amp; Profile</h1>

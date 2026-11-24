@@ -14,7 +14,7 @@ export default function WholesaleBanner() {
         <div className="b2b-banner-card">
           <div className="b2b-left">
             <span className="b2b-pill">
-              <IconBadgeCheck size={16} />&#65039; B2B Hospitality &amp; Architectural Trade Portal
+              <IconBadgeCheck size={16} /> B2B Hospitality &amp; Architectural Trade Portal
             </span>
             <h2 className="b2b-title">
               Bespoke Valley Lots for Luxury Hospitality &amp; Interior Architects

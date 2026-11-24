@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
 
             <form id="admin-login-page-form" onSubmit={submitLogin}>
               <div className="admin-login-field">
-                <label htmlFor="admin-login-identifier">Admin email or Clerk ID</label>
+                <label htmlFor="admin-login-identifier">Admin email or ID</label>
                 <input
                   id="admin-login-identifier"
                   name="identifier"

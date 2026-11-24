@@ -70,7 +70,7 @@ function PageFallback() {
       aria-busy="true"
       aria-live="polite"
     >
-      <span style={{ color: 'var(--text-500)', fontSize: '0.85rem' }}>Loading\u2026</span>
+      <span style={{ color: 'var(--text-500)', fontSize: '0.85rem' }}>Loading&hellip;</span>
     </main>
   );
 }
@@ -153,8 +153,8 @@ export default function App() {
           the header, cart, drawers, footer and chat alive. resetKey means the
           fallback clears as soon as the user navigates somewhere else. */}
       <ErrorBoundary resetKey={location.key}>
-      {isPortal && <PortalStyles />}
       <Suspense fallback={<PageFallback />}>
+      {isPortal && <PortalStyles />}
       <Routes>
         <Route path="/" element={<HomePage onSectionChange={handleSection} />} />
         <Route path="/index.html" element={<HomePage onSectionChange={handleSection} />} />

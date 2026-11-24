@@ -41,7 +41,7 @@ export default function OrdersPage() {
   const [query, setQuery] = useState('');
   const [drafts, setDrafts] = useState({});
 
-  const signedIn = user?.isLoggedIn !== false;
+  const signedIn = Boolean(user && user.isLoggedIn !== false);
 
   const visible = useMemo(() => {
     let list = orders;
@@ -158,7 +158,7 @@ export default function OrdersPage() {
         </div>
       </header>
 
-      <main className="up-container">
+      <main className="up-container" id="main-content">
 
         <h1 className="up-page-h1">Live Order Tracking</h1>
         <div className="orders-layout">
@@ -402,7 +402,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
             style={{ padding: '6px 12px', fontSize: '0.74rem' }}
             onClick={() => window.print()}
           >
-            <IconReceipt size={15} />&#65039; GI Invoice
+            <IconReceipt size={15} /> GI Invoice
           </button>
         </div>
       </div>
@@ -586,7 +586,7 @@ function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
                 marginTop: 6
               }}
             >
-              <IconShield size={15} />&#65039; {o.paymentStatus || 'Protected by HunarLink Escrow'}
+              <IconShield size={15} /> {o.paymentStatus || 'Protected by HunarLink Escrow'}
             </div>
           </div>
         </div>

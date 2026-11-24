@@ -1,9 +1,9 @@
 # sync-build.ps1
 #
-# Copies a fresh Vite build from app\dist up to the repository root, which is
+# Copies a fresh Vite build from dist\ up to the repository root, which is
 # what GitHub Pages actually serves.
 #
-# Why this exists: `npx vite build --mode root` writes to app\dist, but Pages
+# Why this exists: `npx vite build --mode root` writes to dist\, but Pages
 # publishes the repo root. Without this step the build sits in dist and
 # `git add -A` sees nothing to commit, so the site keeps serving the old bundle.
 #
@@ -29,7 +29,7 @@ if (-not (Test-Path 'assets')) {
 Write-Host 'Clearing previous bundle files...' -ForegroundColor Cyan
 # Only the hashed build output. Product photography and fonts are NOT touched.
 Get-ChildItem assets -File |
-    Where-Object { $_.Name -match '^(index-.*\.(js|css)|.*Page-.*\.js|.*Section-.*\.js|.*Banner-.*\.js|.*Showcase-.*\.js|vendor-.*\.js|rolldown-runtime-.*\.js|ClerkBoundary-.*\.js|portal-.*\.css)$' } |
+    Where-Object { $_.Name -match '^[A-Za-z0-9_-]+-[A-Za-z0-9_-]{6,}\.(js|css)$' } |
     Remove-Item -Force
 
 Write-Host 'Copying build output to repo root...' -ForegroundColor Cyan
@@ -58,8 +58,8 @@ if (Test-Path 'app/public/img/artisans') {
 # behind, which is how the category pages broke once before.
 Write-Host 'Regenerating category.html...' -ForegroundColor Cyan
 $emDash = [char]0x2014
-$oldTitle = "HunarLink $emDash GI-Certified Kashmiri Handicrafts Marketplace"
-$newTitle = "HunarLink $emDash Craft Categories`r`n    <base href=`"/hunarlink/category/`">"
+$oldTitle = "<title>HunarLink $emDash GI-Certified Kashmiri Handicrafts Marketplace</title>"
+$newTitle = "<title>HunarLink $emDash Craft Categories</title>`r`n    <base href=`"/hunarlink/category/`">"
 
 $src = Get-Content 'dist/index.html' -Raw
 if ($src.Contains($oldTitle)) {
@@ -86,5 +86,5 @@ git status --short
 Write-Host ''
 Write-Host 'Done. If the status above shows changes, commit and push them:' -ForegroundColor Cyan
 Write-Host '   git add -A'
-Write-Host '   git commit -m "Rebuild with Clerk key so the OAuth buttons render"'
+Write-Host '   git commit -m "Rebuild storefront bundle"'
 Write-Host '   git push'

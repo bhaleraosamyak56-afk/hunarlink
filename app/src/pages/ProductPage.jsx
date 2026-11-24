@@ -336,19 +336,6 @@ export default function ProductPage() {
           </section>
         )}
       </main>
-
-      <footer className="pdp-footer">
-        <div className="container text-center" style={{ fontSize: '0.82rem', color: '#9AB2A4' }}>
-          <p style={{ marginBottom: 8 }}>
-            HunarLink &mdash; Valley Craft Guild &bull; Team 16 &bull; Jammu &amp; Kashmir
-            Handicrafts Network
-          </p>
-          <p>
-            &copy; 2026 HunarLink. Direct Artisan Fair-Trade &bull; Govt Geographical Indication
-            Registry Authentication.
-          </p>
-        </div>
-      </footer>
     </>
   );
 }
