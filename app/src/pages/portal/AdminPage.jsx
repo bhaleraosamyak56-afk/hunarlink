@@ -181,6 +181,12 @@ export default function AdminPage() {
         body: JSON.stringify({ decision: payload.decision, decision_notes: reason })
       });
       toast(`Audit #${payload.id}: ${payload.decision.replace(/_/g, ' ')}.`, 'success');
+    } else if (type === 'non-gi') {
+      await demoApi(`/admin/verifications/non-gi/${payload.id}/decide`, {
+        method: 'POST',
+        body: JSON.stringify({ status: 'VERIFIED', admin_remarks: reason })
+      });
+      toast(`${payload.name} marked verified.`, 'success');
     } else if (type === 'setting') {
       await demoApi('/admin/settings/toggle', {
         method: 'PUT',
@@ -344,7 +350,7 @@ export default function AdminPage() {
             onClick={() => setDrawerOpen(false)}
           ></div>
 
-          <main className="admin-main">
+          <main className="admin-main" id="main-content">
             <header className="admin-header">
               <div className="header-breadcrumb">
                 <button
@@ -355,7 +361,9 @@ export default function AdminPage() {
                   aria-expanded={drawerOpen}
                   aria-controls="admin-sidebar"
                   onClick={() => setDrawerOpen((v) => !v)}
-                > </button>
+                >
+                  &#9776;
+                </button>
                 <span id="breadcrumb-channel">Retail + Wholesale + Supplier Procurement</span>
                 <h1 id="breadcrumb-title">{activeTab.label}</h1>
               </div>
@@ -694,27 +702,24 @@ export default function AdminPage() {
                               <td>{r.target_type}</td>
                               <td><strong>{r.business_name}</strong></td>
                               <td>{r.pan_or_tax_id || 'N/A'}</td>
-                              <td><span className="badge badge-warning">{r.status}</span></td>
+                              <td>
+                                <span className={`badge ${r.status === 'VERIFIED' ? 'badge-success' : 'badge-warning'}`}>
+                                  {r.status}
+                                </span>
+                              </td>
                               <td>{r.admin_remarks || 'Awaiting initial inspector review'}</td>
                               <td>
                                 <button
+                                  type="button"
                                   className="btn btn-outline-sm btn-sm"
-                                  onClick={() => {
-                                    const notes = window.prompt(
+                                  onClick={() =>
+                                    ask(
+                                      'non-gi',
+                                      { id: r.verification_id, name: r.business_name },
                                       `Review remarks for ${r.business_name}:`,
                                       'Documents verified against PAN records.'
-                                    );
-                                    if (!notes) return;
-                                    setData((d) => ({
-                                      ...d,
-                                      nonGi: d.nonGi.map((x) =>
-                                        x.verification_id === r.verification_id
-                                          ? { ...x, status: 'VERIFIED', admin_remarks: notes }
-                                          : x
-                                      )
-                                    }));
-                                    toast(`${r.business_name} marked verified.`, 'success');
-                                  }}
+                                    )
+                                  }
                                 >
                                   Review Docs
                                 </button>

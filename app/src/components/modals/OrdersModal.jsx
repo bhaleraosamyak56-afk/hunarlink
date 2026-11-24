@@ -26,7 +26,7 @@ export default function OrdersModal() {
     <Modal
       id="orders-modal"
       width="860px"
-      title="<IconPackage size={15} /> Your Insured Order Ledger"
+      title={<><IconPackage size={15} /> Your Insured Order Ledger</>}
       onClose={closeModal}
     >
       <div className="modal-body" id="orders-modal-body">

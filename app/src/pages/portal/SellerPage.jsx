@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
@@ -210,11 +210,17 @@ const save = (key, value) => {
 
 export default function SellerPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileRef = useRef(null);
   const editFileRef = useRef(null);
 
   const [seller, setSeller] = useState(null);
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(() => {
+    const req = searchParams.get('tab');
+    if (req === 'wholesale') return 'responses';
+    if (['overview', 'publish', 'products', 'orders', 'responses'].includes(req)) return req;
+    return 'overview';
+  });
 
   /* The catalogue lives in the store, which is the single owner of
      hunarlink_custom_products. Reading it from here instead of a private
@@ -222,8 +228,10 @@ export default function SellerPage() {
   const {
     toast,
     user: storeUser,
+    setUser,
     customProducts,
     orders,
+    setOrders,
     reviews,
     wishlist,
     cart,
@@ -401,6 +409,7 @@ export default function SellerPage() {
     } catch (err) {
       /* ignore */
     }
+    setUser(null, { silent: true });
     navigate('/auth?mode=login&role=artisan');
   }
 
@@ -809,7 +818,7 @@ export default function SellerPage() {
             </div>
           </header>
 
-          <main className="portal-content">
+          <main className="portal-content" id="main-content">
             {/* TAB 1: OVERVIEW */}
             <section className={`tab-panel${tab === 'overview' ? ' active' : ''}`} id="tab-overview">
               <div className="verification-banner" id="verification-banner">
@@ -1289,7 +1298,9 @@ export default function SellerPage() {
                               +1 Stock
                             </button>
                             {!p.isCatalogSeed && (
-                              <button type="button" className="btn-danger-outline" onClick={() => removeProduct(p.id)} title="Delete Listing"> </button>
+                              <button type="button" className="btn-danger-outline" onClick={() => removeProduct(p.id)} title="Delete Listing" aria-label="Delete Listing">
+                                <IconX size={14} />
+                              </button>
                             )}
                           </div>
                         </article>

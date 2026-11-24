@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import {
   buildCatalogue,
   cartTotals,
@@ -52,7 +52,8 @@ const KEY_TO_SLICE = {
   [KEYS.reviews]: 'reviews',
   [KEYS.sellerInquiries]: 'sellerInquiries',
   [KEYS.buyerProfile]: 'buyerProfile',
-  [KEYS.platformUsers]: 'platformUsers'
+  [KEYS.platformUsers]: 'platformUsers',
+  [KEYS.adminToken]: 'adminToken'
 };
 
 /* The demo boots as a signed-in collector, exactly as the static build did —
@@ -73,10 +74,37 @@ const DEFAULT_ADDRESS = {
   id: 'addr-1',
   name: 'Demo User',
   phone: '0000000000',
-  line1: 'Houseboat Road, Dal Gate',
+  locality: 'Houseboat Road, Dal Gate',
   city: 'Srinagar',
   state: 'Jammu & Kashmir',
-  pin: '190001'
+  pincode: '190001',
+  type: 'Home'
+};
+
+function normaliseAddress(a) {
+  if (!a || typeof a !== 'object') return a;
+  return {
+    ...a,
+    locality: a.locality ?? a.line1 ?? '',
+    pincode: a.pincode ?? a.pin ?? ''
+  };
+}
+
+const SLICE_DEFAULTS = {
+  cart: [],
+  wishlist: [],
+  savedLater: [],
+  coupon: null,
+  user: null,
+  addresses: [DEFAULT_ADDRESS],
+  orders: [],
+  customProducts: [],
+  productOverrides: {},
+  reviews: {},
+  sellerInquiries: [],
+  buyerProfile: null,
+  platformUsers: [],
+  adminToken: null
 };
 
 /* ------------------------------------------------------------ price bounds
@@ -115,7 +143,10 @@ const initialState = {
   savedLater: loadStorage(KEYS.savedLater, []),
   coupon: loadStorage(KEYS.coupon, null),
   user: loadStorage(KEYS.user, DEFAULT_BUYER),
-  addresses: loadStorage(KEYS.addresses, [DEFAULT_ADDRESS]),
+  addresses: (() => {
+    const loaded = loadStorage(KEYS.addresses, [DEFAULT_ADDRESS]);
+    return Array.isArray(loaded) ? loaded.map(normaliseAddress) : [DEFAULT_ADDRESS];
+  })(),
   orders: loadStorage(KEYS.orders, []),
   customProducts: loadStorage(KEYS.customProducts, []),
   productOverrides: loadStorage(KEYS.productOverrides, {}),
@@ -219,8 +250,10 @@ function reducer(state, action) {
       };
     case 'overrides/set':
       return { ...state, productOverrides: { ...state.productOverrides, [action.id]: { ...(state.productOverrides[action.id] || {}), ...action.patch } } };
-    case 'inquiries/add':
-      return { ...state, sellerInquiries: [action.inquiry, ...state.sellerInquiries] };
+    case 'inquiries/add': {
+      const incoming = Array.isArray(action.inquiry) ? action.inquiry : [action.inquiry];
+      return { ...state, sellerInquiries: [...incoming, ...state.sellerInquiries] };
+    }
     case 'inquiries/reply':
       return {
         ...state,
@@ -236,8 +269,16 @@ function reducer(state, action) {
       return { ...state, adminToken: action.token };
 
     /* Cross-tab refresh: another tab wrote this key, so adopt its value. */
-    case 'external/sync':
-      return { ...state, [action.slice]: action.value };
+    case 'external/sync': {
+      const nextVal = action.value === null ? SLICE_DEFAULTS[action.slice] : action.value;
+      return {
+        ...state,
+        [action.slice]:
+          action.slice === 'addresses' && Array.isArray(nextVal)
+            ? nextVal.map(normaliseAddress)
+            : nextVal
+      };
+    }
 
     /* ------------------------------------------------------------- other */
     case 'coupon/set':
@@ -248,6 +289,11 @@ function reducer(state, action) {
       return { ...state, addresses: action.addresses };
     case 'order/add':
       return { ...state, orders: [action.order, ...state.orders] };
+    case 'orders/set': {
+      const nextOrders =
+        typeof action.orders === 'function' ? action.orders(state.orders) : action.orders;
+      return { ...state, orders: Array.isArray(nextOrders) ? nextOrders : state.orders };
+    }
     case 'order/advance':
       return {
         ...state,
@@ -329,7 +375,14 @@ export function StoreProvider({ children }) {
 
   /* The catalogue is derived, not stored — custom products and overrides can
      both change at runtime from the seller portal. */
-  const catalogue = useMemo(() => buildCatalogue(state.customProducts), [state.customProducts]);
+  const catalogue = useMemo(
+    () => buildCatalogue(state.customProducts, state.productOverrides),
+    [state.customProducts, state.productOverrides]
+  );
+
+  const toast = useCallback((message, tone = 'default') => {
+    dispatch({ type: 'toast/push', toast: { message, tone } });
+  }, []);
 
   const totals = useMemo(
     () => cartTotals(state.cart, catalogue, state.coupon),
@@ -395,11 +448,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   const value = useMemo(() => {
-    const productById = (id) => catalogue.find((p) => p.id === id) || catalogue[0];
-
-    const toast = (message, tone = 'default') => {
-      dispatch({ type: 'toast/push', toast: { message, tone } });
-    };
+    const productById = (id) => catalogue.find((p) => p.id === id) || null;
 
     return {
       ...state,
@@ -468,6 +517,7 @@ export function StoreProvider({ children }) {
 
       placeOrder: (order) => dispatch({ type: 'order/add', order }),
       addOrder: (order) => dispatch({ type: 'order/add', order }),
+      setOrders: (orders) => dispatch({ type: 'orders/set', orders }),
       advanceOrder: (orderId) => dispatch({ type: 'order/advance', orderId }),
       addReview: (productId, review) => dispatch({ type: 'reviews/add', productId, review }),
       toggleCompare: (productId) => dispatch({ type: 'compare/toggle', productId }),
@@ -534,7 +584,7 @@ export function StoreProvider({ children }) {
         return list;
       })()
     };
-  }, [state, catalogue, totals]);
+  }, [state, catalogue, totals, toast]);
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
 }

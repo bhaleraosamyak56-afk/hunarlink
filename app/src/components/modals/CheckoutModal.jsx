@@ -149,7 +149,7 @@ export default function CheckoutModal() {
     <Modal
       id="checkout-modal"
       width="900px"
-      title="<IconShield size={14} /> Insured Acquisition Checkout"
+      title={<><IconShield size={14} /> Insured Acquisition Checkout</>}
       onClose={closeModal}
     >
       <div className="modal-body" id="checkout-modal-body">

@@ -112,7 +112,7 @@ export default function CategoryPage() {
   /* ------------------------------------------------------------- unknown */
   if (!guild) {
     return (
-      <div className="cat-shell">
+      <div className="cat-shell" id="main-content">
         <div className="cat-wrap cat-empty">
           <h1>That craft is not in the guild</h1>
           <p>
@@ -175,7 +175,7 @@ export default function CategoryPage() {
   const lead = technique ? technique.story : guild.story;
 
   return (
-    <div className="cat-shell">
+    <div className="cat-shell" id="main-content">
       {/* ------------------------------------------------------ breadcrumb */}
       <div className="cat-crumbs">
         <div className="cat-wrap cat-crumbs-inner">

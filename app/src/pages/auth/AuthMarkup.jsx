@@ -1,5 +1,6 @@
 import React from 'react';
 import '../../styles/auth.css';
+import { asset } from '../../utils/legacy.js';
 
 /* ==========================================================================
    AuthMarkup — the three forms and the demo bar, exactly as authored
@@ -474,7 +475,7 @@ export default function AuthMarkup(props) {
           {/* Terms & Policy */}
           <label className="terms-label">
             <input type="checkbox" id="artisan-reg-terms" required checked={!!reg.terms} onChange={setRegField('terms')} />
-            <span>I agree to the <a href="javascript:void(0)" onClick={() => flash('Terms of Service: artisan onboarding charter (demo)')}>Terms of Service</a> and <a href="javascript:void(0)" onClick={() => flash('Privacy Policy: demo camera captures stay in this browser and are not uploaded.')}>Privacy Policy</a></span>
+            <span>I agree to the <button type="button" className="terms-inline-link" onClick={() => flash('Terms of Service: artisan onboarding charter (demo)')}>Terms of Service</button> and <button type="button" className="terms-inline-link" onClick={() => flash('Privacy Policy: demo camera captures stay in this browser and are not uploaded.')}>Privacy Policy</button></span>
           </label>
 
           {/* Submit Button */}
@@ -491,7 +492,7 @@ export default function AuthMarkup(props) {
         <div id="form-forgot" style={{display: showForgot ? 'block' : 'none'}}>
           {/* Center Illustration */}
           <div className="forgot-illustration-wrap">
-            <img loading="lazy" decoding="async" src="assets/auth/forgot_illustration.png" alt="Reset Password Security" className="forgot-illustration-img" />
+            <img loading="lazy" decoding="async" src={asset('assets/auth/forgot_illustration.png')} alt="Reset Password Security" className="forgot-illustration-img" />
           </div>
 
           <form onSubmit={submitForgot}>

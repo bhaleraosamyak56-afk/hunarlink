@@ -663,7 +663,7 @@ export default function AuthPage() {
           </div>
         </aside>
 
-        <main className="auth-form-pane">
+        <main className="auth-form-pane" id="main-content">
           <div className="form-inner-wrap">
             <div className="auth-back-nav">
               {mode === 'forgot' ? (
@@ -722,7 +722,7 @@ export default function AuthPage() {
                 onClick={() => chooseGiMode('with_gi')}
               >
                 <span className="gi-choice-title">
-                  <IconShield size={15} />&#65039; Have GI Certification / Tag
+                  <IconShield size={15} /> Have GI Certification / Tag
                 </span>
                 <span className="gi-choice-sub">
                   Enter GI ID + live camera &amp; skill verification
@@ -804,7 +804,7 @@ export default function AuthPage() {
                       d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1A7 7 0 0 1 12 4.8z"
                     />
                   </svg>
-                  Google
+                  Continue with Google
                 </button>
                 <button
                   type="button"
@@ -814,7 +814,7 @@ export default function AuthPage() {
                   <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
                     <path d="M16.4 12.9c0-2.4 2-3.6 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.6.9s-1.9-.9-3.1-.8c-1.6 0-3 .9-3.9 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3.1-.7s1.9.7 3.1.7 2.1-1.1 2.9-2.2c.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.7zM14 5.4c.6-.8 1.1-1.9 1-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z" />
                   </svg>
-                  Apple
+                  Continue with Apple
                 </button>
               </div>
             </div>
