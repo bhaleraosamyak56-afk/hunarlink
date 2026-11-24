@@ -861,6 +861,13 @@
       line-height: 1.45;
     }
 
+    .auth-demo-note {
+      margin: -7px 0 16px;
+      color: #68756D;
+      font-size: 0.68rem;
+      line-height: 1.45;
+    }
+
     /* ── GI LIVE VERIFICATION SUITE ──────────────────────────────────────────── */
     .gi-verification-section {
       background-color: #FFFFFF;
@@ -902,6 +909,17 @@
       background-color: #FFF4E5;
       color: #9A5500;
       border: 1px solid #F3D1A0;
+    }
+
+    .capture-local-note {
+      margin: -5px 0 14px;
+      padding: 9px 11px;
+      border-radius: 8px;
+      background: #F4F7F5;
+      border: 1px solid #D8E4DC;
+      color: #496054;
+      font-size: 0.69rem;
+      line-height: 1.45;
     }
 
     .live-capture-card {
@@ -956,6 +974,7 @@
       flex-shrink: 0;
     }
 
+    .capture-status-pill.is-done,
     .capture-status-pill.done {
       background-color: #E2F4EA;
       color: #146138;

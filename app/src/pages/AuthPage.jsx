@@ -13,11 +13,10 @@ import { IconFile, IconHammer, IconShield } from '../components/LineIcons.jsx';
    standard seller), and forgot-password. The state lives in the URL as well as
    in React, so a shared link opens the same pane.
 
-   The live-camera verification suite is ported with the same rules the static
-   build enforced — a GI-registered artisan must capture a certificate photo, a
-   workshop video and a passport photo before the account is created, and a
-   gallery upload is only the fallback when no camera exists. Nothing is faked:
-   if getUserMedia is unavailable or denied, the file input is what you get.
+   GI applicants capture a certificate photo, a short workshop video and a
+   seller portrait with the device camera. Gallery uploads are disabled to
+   match the verification flow. Captures are only held in browser memory in
+   this demo; they are not uploaded to a verification service.
 
    Signed-in artisans land on the seller workspace. Buyers are handled on
    /login, which shares the same profile key.
@@ -31,15 +30,13 @@ const AUTOFILL_CREDS = {
 export default function AuthPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { setUser, toast, catalogue, platformUsers, setPlatformUsers } = useStore();
+  const { setUser, toast, platformUsers, setPlatformUsers } = useStore();
 
   const mode = ['login', 'register', 'forgot'].includes(params.get('mode'))
     ? params.get('mode')
     : 'login';
   const [giMode, setGiMode] = useState('with_gi');
   const [pwShown, setPwShown] = useState({});
-  const [busy, setBusy] = useState(false);
-  const [skillCount, setSkillCount] = useState(0);
   /* Register fields are controlled here rather than read back off the DOM.
      Reading by id worked in the static build because the DOM was the state; in
      React it silently produced empty values whenever the node had been
@@ -73,13 +70,14 @@ export default function AuthPage() {
     recorder: null,
     chunks: [],
     seconds: 0,
+    startedAt: 0,
     timer: null,
     activeType: null
   });
 
   /* one <video> per capture card, so the stream can be attached directly */
   const videoEls = useRef({ cert: null, video: null, passport: null });
-  const fileEls = useRef({ cert: null, video: null, passport: null });
+  const videoObjectUrls = useRef(new Set());
 
   /* rendered state: 'idle' -> stage hidden, 'live' -> camera stage visible */
   const [captureUI, setCaptureUI] = useState({
@@ -136,63 +134,91 @@ export default function AuthPage() {
   const pwType = (id) => (pwShown[id] ? 'text' : 'password');
 
   /* --------------------------------------------------------- camera suite */
-  function stopAllCameras() {
+  function stopAllCameras(options = {}) {
+    const { updateUI = true } = options || {};
     const m = media.current;
     if (m.timer) clearInterval(m.timer);
+    m.timer = null;
+
+    /* Cancel, rather than save, any recording when leaving the camera stage. */
     if (m.recorder && m.recorder.state !== 'inactive') {
+      const recorder = m.recorder;
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      recorder.onerror = null;
       try {
-        m.recorder.stop();
-      } catch (e) {
+        recorder.stop();
+      } catch {
         /* already stopped */
       }
     }
-    if (m.stream) m.stream.getTracks().forEach((t) => t.stop());
+
+    const stream = m.stream;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      Object.values(videoEls.current).forEach((el) => {
+        if (el?.srcObject === stream) el.srcObject = null;
+      });
+    }
     m.stream = null;
     m.recorder = null;
     m.chunks = [];
     m.activeType = null;
-    m.timer = null;
     m.seconds = 0;
-    setRecSeconds(0);
-    /* put every card back to idle, keeping anything already captured */
-    setCaptureUI((ui) => ({
-      cert: { ...ui.cert, phase: ui.cert.phase === 'captured' ? 'captured' : 'idle' },
-      video: {
-        ...ui.video,
-        phase: ui.video.phase === 'captured' ? 'captured' : 'idle',
-        recording: false
-      },
-      passport: { ...ui.passport, phase: ui.passport.phase === 'captured' ? 'captured' : 'idle' }
-    }));
+    m.startedAt = 0;
+
+    if (updateUI) {
+      setRecSeconds(0);
+      /* Keep the preview/status of already captured material when a camera is
+         cancelled or another capture card is opened. */
+      setCaptureUI((ui) => ({
+        cert: { ...ui.cert, phase: shots.cert ? 'captured' : 'idle' },
+        video: { ...ui.video, phase: shots.video ? 'captured' : 'idle', recording: false },
+        passport: { ...ui.passport, phase: shots.passport ? 'captured' : 'idle' }
+      }));
+    }
   }
 
-  useEffect(() => stopAllCameras, []);
+  useEffect(() => () => {
+    stopAllCameras({ updateUI: false });
+    videoObjectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    videoObjectUrls.current.clear();
+  }, []);
 
   async function openCamera(type) {
     stopAllCameras();
     media.current.activeType = type;
     patchUI(type, { phase: 'live', error: '' });
 
-    /* the stage has to be mounted before the stream can be attached to it */
-    await new Promise((r) => requestAnimationFrame(r));
+    /* The stage must mount before the camera stream can attach to it. */
+    await new Promise((resolve) => requestAnimationFrame(resolve));
 
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera API unavailable');
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: type === 'passport' ? { facingMode: 'user' } : { facingMode: 'environment' },
-        audio: type === 'video'
+        video: {
+          facingMode: { ideal: type === 'passport' ? 'user' : 'environment' }
+        },
+        audio: false
       });
+      /* If the visitor cancelled or switched modes while permission was open,
+         immediately release the late-arriving stream. */
+      if (media.current.activeType !== type) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       media.current.stream = stream;
       const el = videoEls.current[type];
       if (el) {
         el.srcObject = stream;
         await el.play().catch(() => {});
       }
-    } catch (e) {
-      /* no camera, or the visitor declined — the upload path stays available */
+    } catch {
       patchUI(type, {
-        phase: 'live',
-        error:
-          '\u26a0\ufe0f Camera unavailable or permission denied. Use the upload button instead.'
+        phase: shots[type] ? 'captured' : 'idle',
+        error: 'Camera unavailable or permission denied. Allow camera access, then try again. Gallery uploads are disabled.'
       });
     }
   }
@@ -214,6 +240,10 @@ export default function AuthPage() {
       canvas.height = el.videoHeight;
     }
     const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      flash('\u26a0\ufe0f This browser could not capture the camera frame.');
+      return;
+    }
     if (type === 'passport') {
       const min = Math.min(el.videoWidth, el.videoHeight * (413 / 531));
       const sx = (el.videoWidth - min) / 2;
@@ -233,87 +263,141 @@ export default function AuthPage() {
     });
   }
 
-  function handleCaptureFile(type, ev) {
-    const file = ev.target.files && ev.target.files[0];
-    if (!file) return;
+  function clearCapturedMedia() {
+    videoObjectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    videoObjectUrls.current.clear();
+    setShots({ cert: null, video: null, passport: null });
+    setCaptureUI({
+      cert: { phase: 'idle', error: '', label: '', capturedAt: '' },
+      video: { phase: 'idle', error: '', label: '', capturedAt: '', recording: false },
+      passport: { phase: 'idle', error: '', label: '', capturedAt: '' }
+    });
+    setRecSeconds(0);
+  }
 
-    if (type === 'video') {
-      const url = URL.createObjectURL(file);
-      setShots((s) => ({ ...s, video: url }));
-      stopAllCameras();
-      patchUI('video', {
-        phase: 'captured',
-        error: '',
-        label: 'Uploaded from this device',
-        capturedAt: new Date().toLocaleString('en-IN'),
-        recording: false
-      });
-      flash('Workshop video attached from this device.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setShots((s) => ({ ...s, [type]: reader.result }));
-      stopAllCameras();
-      patchUI(type, {
-        phase: 'captured',
-        error: '',
-        label: 'Uploaded from this device',
-        capturedAt: new Date().toLocaleString('en-IN')
-      });
-    };
-    reader.readAsDataURL(file);
+  function chooseGiMode(next) {
+    if (next === giMode) return;
+    stopAllCameras();
+    /* If the applicant switches to the standard path, discard the in-memory
+       certificate/face/workshop captures rather than retaining unused media. */
+    if (next === 'no_gi') clearCapturedMedia();
+    setGiMode(next);
   }
 
   function startRecording() {
     const m = media.current;
-    if (!m.stream) {
-      flash('\u26a0\ufe0f Start the camera first.');
+    if (!m.stream || m.activeType !== 'video') {
+      flash('\u26a0\ufe0f Start the workshop camera first.');
       return;
     }
-    const rec = new MediaRecorder(m.stream);
-    m.chunks = [];
-    rec.ondataavailable = (e) => {
-      if (e.data.size) m.chunks.push(e.data);
-    };
-    rec.onstop = () => {
-      const blob = new Blob(m.chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const secs = m.seconds;
-      setShots((s) => ({ ...s, video: url }));
+    if (typeof window.MediaRecorder === 'undefined') {
       patchUI('video', {
-        phase: 'captured',
-        error: '',
-        label: `Live recording \u2022 ${secs}s`,
-        capturedAt: new Date().toLocaleString('en-IN'),
-        recording: false
+        phase: shots.video ? 'captured' : 'idle',
+        error: 'Live video recording is not supported in this browser. Try a current version of Chrome, Edge or Firefox.'
       });
-    };
-    m.recorder = rec;
-    rec.start();
-    m.seconds = 0;
-    setRecSeconds(0);
-    patchUI('video', { recording: true });
-    m.timer = setInterval(() => {
-      m.seconds += 1;
-      setRecSeconds(m.seconds);
-      if (m.seconds >= 30 && m.recorder && m.recorder.state === 'recording') stopRecording();
-    }, 1000);
+      stopAllCameras();
+      return;
+    }
+
+    try {
+      const mimeType = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4'
+      ].find((type) => window.MediaRecorder.isTypeSupported?.(type));
+      const recorder = new window.MediaRecorder(m.stream, mimeType ? { mimeType } : {});
+      m.chunks = [];
+      m.startedAt = Date.now();
+      m.seconds = 0;
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) m.chunks.push(event.data);
+      };
+      recorder.onstop = () => {
+        const seconds = m.seconds || Math.floor((Date.now() - m.startedAt) / 1000);
+        const chunks = m.chunks.slice();
+        m.recorder = null;
+        m.chunks = [];
+        m.activeType = null;
+        setRecSeconds(0);
+
+        if (seconds < 3 || !chunks.length) {
+          patchUI('video', {
+            phase: shots.video ? 'captured' : 'idle',
+            error: 'Please record at least 3 seconds of your workshop or craft before saving.',
+            recording: false
+          });
+          return;
+        }
+
+        const blob = new Blob(chunks, {
+          type: recorder.mimeType || chunks[0]?.type || 'video/webm'
+        });
+        const url = URL.createObjectURL(blob);
+        videoObjectUrls.current.add(url);
+        setShots((current) => {
+          if (current.video && videoObjectUrls.current.has(current.video)) {
+            URL.revokeObjectURL(current.video);
+            videoObjectUrls.current.delete(current.video);
+          }
+          return { ...current, video: url };
+        });
+        patchUI('video', {
+          phase: 'captured',
+          error: '',
+          label: `Live recording \u2022 ${seconds}s`,
+          capturedAt: new Date().toLocaleString('en-IN'),
+          recording: false
+        });
+      };
+      recorder.onerror = () => {
+        stopAllCameras();
+        patchUI('video', {
+          phase: shots.video ? 'captured' : 'idle',
+          error: 'The browser could not finish recording. Please try again.',
+          recording: false
+        });
+      };
+      m.recorder = recorder;
+      recorder.start(250);
+      patchUI('video', { recording: true, error: '' });
+      m.timer = setInterval(() => {
+        m.seconds = Math.min(30, Math.floor((Date.now() - m.startedAt) / 1000));
+        setRecSeconds(m.seconds);
+        if (m.seconds >= 30 && m.recorder?.state === 'recording') stopRecording();
+      }, 250);
+    } catch {
+      stopAllCameras();
+      patchUI('video', {
+        phase: shots.video ? 'captured' : 'idle',
+        error: 'This browser could not start live video recording. Check camera access and try again.'
+      });
+    }
   }
 
   function stopRecording() {
     const m = media.current;
     if (m.timer) clearInterval(m.timer);
     m.timer = null;
-    if (m.recorder && m.recorder.state !== 'inactive') m.recorder.stop();
-    if (m.stream) m.stream.getTracks().forEach((t) => t.stop());
+    m.seconds = Math.min(30, Math.floor((Date.now() - m.startedAt) / 1000));
+    setRecSeconds(m.seconds);
+    patchUI('video', { phase: 'idle', recording: false });
+    if (m.recorder && m.recorder.state !== 'inactive') {
+      try {
+        m.recorder.stop();
+      } catch {
+        /* the recorder may already have stopped */
+      }
+    }
+    if (m.stream) {
+      const stream = m.stream;
+      stream.getTracks().forEach((track) => track.stop());
+      if (videoEls.current.video?.srcObject === stream) {
+        videoEls.current.video.srcObject = null;
+      }
+    }
     m.stream = null;
-    patchUI('video', { recording: false });
-  }
-
-  function updateSkillCount(e) {
-    setSkillCount((e?.target?.value || '').trim().length);
+    m.activeType = null;
   }
 
   /* --------------------------------------------------------------- sign in */
@@ -424,17 +508,17 @@ export default function AuthPage() {
         flash('\u26a0\ufe0f Please enter your official GI Certification / Tag ID.');
         return;
       }
-      if (!capture.current.cert) {
+      if (!shots.cert) {
         flash('\u26a0\ufe0f Please capture a live camera photo of your GI Certificate.');
         document.getElementById('live-cert-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
-      if (!capture.current.video) {
+      if (!shots.video) {
         flash('\u26a0\ufe0f Please record a live video of your product or workshop/warehouse.');
         document.getElementById('live-video-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
-      if (!capture.current.passport) {
+      if (!shots.passport) {
         flash('\u26a0\ufe0f Please capture your live passport-size seller photo.');
         document.getElementById('live-passport-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
@@ -635,7 +719,7 @@ export default function AuthPage() {
                 id="btn-has-gi"
                 role="tab"
                 aria-selected={giMode === 'with_gi'}
-                onClick={() => setGiMode('with_gi')}
+                onClick={() => chooseGiMode('with_gi')}
               >
                 <span className="gi-choice-title">
                   <IconShield size={15} />&#65039; Have GI Certification / Tag
@@ -650,7 +734,7 @@ export default function AuthPage() {
                 id="btn-no-gi"
                 role="tab"
                 aria-selected={giMode === 'no_gi'}
-                onClick={() => setGiMode('no_gi')}
+                onClick={() => chooseGiMode('no_gi')}
               >
                 <span className="gi-choice-title"><IconFile size={15} /> No GI Certification / Tag</span>
                 <span className="gi-choice-sub">Standard seller account registration</span>
@@ -661,11 +745,9 @@ export default function AuthPage() {
             <AuthFormShell mode={mode} visible={mode}>
               <AuthMarkup
                 giMode={giMode}
-                setGiMode={setGiMode}
                 mode={mode}
                 formTitle={conf.title}
                 formSubtitle={conf.subtitle}
-                submitBtnText={conf.submitBtnText}
                 submitBtnText={conf.submitBtnText}
                 reg={reg}
                 setRegField={setRegField}
@@ -678,11 +760,9 @@ export default function AuthPage() {
                 setMode={setMode}
                 openCamera={openCamera}
                 capturePhoto={capturePhoto}
-                handleCaptureFile={handleCaptureFile}
                 startRecording={startRecording}
                 stopRecording={stopRecording}
                 stopAllCameras={stopAllCameras}
-                updateSkillCount={updateSkillCount}
                 flash={flash}
                 quickFill={quickFill}
                 forgotEmail={forgotEmail}
@@ -691,8 +771,6 @@ export default function AuthPage() {
                 shots={shots}
                 recSeconds={recSeconds}
                 setVideoEl={(type, el) => { videoEls.current[type] = el; }}
-                setFileEl={(type, el) => { fileEls.current[type] = el; }}
-                files={fileEls.current}
                 pwType={pwType}
               />
             </AuthFormShell>

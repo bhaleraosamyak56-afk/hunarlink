@@ -584,6 +584,14 @@ export default function LoginPage() {
   /* Switching tabs keeps the URL honest as well, so a refresh or a shared link
      lands on the tab the sender was looking at. */
   function switchMode(next) {
+    /* The reference GI / standard-seller registration and its camera capture
+       flow live on the dedicated artisan auth surface. Keep the current
+       /login artisan sign-in, but open that registration when a maker chooses
+       Create account. The effect below also handles old bookmarked signup URLs. */
+    if (next === 'signup' && role === 'artisan') {
+      navigate('/auth?mode=register&role=artisan');
+      return;
+    }
     setMode(next);
     const nextParams = new URLSearchParams(params);
     if (next === 'signup') nextParams.set('mode', 'signup');
@@ -597,6 +605,14 @@ export default function LoginPage() {
   }
 
   const isSignin = mode === 'signin';
+
+  /* Keep legacy deep links to the artisan signup working while sending them
+     through the dedicated GI / standard seller registration experience. */
+  useEffect(() => {
+    if (role === 'artisan' && mode === 'signup') {
+      navigate('/auth?mode=register&role=artisan', { replace: true });
+    }
+  }, [mode, navigate, role]);
 
   /* The header must not offer account links before there is a session.
      storeUser is mirrored from the buyer profile, so an artisan session is

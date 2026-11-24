@@ -15,17 +15,17 @@ import '../../styles/auth.css';
 
 export default function AuthMarkup(props) {
   const {
-    giMode, setGiMode, togglePw, setMode,
-    openCamera, capturePhoto, handleCaptureFile,
+    giMode, togglePw, setMode,
+    openCamera, capturePhoto,
     startRecording, stopRecording, stopAllCameras,
-    updateSkillCount, flash, quickFill,
+    flash, quickFill,
     submitLogin, submitRegister, submitForgot,
     submitBtnText = 'Sign In to Workspace \u2192',
     reg = {}, setRegField, login = {}, setLoginField,
     /* capture state, rendered instead of written to the DOM */
     captureUI = { cert: {}, video: {}, passport: {} },
     shots = {}, recSeconds = 0,
-    setVideoEl, setFileEl, files,
+    setVideoEl,
     /* form visibility + controlled fields */
     showLogin = true, showRegister = false, showForgot = false,
     pwType = () => 'password',
@@ -35,20 +35,13 @@ export default function AuthMarkup(props) {
   const cam = (type) => captureUI[type] || {};
   const isLive = (type) => cam(type).phase === 'live';
   const isCaptured = (type) => cam(type).phase === 'captured';
-  /* while the camera is live the card offers snap/cancel; once something is
-     captured it offers retake/upload. Never both. */
+  /* Live camera only: a captured item can be retaken, but gallery uploads
+     are intentionally unavailable for GI verification. */
   const btn = (type) => {
     const c = cam(type);
-    /* v1 revealed the "no camera" fallback proactively when the browser has no
-       camera API at all, instead of waiting for a failed getUserMedia */
-    const noCameraApi =
-      typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia;
-    if (noCameraApi && c.phase !== 'captured' && c.phase !== 'live') {
-      return { open: true, snap: false, cancel: false, retake: false, upload: true };
-    }
-    if (c.phase === 'captured') return { open: false, snap: false, cancel: false, retake: true, upload: true };
-    if (c.phase === 'live') return { open: false, snap: true, cancel: true, retake: false, upload: true };
-    return { open: true, snap: false, cancel: false, retake: false, upload: false };
+    if (c.phase === 'captured') return { open: false, snap: false, cancel: false, retake: true };
+    if (c.phase === 'live') return { open: false, snap: true, cancel: true, retake: false };
+    return { open: true, snap: false, cancel: false, retake: false };
   };
   const show = (on) => ({ display: on ? 'inline-flex' : 'none' });
   const formatTimer = (secs) => {
@@ -56,10 +49,6 @@ export default function AuthMarkup(props) {
     const sec = String(secs % 60).padStart(2, '0');
     return `${m}:${sec}`;
   };
-  /* clicking a hidden file input is the one thing that stays imperative:
-     it is a browser gesture, not a state change */
-  const fileEls = { click: (type) => { const el = files && files[type]; if (el) el.click(); } };
-
   return (
     <>
         <form id="form-login" style={{display: showLogin ? 'block' : 'none'}} onSubmit={submitLogin}>
@@ -68,8 +57,8 @@ export default function AuthMarkup(props) {
             <label className="form-label">Email Address</label>
             <div className="input-wrapper">
               <span className="input-icon-left">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                   <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
@@ -84,8 +73,8 @@ export default function AuthMarkup(props) {
             <label className="form-label">Password</label>
             <div className="input-wrapper">
               <span className="input-icon-left">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
@@ -94,8 +83,8 @@ export default function AuthMarkup(props) {
                 value={login.password || ''} onChange={setLoginField('password')} />
               <button type="button" className="input-btn-eye" onClick={() => togglePw('login-password')}
                 aria-label="Toggle password visibility">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
@@ -106,7 +95,7 @@ export default function AuthMarkup(props) {
           {/* Options: Remember Me & Forgot Password */}
           <div className="form-options-row">
             <label className="checkbox-label">
-              <input type="checkbox" id="login-remember" checked />
+              <input type="checkbox" id="login-remember" defaultChecked />
               <span>Remember me</span>
             </label>
             <a href="#" className="link-forgot" onClick={(e) => { e.preventDefault(); setMode('forgot'); }}>Forgot Password?</a>
@@ -131,6 +120,9 @@ export default function AuthMarkup(props) {
               right away. You can apply for GI Certification anytime later from your Artisan Studio.
             </div>
           </div>
+          <p className="auth-demo-note" role="note">
+            Demo only: account details stay in this browser; secure registration and verification uploads are not connected. Use a unique test password.
+          </p>
 
           {/* Row 1: Full Name & Phone */}
           <div className="form-grid-2col">
@@ -138,8 +130,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Full Name <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
@@ -166,8 +158,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Email Address <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                     <polyline points="22,6 12,13 2,6"></polyline>
                   </svg>
@@ -180,8 +172,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Password <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
@@ -190,8 +182,8 @@ export default function AuthMarkup(props) {
                   required value={reg.password || ''} onChange={setRegField('password')} />
                 <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-password')}
                   aria-label="Toggle password">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                     <circle cx="12" cy="12" r="3"></circle>
                   </svg>
@@ -206,8 +198,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Confirm Password <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
@@ -216,8 +208,8 @@ export default function AuthMarkup(props) {
                   required value={reg.cpassword || ''} onChange={setRegField('cpassword')} />
                 <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-cpassword')}
                   aria-label="Toggle password">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                     <circle cx="12" cy="12" r="3"></circle>
                   </svg>
@@ -229,8 +221,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Craft Category <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <rect x="3" y="3" width="7" height="7"></rect>
                     <rect x="14" y="3" width="7" height="7"></rect>
                     <rect x="14" y="14" width="7" height="7"></rect>
@@ -255,8 +247,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Business / Atelier Name <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                     <polyline points="9 22 9 12 15 12 15 22"></polyline>
                   </svg>
@@ -270,8 +262,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">City / District Cluster <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                     <circle cx="12" cy="10" r="3"></circle>
                   </svg>
@@ -295,16 +287,19 @@ export default function AuthMarkup(props) {
           <div className="gi-verification-section" id="gi-verification-section" style={{display: giMode === 'with_gi' ? 'block' : 'none'}}>
             <div className="gi-section-header">
               <div className="gi-section-title">GI Certification &amp; Live Verification</div>
-              <span className="gi-live-only-badge">● Live Camera • Auto Gallery Fallback</span>
+              <span className="gi-live-only-badge">● LIVE CAMERA ONLY • NO GALLERY UPLOAD</span>
             </div>
+            <p className="capture-local-note" role="note">
+              Your camera starts only when you press Open Camera. Captures stay in this tab and are not uploaded.
+            </p>
 
             {/* 1. GI Certification / Tag ID */}
             <div className="form-group">
               <label className="form-label" htmlFor="artisan-gi-id">GI Certification / Tag ID <span className="req">*</span></label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                     <polyline points="9 12 11 14 15 10"></polyline>
                   </svg>
@@ -316,12 +311,11 @@ export default function AuthMarkup(props) {
             </div>
 
             {/* 2. Live Photo of GI Certificate (No Gallery / Folder Upload) */}
-            <div className="live-capture-card" id="live-cert-card">
+            <div className={`live-capture-card${isCaptured('cert') ? ' captured' : ''}`} id="live-cert-card">
               <div className="capture-card-head">
                 <div>
                   <div className="capture-card-label">1. Live Photo of GI Certificate <span className="req">*</span></div>
-                  <div className="capture-card-hint">Hold your physical GI Certificate in front of your camera. If no webcam is
-                    available on this device, a secure gallery-upload fallback appears automatically.</div>
+                  <div className="capture-card-hint">Hold your physical GI Certificate in front of your camera. Only a live camera capture is accepted.</div>
                 </div>
                 <span className={`capture-status-pill${isCaptured('cert') ? ' is-done' : ''}`} id="cert-status-pill">
                   {isCaptured('cert') ? 'Captured' : 'Required'}
@@ -330,7 +324,7 @@ export default function AuthMarkup(props) {
 
               <div className="camera-stage" id="cert-camera-stage" style={{display: isLive('cert') ? 'block' : 'none'}}>
                 <video
-                  id="cert-camera-video" autoplay playsInline muted
+                  id="cert-camera-video" autoPlay playsInline muted
                   ref={(el) => setVideoEl && setVideoEl('cert', el)}
                 ></video>
                 <div className="cert-guide-overlay">
@@ -356,25 +350,17 @@ export default function AuthMarkup(props) {
                 <button type="button" className="btn-cam" id="btn-cert-retake" style={show(btn('cert').retake)} onClick={() => openCamera('cert')}>
                   ↺ Retake Live Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-cert-upload" style={show(btn('cert').upload)} onClick={() => fileEls.click('cert')}>Upload Certificate Photo (No Camera)
-                </button>
-                <input
-                  type="file" id="cert-file-input" aria-label="Upload GI certificate photo" accept="image/*" style={{display: 'none'}}
-                  ref={(el) => setFileEl && setFileEl('cert', el)}
-                  onChange={(e) => handleCaptureFile('cert', e)}
-                />
               </div>
               <div className="cam-error-msg" id="cert-cam-error" style={{display: cam('cert').error ? 'flex' : 'none'}}>{cam('cert').error}</div>
             </div>
 
             {/* 3. Live Video of Product or Workshop / Warehouse */}
-            <div className="live-capture-card" id="live-video-card">
+            <div className={`live-capture-card${isCaptured('video') ? ' captured' : ''}`} id="live-video-card">
               <div className="capture-card-head">
                 <div>
                   <div className="capture-card-label">2. Live Video of Product or Warehouse / Workshop <span
                       className="req">*</span></div>
-                  <div className="capture-card-hint">Record a live video (3–30 sec) showing your handmade craft, loom, or
-                    workshop directly from your camera. No camera detected? Use the upload fallback below.</div>
+                  <div className="capture-card-hint">Record 3–30 seconds of your handmade craft, loom or workshop with your camera. Gallery and folder uploads are disabled.</div>
                 </div>
                 <span
                   className={`capture-status-pill${cam('video').recording ? ' recording' : isCaptured('video') ? ' is-done' : ''}`}
@@ -386,7 +372,7 @@ export default function AuthMarkup(props) {
 
               <div className="camera-stage" id="video-camera-stage" style={{display: isLive('video') ? 'block' : 'none'}}>
                 <video
-                  id="video-camera-stream" autoplay playsInline muted
+                  id="video-camera-stream" autoPlay playsInline muted
                   ref={(el) => setVideoEl && setVideoEl('video', el)}
                 ></video>
                 <span className={`rec-timer-pill${cam('video').recording ? ' active' : ''}`} id="video-rec-timer">
@@ -416,25 +402,17 @@ export default function AuthMarkup(props) {
                 <button type="button" className="btn-cam" id="btn-video-retake" style={show(btn('video').retake)} onClick={() => openCamera('video')}>
                   ↺ Re-record Live Video
                 </button>
-                <button type="button" className="btn-cam" id="btn-video-upload" style={show(btn('video').upload)} onClick={() => fileEls.click('video')}>Upload Workshop Video (No Camera)
-                </button>
-                <input
-                  type="file" id="video-file-input" aria-label="Upload workshop video" accept="video/*" style={{display: 'none'}}
-                  ref={(el) => setFileEl && setFileEl('video', el)}
-                  onChange={(e) => handleCaptureFile('video', e)}
-                />
               </div>
               <div className="cam-error-msg" id="video-cam-error" style={{display: cam('video').error ? 'flex' : 'none'}}>{cam('video').error}</div>
             </div>
 
             {/* 4. Live Passport-Size Photo of Seller */}
-            <div className="live-capture-card" id="live-passport-card">
+            <div className={`live-capture-card${isCaptured('passport') ? ' captured' : ''}`} id="live-passport-card">
               <div className="capture-card-head">
                 <div>
                   <div className="capture-card-label">3. Live Passport-Size Photo of Seller <span className="req">*</span>
                   </div>
-                  <div className="capture-card-hint">Center your face inside the passport guide (35×45 mm portrait ratio).
-                    Captured live via front camera — with upload fallback when no camera is present.</div>
+                  <div className="capture-card-hint">Center your face inside the 35×45 mm portrait guide and capture it live with your front camera. Gallery uploads are disabled.</div>
                 </div>
                 <span className={`capture-status-pill${isCaptured('passport') ? ' is-done' : ''}`} id="passport-status-pill">
                   {isCaptured('passport') ? 'Captured' : 'Required'}
@@ -443,7 +421,7 @@ export default function AuthMarkup(props) {
 
               <div className="camera-stage" id="passport-camera-stage" style={{display: isLive('passport') ? 'block' : 'none'}}>
                 <video
-                  id="passport-camera-video" autoplay playsInline muted
+                  id="passport-camera-video" autoPlay playsInline muted
                   ref={(el) => setVideoEl && setVideoEl('passport', el)}
                 ></video>
                 <div className="passport-guide-overlay">
@@ -472,13 +450,6 @@ export default function AuthMarkup(props) {
                 <button type="button" className="btn-cam" id="btn-passport-retake" style={show(btn('passport').retake)} onClick={() => openCamera('passport')}>
                   ↺ Retake Passport Photo
                 </button>
-                <button type="button" className="btn-cam" id="btn-passport-upload" style={show(btn('passport').upload)} onClick={() => fileEls.click('passport')}>Upload Passport Photo (No Camera)
-                </button>
-                <input
-                  type="file" id="passport-file-input" aria-label="Upload passport photo" accept="image/*" style={{display: 'none'}}
-                  ref={(el) => setFileEl && setFileEl('passport', el)}
-                  onChange={(e) => handleCaptureFile('passport', e)}
-                />
               </div>
               <div className="cam-error-msg" id="passport-cam-error" style={{display: cam('passport').error ? 'flex' : 'none'}}>{cam('passport').error}</div>
             </div>
@@ -491,7 +462,6 @@ export default function AuthMarkup(props) {
                 placeholder="Tell buyers and verifiers about your craft specialization, years of experience, traditional techniques (e.g., Kani wooden bobbins, Sozni needlework, deep walnut relief carving), and workshop lineage..."
                 value={reg.skill || ''}
                 onChange={setRegField('skill')}
-                onInput={updateSkillCount}
                 required={giMode === 'with_gi'}
               />
               <div className="skill-char-row">
@@ -504,12 +474,14 @@ export default function AuthMarkup(props) {
           {/* Terms & Policy */}
           <label className="terms-label">
             <input type="checkbox" id="artisan-reg-terms" required checked={!!reg.terms} onChange={setRegField('terms')} />
-            <span>I agree to the <a href="javascript:void(0)" onClick={() => flash('Terms of Service: GI-certified artisan onboarding charter (demo)')}>Terms of Service</a> and <a href="javascript:void(0)" onClick={() => flash('Privacy Policy: workshop data is verified, never sold (demo)')}>Privacy Policy</a></span>
+            <span>I agree to the <a href="javascript:void(0)" onClick={() => flash('Terms of Service: artisan onboarding charter (demo)')}>Terms of Service</a> and <a href="javascript:void(0)" onClick={() => flash('Privacy Policy: demo camera captures stay in this browser and are not uploaded.')}>Privacy Policy</a></span>
           </label>
 
           {/* Submit Button */}
           <button type="submit" className="btn-submit-auth" id="artisan-register-submit-btn">
-            Submit GI Verification &amp; Create Account →
+            {giMode === 'with_gi'
+              ? 'Submit GI Verification & Create Account →'
+              : 'Create Standard Artisan Account →'}
           </button>
         </form>
 
@@ -528,8 +500,8 @@ export default function AuthMarkup(props) {
               <label className="form-label">Email Address</label>
               <div className="input-wrapper">
                 <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round">
                     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                     <polyline points="22,6 12,13 2,6"></polyline>
                   </svg>
