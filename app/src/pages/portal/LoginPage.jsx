@@ -405,7 +405,8 @@ export default function LoginPage() {
       isLoggedIn: true,
       authProvider: provider
     });
-    land(`Signed in with ${provider} as ${profile.fullName}!`, profile);
+    const verb = isSignin ? 'Signed in' : 'Account created';
+    land(`${verb} with ${provider} as ${profile.fullName}!`, profile);
   }
 
   const signedIn = Boolean(
@@ -572,11 +573,10 @@ export default function LoginPage() {
 
             {/* SIGN IN FORM (USER OR ARTISAN) */}
             {isSignin ? (
-              <>
-                <form
-                  id={role === 'artisan' ? 'artisan-signin-form' : 'user-signin-form'}
-                  onSubmit={role === 'artisan' ? submitArtisanSignin : submitSignin}
-                >
+              <form
+                id={role === 'artisan' ? 'artisan-signin-form' : 'user-signin-form'}
+                onSubmit={role === 'artisan' ? submitArtisanSignin : submitSignin}
+              >
                   <div className="form-field">
                     <label className="up-label" htmlFor="signin-identifier">
                       {role === 'artisan'
@@ -673,37 +673,11 @@ export default function LoginPage() {
                     </button>
                   </div>
 
-                  <button type="submit" className="btn-orange" style={{ width: '100%', height: '46px' }}>
-                    <span>Sign in</span>
-                    <IconArrowRight size={15} />
-                  </button>
-                </form>
-
-                {/* Social Sign-In Options (User & Artisan) */}
-                <div className="login-social-section">
-                  <div className="login-social-divider">
-                    <span>or continue with</span>
-                  </div>
-                  <div className="login-social-stack">
-                    <button
-                      type="button"
-                      className="login-social-btn"
-                      onClick={() => socialLogin('Google')}
-                    >
-                      <GoogleIcon />
-                      <span>Continue with Google</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="login-social-btn"
-                      onClick={() => socialLogin('Apple')}
-                    >
-                      <AppleIcon />
-                      <span>Continue with Apple</span>
-                    </button>
-                  </div>
-                </div>
-              </>
+                <button type="submit" className="btn-orange" style={{ width: '100%', height: '46px' }}>
+                  <span>Sign in</span>
+                  <IconArrowRight size={15} />
+                </button>
+              </form>
             ) : (
               /* CREATE USER ACCOUNT FORM */
               <form id="user-signup-form" onSubmit={submitSignup}>
@@ -775,6 +749,31 @@ export default function LoginPage() {
                 </button>
               </form>
             )}
+
+            {/* Social Sign-In / Sign-Up Options (User & Artisan) */}
+            <div className="login-social-section">
+              <div className="login-social-divider">
+                <span>or continue with</span>
+              </div>
+              <div className="login-social-stack">
+                <button
+                  type="button"
+                  className="login-social-btn"
+                  onClick={() => socialLogin('Google')}
+                >
+                  <GoogleIcon />
+                  <span>Continue with Google</span>
+                </button>
+                <button
+                  type="button"
+                  className="login-social-btn"
+                  onClick={() => socialLogin('Apple')}
+                >
+                  <AppleIcon />
+                  <span>Continue with Apple</span>
+                </button>
+              </div>
+            </div>
 
             <div className="login-swap">
               <span>
