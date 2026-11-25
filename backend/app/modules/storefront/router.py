@@ -85,11 +85,9 @@ def _serialize_catalog_row(
 def list_active_catalog_products(
     category_slug: str | None = None,
     limit: int = 100,
-    principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ) -> list[CatalogProductItem]:
-    """Return active, approved marketplace listings from the DB (authenticated users only)."""
-    _ = principal
+    """Return active, approved marketplace listings from the DB for public browsing."""
     safe_limit = max(1, min(limit, 200))
     stmt = (
         select(SellerProductListing, Product, Category, SellerProfile, User)
@@ -119,11 +117,9 @@ def list_active_catalog_products(
 
 @router.get("/artisans", response_model=list[ArtisanSummaryItem])
 def list_verified_artisans(
-    principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ) -> list[ArtisanSummaryItem]:
-    """Return verified/active artisans strictly from the database (authenticated users only)."""
-    _ = principal
+    """Return verified/active artisans strictly from the database for public browsing."""
     sellers = db.execute(
         select(SellerProfile, User)
         .join(User, User.id == SellerProfile.user_id)
@@ -173,11 +169,9 @@ def list_verified_artisans(
 @router.get("/artisans/{slug}", response_model=ArtisanDetailResponse)
 def get_verified_artisan_by_slug(
     slug: str,
-    principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ) -> ArtisanDetailResponse:
-    """Return a single verified artisan + their real DB listings (authenticated users only)."""
-    _ = principal
+    """Return a single verified artisan + their real DB listings for public browsing."""
     row = db.execute(
         select(SellerProfile, User)
         .join(User, User.id == SellerProfile.user_id)

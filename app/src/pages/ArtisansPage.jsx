@@ -200,8 +200,8 @@ export default function ArtisansPage() {
                     </div>
                     <Link
                       to={`/artisans/${a.slug}`}
-                      className="up-btn up-btn-primary"
-                      style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+                      className="btn btn-primary"
+                      style={{ fontSize: '0.82rem', padding: '0.45rem 0.9rem' }}
                     >
                       View Workshop <IconArrowRight size={13} />
                     </Link>

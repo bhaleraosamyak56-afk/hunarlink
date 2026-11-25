@@ -7,17 +7,12 @@ from app.integrations.razorpay.signatures import compute_checkout_signature
 from tests.conftest import seed_marketplace_entities, set_authenticated_principal
 
 
-def test_01_catalog_and_artisans_require_auth_and_return_active_db_records(app_and_client, db_session):
+def test_01_public_catalog_and_artisans_return_active_db_records_while_orders_require_auth(app_and_client, db_session):
     app, client = app_and_client
     entities = seed_marketplace_entities(db_session)
     set_authenticated_principal(app, None)
 
-    # Unauthenticated callers are blocked (401) from both catalog & artisans APIs
-    assert client.get("/api/v1/catalog/products").status_code == 401
-    assert client.get("/api/v1/artisans").status_code == 401
-
-    # Authenticated user gets active, approved DB listings & verified DB artisans
-    set_authenticated_principal(app, entities["buyer_principal"])
+    # Public read-only browsing works for catalog & verified artisan profiles
     resp = client.get("/api/v1/catalog/products")
     assert resp.status_code == 200
     items = resp.json()
@@ -35,6 +30,11 @@ def test_01_catalog_and_artisans_require_auth_and_return_active_db_records(app_a
     detail_resp = client.get(f"/api/v1/artisans/{entities['seller_profile'].store_slug}")
     assert detail_resp.status_code == 200
     assert len(detail_resp.json()["listings"]) == 1
+
+    # All private/mutating endpoints remain strictly 401 when unauthenticated
+    assert client.get("/api/v1/orders/retail/my").status_code == 401
+    assert client.get("/api/v1/auth/me").status_code == 401
+    assert client.get("/api/v1/auth/addresses").status_code == 401
 
     # Pausing listing excludes it from catalog immediately
     entities["active_listing"].listing_status = "PAUSED"

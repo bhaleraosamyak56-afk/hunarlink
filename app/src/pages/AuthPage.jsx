@@ -288,25 +288,27 @@ export default function AuthPage() {
                   </div>
                 )}
                 {clerk.enabled ? (
-                  <div className="oauth-grid">
-                    <button
-                      type="button"
-                      className="oauth-btn"
-                      disabled={Boolean(busyProvider) || !clerk.isLoaded}
-                      onClick={() => launchOAuth('google')}
-                    >
-                      <GoogleGlyph />
-                      <span>{busyProvider === 'google' ? 'Redirecting…' : 'Continue with Google'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="oauth-btn"
-                      disabled={Boolean(busyProvider) || !clerk.isLoaded}
-                      onClick={() => launchOAuth('apple')}
-                    >
-                      <AppleGlyph />
-                      <span>{busyProvider === 'apple' ? 'Redirecting…' : 'Continue with Apple'}</span>
-                    </button>
+                  <div className="login-social-section">
+                    <div className="login-social-stack">
+                      <button
+                        type="button"
+                        className="login-social-btn"
+                        disabled={Boolean(busyProvider) || !clerk.isLoaded}
+                        onClick={() => launchOAuth('google')}
+                      >
+                        <GoogleGlyph />
+                        <span>{busyProvider === 'google' ? 'Redirecting…' : 'Continue with Google'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="login-social-btn"
+                        disabled={Boolean(busyProvider) || !clerk.isLoaded}
+                        onClick={() => launchOAuth('apple')}
+                      >
+                        <AppleGlyph />
+                        <span>{busyProvider === 'apple' ? 'Redirecting…' : 'Continue with Apple'}</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="login-error show" role="alert">
@@ -452,8 +454,8 @@ export default function AuthPage() {
 
                 <button
                   type="submit"
-                  className="up-btn up-btn-primary up-btn-lg"
-                  style={{ width: '100%' }}
+                  className="btn-orange"
+                  style={{ width: '100%', justifyContent: 'center' }}
                   disabled={submitting}
                 >
                   <IconCheck size={15} />

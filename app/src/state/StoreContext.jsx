@@ -237,6 +237,7 @@ const initialState = {
   dbArtisans: [],
   dbSyncStatus: 'idle', // 'idle' | 'loading' | 'ready' | 'error'
   dbSyncError: null,
+  authPrompt: null, // { seq, reason } when a guest triggers a sign-in-only action
   customProducts: [],
   productOverrides: {},
   reviews: loadStorage(KEYS.reviews, {}),
@@ -263,6 +264,14 @@ function reducer(state, action) {
     /* -------------------------------------------------------------- db */
     case 'db/loading':
       return { ...state, dbSyncStatus: 'loading', dbSyncError: null };
+    case 'db/publicLoaded':
+      return {
+        ...state,
+        dbCatalogue: action.catalogue,
+        dbArtisans: action.artisans,
+        dbSyncStatus: 'ready',
+        dbSyncError: null
+      };
     case 'db/hydrated':
       return {
         ...state,
@@ -284,13 +293,13 @@ function reducer(state, action) {
         coupon: null,
         addresses: [],
         orders: [],
-        dbCatalogue: [],
-        dbArtisans: [],
-        dbSyncStatus: 'idle',
-        dbSyncError: null,
         buyerProfile: null,
         compareList: []
       };
+    case 'auth/prompt':
+      return { ...state, authPrompt: { seq: Date.now() + Math.random(), reason: action.reason } };
+    case 'auth/clearPrompt':
+      return { ...state, authPrompt: null };
 
     /* -------------------------------------------------------------- cart */
     case 'cart/add': {
@@ -501,6 +510,30 @@ export function StoreProvider({ children }) {
     [state.cart, catalogue, state.coupon]
   );
 
+  /* Public read-only discovery: load live database catalog & verified artisans
+     immediately on mount so visitors can freely explore the storefront, products,
+     and artisan profiles before signing in. Zero static dummy data. */
+  const loadPublicCatalog = useCallback(async () => {
+    dispatch({ type: 'db/loading' });
+    try {
+      const [rawProducts, rawArtisans] = await Promise.all([
+        fetchCatalogProducts(null, null).catch(() => []),
+        fetchArtisans(null).catch(() => [])
+      ]);
+      dispatch({
+        type: 'db/publicLoaded',
+        catalogue: Array.isArray(rawProducts) ? rawProducts.map(mapDbListingToProduct) : [],
+        artisans: Array.isArray(rawArtisans) ? rawArtisans : []
+      });
+    } catch (err) {
+      dispatch({ type: 'db/error', error: err?.message || 'Could not load catalog from database.' });
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPublicCatalog();
+  }, [loadPublicCatalog]);
+
   /* Hydrate catalogue, verified artisans, user orders & addresses strictly
      from FastAPI + MySQL/SQLite using the authenticated Clerk RS256 JWT. */
   const hydrateFromBackend = useCallback(async (token) => {
@@ -597,7 +630,14 @@ export function StoreProvider({ children }) {
 
   const value = useMemo(() => {
     const productById = (id) => catalogue.find((p) => p.id === id) || null;
-    const isRealSignedIn = Boolean(state.user && state.user.authProvider === 'clerk' && state.user.isLoggedIn);
+    const isRealSignedIn = Boolean(
+      state.user && state.user.authProvider === 'clerk' && state.user.isLoggedIn
+    );
+
+    const gateGuest = (reason) => {
+      toast(reason, 'info');
+      dispatch({ type: 'auth/prompt', reason });
+    };
 
     return {
       ...state,
@@ -605,8 +645,11 @@ export function StoreProvider({ children }) {
       artisans: state.dbArtisans,
       totals,
       productById,
+      isRealSignedIn,
       hydrateFromBackend,
+      loadPublicCatalog,
       clearSessionState,
+      clearAuthPrompt: () => dispatch({ type: 'auth/clearPrompt' }),
       cartCount: isRealSignedIn ? state.cart.reduce((n, e) => n + e.qty, 0) : 0,
       wishlistCount: isRealSignedIn ? state.wishlist.length : 0,
       cartItems: isRealSignedIn
@@ -618,17 +661,43 @@ export function StoreProvider({ children }) {
       compareItems: isRealSignedIn ? state.compareList.map(productById).filter(Boolean) : [],
 
       addToCart(productId, qty = 1) {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in or sign up to add items to your cart.');
+          return;
+        }
         dispatch({ type: 'cart/add', productId, qty });
         const p = productById(productId);
         if (p) toast(`Added "${p.title}" to your Acquisition Bag`, 'success');
       },
-      setQty: (productId, qty) => dispatch({ type: 'cart/setQty', productId, qty }),
+      setQty: (productId, qty) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to manage your cart.');
+          return;
+        }
+        dispatch({ type: 'cart/setQty', productId, qty });
+      },
       removeFromCart: (productId) => dispatch({ type: 'cart/remove', productId }),
       clearCart: () => dispatch({ type: 'cart/clear' }),
-      saveForLater: (productId) => dispatch({ type: 'cart/saveForLater', productId }),
-      moveToCart: (productId) => dispatch({ type: 'cart/moveBack', productId }),
+      saveForLater: (productId) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to save items for later.');
+          return;
+        }
+        dispatch({ type: 'cart/saveForLater', productId });
+      },
+      moveToCart: (productId) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to add items to your cart.');
+          return;
+        }
+        dispatch({ type: 'cart/moveBack', productId });
+      },
 
       toggleWishlist(productId) {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in or sign up to add items to your wishlist.');
+          return;
+        }
         const adding = !state.wishlist.includes(productId);
         dispatch({ type: 'wishlist/toggle', productId });
         const p = productById(productId);
@@ -642,6 +711,10 @@ export function StoreProvider({ children }) {
       removeFromWishlist: (id) => dispatch({ type: 'wishlist/remove', productId: id }),
 
       applyCoupon(code) {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to apply privilege codes.');
+          return false;
+        }
         const normalised = String(code || '').trim().toUpperCase();
         const known = ['VALLEY10', 'FIRSTCRAFT'].includes(normalised);
         dispatch({ type: 'coupon/set', code: known ? normalised : null });
@@ -661,23 +734,63 @@ export function StoreProvider({ children }) {
       removeProduct: (id) => dispatch({ type: 'products/remove', id }),
       setProductOverride: (id, patch) => dispatch({ type: 'overrides/set', id, patch }),
       setReviews: (reviews) => dispatch({ type: 'reviews/set', reviews }),
-      addInquiry: (inquiry) => dispatch({ type: 'inquiries/add', inquiry }),
+      addInquiry: (inquiry) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to message an artisan.');
+          return;
+        }
+        dispatch({ type: 'inquiries/add', inquiry });
+      },
       replyToInquiry: (id, reply) => dispatch({ type: 'inquiries/reply', id, reply }),
       setBuyerProfile: (profile) => dispatch({ type: 'buyerProfile/set', profile }),
       setPlatformUsers: () => dispatch({ type: 'platformUsers/set', users: [] }),
       setAdminToken: (token) => dispatch({ type: 'adminToken/set', token }),
 
-      placeOrder: (order) => dispatch({ type: 'order/add', order }),
-      addOrder: (order) => dispatch({ type: 'order/add', order }),
+      placeOrder: (order) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to place an order.');
+          return;
+        }
+        dispatch({ type: 'order/add', order });
+      },
+      addOrder: (order) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to place an order.');
+          return;
+        }
+        dispatch({ type: 'order/add', order });
+      },
       setOrders: (orders) => dispatch({ type: 'orders/set', orders }),
       advanceOrder: (orderId) => dispatch({ type: 'order/advance', orderId }),
-      addReview: (productId, review) => dispatch({ type: 'reviews/add', productId, review }),
+      addReview: (productId, review) => {
+        if (!isRealSignedIn) {
+          gateGuest('Please sign in to submit a review.');
+          return;
+        }
+        dispatch({ type: 'reviews/add', productId, review });
+      },
       toggleCompare: (productId) => dispatch({ type: 'compare/toggle', productId }),
       clearCompare: () => dispatch({ type: 'compare/clear' }),
 
-      openDrawer: (drawer) => dispatch({ type: 'ui/drawer', drawer }),
+      openDrawer: (drawer) => {
+        if (!isRealSignedIn && (drawer === 'cart' || drawer === 'wishlist')) {
+          gateGuest(
+            drawer === 'cart'
+              ? 'Please sign in or sign up to access your cart.'
+              : 'Please sign in or sign up to view your wishlist.'
+          );
+          return;
+        }
+        dispatch({ type: 'ui/drawer', drawer });
+      },
       closeDrawer: () => dispatch({ type: 'ui/drawer', drawer: null }),
-      openModal: (modal, payload) => dispatch({ type: 'ui/modal', modal, payload }),
+      openModal: (modal, payload) => {
+        if (!isRealSignedIn && (modal === 'checkout' || modal === 'orders')) {
+          gateGuest('Please sign in or sign up to buy crafts or track orders.');
+          return;
+        }
+        dispatch({ type: 'ui/modal', modal, payload });
+      },
       closeModal: () => dispatch({ type: 'ui/modal', modal: null }),
       setFilters: (patch) => dispatch({ type: 'ui/filters', patch }),
       raiseVeil: (text) => dispatch({ type: 'ui/veil', open: true, text }),
@@ -722,7 +835,7 @@ export function StoreProvider({ children }) {
         return list;
       })()
     };
-  }, [state, catalogue, totals, toast, hydrateFromBackend, clearSessionState]);
+  }, [state, catalogue, totals, toast, hydrateFromBackend, loadPublicCatalog, clearSessionState]);
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
 }

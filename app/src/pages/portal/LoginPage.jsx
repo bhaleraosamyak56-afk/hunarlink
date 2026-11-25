@@ -146,7 +146,7 @@ export default function LoginPage() {
     <div className="portal-page login-page">
       <header className="up-header">
         <div className="up-header-inner">
-          <Link to={signedIn ? '/' : '/login'} className="up-brand">
+          <Link to="/" className="up-brand">
             <img
               src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
               alt=""
@@ -160,16 +160,14 @@ export default function LoginPage() {
                   ? isArtisanSession
                     ? 'Artisan Workspace'
                     : 'Verified Account'
-                  : 'Secure Access'}
+                  : 'My Account'}
               </div>
             </div>
           </Link>
           <nav className="up-nav-links">
-            {signedIn && (
-              <Link to="/" className="up-nav-pill">
-                <IconArrowRight size={13} className="login-back-arrow" /> Storefront
-              </Link>
-            )}
+            <Link to="/" className="up-nav-pill">
+              <IconArrowRight size={13} className="login-back-arrow" /> Storefront
+            </Link>
             {signedIn && (
               <Link to={isArtisanSession ? '/seller' : '/profile'} className="up-nav-pill">
                 {isArtisanSession ? 'Workspace' : 'My Profile'}
@@ -263,7 +261,8 @@ export default function LoginPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem' }}>
                   <button
                     type="button"
-                    className="up-btn up-btn-primary up-btn-lg"
+                    className="btn-orange"
+                    style={{ width: '100%', justifyContent: 'center' }}
                     onClick={() => navigate(isArtisanSession ? '/seller' : nextUrl || '/')}
                   >
                     <IconArrowRight size={15} />
@@ -271,7 +270,8 @@ export default function LoginPage() {
                   </button>
                   <button
                     type="button"
-                    className="up-btn up-btn-outline"
+                    className="btn-orange-outline"
+                    style={{ width: '100%', justifyContent: 'center' }}
                     onClick={signOutHere}
                   >
                     Sign out and switch account
@@ -330,11 +330,11 @@ export default function LoginPage() {
                 )}
 
                 {clerk.enabled ? (
-                  <div>
-                    <div className="oauth-grid">
+                  <div className="login-social-section">
+                    <div className="login-social-stack">
                       <button
                         type="button"
-                        className="oauth-btn"
+                        className="login-social-btn"
                         disabled={Boolean(busyProvider) || !clerk.isLoaded}
                         onClick={() => startOAuth('google')}
                       >
@@ -343,7 +343,7 @@ export default function LoginPage() {
                       </button>
                       <button
                         type="button"
-                        className="oauth-btn"
+                        className="login-social-btn"
                         disabled={Boolean(busyProvider) || !clerk.isLoaded}
                         onClick={() => startOAuth('apple')}
                       >
@@ -352,7 +352,7 @@ export default function LoginPage() {
                       </button>
                     </div>
 
-                    <div className="oauth-divider" aria-hidden="true">
+                    <div className="login-social-divider" aria-hidden="true">
                       <span>or continue with email verification code</span>
                     </div>
 
@@ -375,8 +375,8 @@ export default function LoginPage() {
                         </div>
                         <button
                           type="submit"
-                          className="up-btn up-btn-primary up-btn-lg"
-                          style={{ width: '100%' }}
+                          className="btn-orange"
+                          style={{ width: '100%', justifyContent: 'center', marginTop: '0.25rem' }}
                           disabled={emailBusy}
                         >
                           <IconShield size={15} />
@@ -403,8 +403,8 @@ export default function LoginPage() {
                         </div>
                         <button
                           type="submit"
-                          className="up-btn up-btn-primary up-btn-lg"
-                          style={{ width: '100%' }}
+                          className="btn-orange"
+                          style={{ width: '100%', justifyContent: 'center' }}
                           disabled={emailBusy}
                         >
                           <IconCheck size={15} />
@@ -412,8 +412,8 @@ export default function LoginPage() {
                         </button>
                         <button
                           type="button"
-                          className="up-btn up-btn-outline"
-                          style={{ width: '100%', marginTop: '0.5rem' }}
+                          className="btn-orange-outline"
+                          style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
                           onClick={() => {
                             setEmailStep('input');
                             setCode('');

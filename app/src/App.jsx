@@ -1,5 +1,5 @@
-import React, { Suspense, lazy, useCallback, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from './state/StoreContext.jsx';
 import { useClerkBridge } from './data/clerkConfig.js';
 import UtilityBar from './components/UtilityBar.jsx';
@@ -79,10 +79,11 @@ function PageFallback() {
 }
 
 export default function App() {
-  const { ui, user } = useStore();
+  const { ui, user, authPrompt, clearAuthPrompt } = useStore();
   const clerkAuth = useClerkBridge();
   const [activeSection, setActiveSection] = useState('home');
   const location = useLocation();
+  const navigate = useNavigate();
   usePageTitle();
 
   const handleSection = useCallback((id) => setActiveSection(id), []);
@@ -100,15 +101,32 @@ export default function App() {
   const isPortal =
     /^\/(profile|orders|login|wholesale|admin|seller)(\.html)?$/.test(location.pathname);
 
-  /* Public routes accessible without an authenticated Clerk session.
-     Every other route (storefront, products, artisans, profile, orders,
-     wholesale, seller) is strictly gated behind Clerk authentication. */
-  const isPublicRoute = /^\/(login|auth|sso-callback|admin)(\.html)?$/.test(location.pathname);
+  /* Public browsing: visitors can freely explore the storefront (/), categories,
+     product pages, and artisan profiles (/artisans, /artisans/:slug).
+     Protected routes (/profile, /orders, /seller, /wholesale) and all commerce
+     actions (Add to Cart, Buy Now, Wishlist, Checkout, Reviews) require real
+     Clerk authentication. */
+  const isProtectedRoute = /^\/(profile|orders|seller|wholesale)(\.html)?$/.test(location.pathname);
   const isRealAuthenticated = clerkAuth.enabled
     ? Boolean(clerkAuth.isSignedIn)
     : Boolean(user && user.authProvider === 'clerk' && user.isLoggedIn);
 
-  if (!isPublicRoute) {
+  /* Redirect signed-out visitors to /login whenever they click a gated action
+     (Add to Cart, Buy Now, Wishlist, Cart/Wishlist drawers, Checkout). */
+  useEffect(() => {
+    if (!authPrompt) return;
+    clearAuthPrompt();
+    if (!isRealAuthenticated) {
+      const target = `${location.pathname}${location.search}`;
+      const qs =
+        target && target !== '/' && target !== '/index.html'
+          ? `?next=${encodeURIComponent(target)}`
+          : '';
+      navigate(`/login${qs}`);
+    }
+  }, [authPrompt, clearAuthPrompt, isRealAuthenticated, location.pathname, location.search, navigate]);
+
+  if (isProtectedRoute) {
     if (clerkAuth.enabled && !clerkAuth.isLoaded) {
       return (
         <main
@@ -139,11 +157,7 @@ export default function App() {
 
     if (!isRealAuthenticated) {
       const target = `${location.pathname}${location.search}`;
-      const qs =
-        target && target !== '/' && target !== '/index.html'
-          ? `?next=${encodeURIComponent(target)}`
-          : '';
-      return <Navigate to={`/login${qs}`} replace />;
+      return <Navigate to={`/login?next=${encodeURIComponent(target)}`} replace />;
     }
   }
 
