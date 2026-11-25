@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { srcSetFor } from '../../data/imageVariants.js';
+import { srcSetFor, hdSrcFor } from '../../data/imageVariants.js';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { asset, formatINR } from '../../utils/legacy.js';
@@ -85,15 +85,15 @@ export default function HeroSection() {
       <div className="hero-atmosphere" aria-hidden="true">
         <span
           className="ha-img ha-1"
-          style={{ backgroundImage: `url("${asset('img/artisans/artisan-02-840.webp')}")` }}
+          style={{ backgroundImage: `url("${hdSrcFor('img/artisans/artisan-02.jpg')}")` }}
         />
         <span
           className="ha-img ha-2"
-          style={{ backgroundImage: `url("${asset('img/artisans/artisan-03-840.webp')}")` }}
+          style={{ backgroundImage: `url("${hdSrcFor('img/artisans/artisan-03.jpg')}")` }}
         />
         <span
           className="ha-img ha-3"
-          style={{ backgroundImage: `url("${asset('img/artisans/artisan-05-840.webp')}")` }}
+          style={{ backgroundImage: `url("${hdSrcFor('img/artisans/artisan-05.jpg')}")` }}
         />
       </div>
       <div className="container">
@@ -161,11 +161,16 @@ export default function HeroSection() {
             </div>
 
             <div className="hero-artisan-proof">
-              <img
-                src={asset('assets/image_1.jpg')}
-                alt="Registered Kashmiri Artisans"
-                className="proof-thumb"
-              />
+              <picture>
+                {srcSetFor('assets/image_1.jpg') && (
+                  <source type="image/webp" srcSet={srcSetFor('assets/image_1.jpg')} sizes="120px" />
+                )}
+                <img
+                  src={asset('assets/image_1.jpg')}
+                  alt="Registered Kashmiri Artisans"
+                  className="proof-thumb"
+                />
+              </picture>
               <div>
                 <div className="proof-title">2,400+ Registered Artisans</div>
                 <div className="proof-sub">
@@ -184,17 +189,14 @@ export default function HeroSection() {
                 className={`bento-card${b.main ? ' bento-main' : ''}`}
                 onClick={() => navigate(`/product?id=${b.id}`)}
               >
-                {/* The main bento card is the first thing a visitor sees, so
-                    it must not be lazy — but it also must not be a 150 KB JPEG.
-                    WebP variants make it ~45 KB at the same visual size.
-                    `fetchPriority="high"` on the main card tells the browser it
-                    outranks the two decorative artisan portraits beside it. */}
+                {/* Full-HD WebP srcSet with Retina-aware sizes so the hero
+                    centerpiece and flanking craft cards render razor-sharp. */}
                 <picture>
                   {srcSetFor(`assets/${b.img}`) && (
                     <source
                       type="image/webp"
                       srcSet={srcSetFor(`assets/${b.img}`)}
-                      sizes={b.main ? '(max-width: 760px) 92vw, 46vw' : '28vw'}
+                      sizes={b.main ? '(max-width: 760px) 100vw, 52vw' : '(max-width: 760px) 50vw, 32vw'}
                     />
                   )}
                   <img

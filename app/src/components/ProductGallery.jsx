@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { asset } from '../utils/legacy.js';
-import { srcSetFor } from '../data/imageVariants.js';
+import { srcSetFor, hdSrcFor } from '../data/imageVariants.js';
 import { Heart } from './Icons.jsx';
 
 /* ==========================================================================
@@ -46,6 +46,8 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
 
   const [active, setActive] = useState(0);
   const [src, setSrc] = useState(thumbs[0]?.img || product.image);
+  const srcRef = useRef(src);
+  srcRef.current = src;
 
   /* reset the strip when the product changes */
   useEffect(() => {
@@ -190,7 +192,7 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
     lens.style.height = `${panel}px`;
     lens.style.left = `${panelLeft}px`;
     lens.style.top = `${panelTop}px`;
-    lens.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
+    lens.style.backgroundImage = `url("${hdSrcFor(srcRef.current) || img.currentSrc || img.src}")`;
     lens.style.backgroundSize = `${bgW}px ${bgH}px`;
     lens.style.backgroundPosition = `-${px}px -${py}px`;
 
@@ -264,7 +266,7 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
             <source
               type="image/webp"
               srcSet={srcSetFor(src)}
-              sizes="(max-width: 900px) 94vw, 52vw"
+              sizes="(max-width: 900px) 100vw, 60vw"
             />
           )}
           <img
@@ -317,7 +319,7 @@ export default function ProductGallery({ product, thumbs, wished, onToggleWish }
                 <source
                   type="image/webp"
                   srcSet={srcSetFor(t.img)}
-                  sizes="120px"
+                  sizes="160px"
                 />
               )}
               <img

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { formatINR, asset } from '../utils/legacy.js';
+import { srcSetFor } from '../data/imageVariants.js';
 import { artisanSlug, featuredPortraitFor } from '../utils/artisans.js';
 import { buildThumbnails, techniqueTag, techniqueSpec } from '../data/pdpThumbs.js';
 import ProductGallery from '../components/ProductGallery.jsx';
@@ -173,14 +174,25 @@ export default function ProductPage() {
               aria-label={`Open ${product.artisan}'s full workshop profile`}
             >
               <div className="pdp-artisan-profile">
-                <img
-                  loading="lazy"
-                  decoding="async"
-                  src={asset(featuredPortraitFor(product.artisan) || 'assets/image_1.jpg')}
-                  alt={product.artisan}
-                  className="pdp-artisan-avatar-img"
-                  id="pdp-artisan-avatar"
-                />
+                {(() => {
+                  const avatarImg = featuredPortraitFor(product.artisan) || 'assets/image_1.jpg';
+                  const avatarSrcSet = srcSetFor(avatarImg);
+                  return (
+                    <picture>
+                      {avatarSrcSet && (
+                        <source type="image/webp" srcSet={avatarSrcSet} sizes="112px" />
+                      )}
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        src={asset(avatarImg)}
+                        alt={product.artisan}
+                        className="pdp-artisan-avatar-img"
+                        id="pdp-artisan-avatar"
+                      />
+                    </picture>
+                  );
+                })()}
                 <div>
                   <div className="pdp-artisan-eyebrow">
                     <ShieldIcon /> VERIFIED MASTER ARTISAN

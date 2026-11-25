@@ -4,6 +4,7 @@ import PortalScope from '../../components/PortalScope.jsx';
 import { IconArrowRight, IconCheck, IconShield } from '../../components/LineIcons.jsx';
 import { demoApi } from '../../data/adminDemo.js';
 import { useStore } from '../../state/StoreContext.jsx';
+import { srcSetFor } from '../../data/imageVariants.js';
 import '../../styles/admin-login.css';
 
 const DEMO_ADMIN = {
@@ -60,11 +61,20 @@ export default function AdminLoginPage() {
 
       <main className="admin-login-page" id="main-content">
         <div className="admin-login-backdrop" aria-hidden="true">
-          <img
-            src={`${import.meta.env.BASE_URL}img/artisan-loom-light.jpg`}
-            alt=""
-            decoding="async"
-          />
+          <picture>
+            {srcSetFor('img/artisan-loom-light.jpg') && (
+              <source
+                type="image/webp"
+                srcSet={srcSetFor('img/artisan-loom-light.jpg')}
+                sizes="100vw"
+              />
+            )}
+            <img
+              src={`${import.meta.env.BASE_URL}img/artisan-loom-light.jpg`}
+              alt=""
+              decoding="async"
+            />
+          </picture>
         </div>
 
         <section className="admin-login-card" aria-labelledby="admin-login-title">

@@ -152,7 +152,7 @@ export default function ArtisansSection() {
                     <source
                       type="image/webp"
                       srcSet={srcSetFor(artisan.portrait)}
-                      sizes="(max-width: 760px) 88vw, 40vw"
+                      sizes="(max-width: 760px) 100vw, 45vw"
                     />
                   )}
                   <img
@@ -194,7 +194,7 @@ export default function ArtisansSection() {
                       <source
                         type="image/webp"
                         srcSet={srcSetFor(topProduct.image)}
-                        sizes="160px"
+                        sizes="200px"
                       />
                     )}
                     <img

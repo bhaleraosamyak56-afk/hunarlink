@@ -13,6 +13,7 @@ import {
 } from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { IS_CLERK_DEV_KEY, useClerkBridge } from '../../data/clerkConfig.js';
+import { srcSetFor, hdSrcFor } from '../../data/imageVariants.js';
 
 /* ==========================================================================
    LoginPage — collector (user) & artisan sign in / collector sign up
@@ -509,20 +510,29 @@ export default function LoginPage() {
 
       <main className="login-shell" id="main-content">
         <div className="login-ambient" aria-hidden="true">
-          <img
-            className="login-ambient-img"
-            src={`${import.meta.env.BASE_URL}img/artisan-loom-light.jpg`}
-            alt=""
-            loading="eager"
-            decoding="async"
-          />
+          <picture>
+            {srcSetFor('img/artisan-loom-light.jpg') && (
+              <source
+                type="image/webp"
+                srcSet={srcSetFor('img/artisan-loom-light.jpg')}
+                sizes="100vw"
+              />
+            )}
+            <img
+              className="login-ambient-img"
+              src={`${import.meta.env.BASE_URL}img/artisan-loom-light.jpg`}
+              alt=""
+              loading="eager"
+              decoding="async"
+            />
+          </picture>
         </div>
         <section className="login-card">
           <div className="login-left">
             <div
               className="login-rail-photo"
               aria-hidden="true"
-              style={{ backgroundImage: `url(${import.meta.env.BASE_URL}img/artisan-loom-dark.jpg)` }}
+              style={{ backgroundImage: `url("${hdSrcFor('img/artisan-loom-dark.jpg')}")` }}
             />
             <div>
               <div className="login-pill" id="left-pill">
