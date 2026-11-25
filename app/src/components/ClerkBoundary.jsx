@@ -10,10 +10,13 @@ import {
 import { useSignIn, useSignUp } from '@clerk/react/legacy';
 import { useStore } from '../state/StoreContext.jsx';
 import {
-  CLERK_PENDING_ROLE_KEY,
   CLERK_PUBLISHABLE_KEY,
   CLERK_ROLE_MAP_KEY,
-  ClerkBridgeContext
+  ClerkBridgeContext,
+  clearPendingClerkRole,
+  readClerkArtisanProfile,
+  readPendingClerkRole,
+  setPendingClerkRole
 } from '../data/clerkConfig.js';
 
 /* ==========================================================================
@@ -64,7 +67,82 @@ function formatClerkError(err, provider) {
   return msg || `Could not start ${provider} sign-in with Clerk.`;
 }
 
+function buildSyncedUser(clerkUser, resolvedRole) {
+  const email = clerkUser.primaryEmailAddress?.emailAddress || '';
+  const phone = clerkUser.primaryPhoneNumber?.phoneNumber || '';
+  const first =
+    clerkUser.firstName ||
+    (clerkUser.fullName ? clerkUser.fullName.split(' ')[0] : '') ||
+    (email ? email.split('@')[0] : 'Collector');
+  const last =
+    clerkUser.lastName ||
+    (clerkUser.fullName ? clerkUser.fullName.split(' ').slice(1).join(' ') : '');
+  const fullName = clerkUser.fullName || `${first} ${last}`.trim();
+  const badge = initialsOf(first, last, email);
+
+  if (resolvedRole === 'artisan') {
+    const saved = readClerkArtisanProfile(clerkUser.id);
+    const artisanVerified = Boolean(saved?.artisanVerified);
+    return {
+      first,
+      last,
+      fullName,
+      email,
+      phone: saved?.phone || phone,
+      badge,
+      artisanVerified,
+      payload: {
+        name: saved?.name || fullName || first,
+        fullName: saved?.name || fullName,
+        email: saved?.email || email,
+        phone: saved?.phone || phone,
+        role: 'artisan',
+        artisanVerified,
+        business: saved?.business || '',
+        craft: saved?.craft || '',
+        district: saved?.district || '',
+        cluster: saved?.district || '',
+        giCertified: Boolean(saved?.giCertified),
+        giId: saved?.giId || null,
+        skillDescription: saved?.skillDescription || '',
+        title: artisanVerified
+          ? saved?.title || 'Verified Artisan \u2022 Clerk SSO'
+          : 'Artisan Verification Pending \u2022 Clerk SSO',
+        badge,
+        avatarPhoto: clerkUser.imageUrl || '',
+        clerkUserId: clerkUser.id,
+        authProvider: 'clerk',
+        isLoggedIn: true
+      }
+    };
+  }
+
+  return {
+    first,
+    last,
+    fullName,
+    email,
+    phone,
+    badge,
+    artisanVerified: false,
+    payload: {
+      name: first,
+      fullName,
+      email,
+      phone,
+      role: 'buyer',
+      title: 'Verified Valley Buyer \u2022 Clerk SSO',
+      badge,
+      avatarPhoto: clerkUser.imageUrl || '',
+      clerkUserId: clerkUser.id,
+      authProvider: 'clerk',
+      isLoggedIn: true
+    }
+  };
+}
+
 function ClerkBridgeInner({ children }) {
+  const navigate = useNavigate();
   const { isLoaded: userLoaded, isSignedIn, user: clerkUser } = useUser();
   const { isLoaded: authLoaded, getToken: clerkGetToken } = useAuth();
   const clerk = useClerk();
@@ -80,7 +158,7 @@ function ClerkBridgeInner({ children }) {
   const isLoaded = Boolean(userLoaded && authLoaded);
 
   /* Mirror the live Clerk user into StoreContext so Header, ProfilePage,
-     OrdersPage and SellerPage all reflect the authenticated session. */
+     OrdersPage, AuthPage and SellerPage all reflect the authenticated session. */
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -91,13 +169,8 @@ function ClerkBridgeInner({ children }) {
       return;
     }
 
-    let pendingRole = null;
-    try {
-      pendingRole = window.sessionStorage.getItem(CLERK_PENDING_ROLE_KEY);
-      if (pendingRole) window.sessionStorage.removeItem(CLERK_PENDING_ROLE_KEY);
-    } catch {
-      /* ignore */
-    }
+    const pendingRole = readPendingClerkRole();
+    if (pendingRole) clearPendingClerkRole();
 
     const roleMap = readRoleMap();
     const metaRole = clerkUser.publicMetadata?.role;
@@ -109,104 +182,73 @@ function ClerkBridgeInner({ children }) {
 
     saveUserRole(clerkUser.id, resolvedRole);
 
-    const email = clerkUser.primaryEmailAddress?.emailAddress || '';
-    const phone = clerkUser.primaryPhoneNumber?.phoneNumber || '';
-    const first =
-      clerkUser.firstName ||
-      (clerkUser.fullName ? clerkUser.fullName.split(' ')[0] : '') ||
-      (email ? email.split('@')[0] : 'Collector');
-    const last =
-      clerkUser.lastName ||
-      (clerkUser.fullName ? clerkUser.fullName.split(' ').slice(1).join(' ') : '');
-    const fullName = clerkUser.fullName || `${first} ${last}`.trim();
-    const badge = initialsOf(first, last, email);
-
-    setUser(
-      {
-        name: first,
-        fullName,
-        email,
-        phone,
-        role: resolvedRole,
-        title:
-          resolvedRole === 'artisan'
-            ? 'Verified Artisan \u2022 Clerk SSO'
-            : 'Verified Valley Buyer \u2022 Clerk SSO',
-        badge,
-        avatarPhoto: clerkUser.imageUrl || '',
-        clerkUserId: clerkUser.id,
-        authProvider: 'clerk',
-        isLoggedIn: true
-      },
-      { silent: true }
-    );
+    const synced = buildSyncedUser(clerkUser, resolvedRole);
+    setUser(synced.payload, { silent: true });
 
     if (resolvedRole === 'buyer') {
       setBuyerProfile({
         ...(buyerProfile || {}),
-        firstName: first,
-        lastName: last,
-        fullName,
-        email,
-        phone: phone || buyerProfile?.phone || '',
+        firstName: synced.first,
+        lastName: synced.last,
+        fullName: synced.fullName,
+        email: synced.email,
+        phone: synced.phone || buyerProfile?.phone || '',
         avatarPhoto: clerkUser.imageUrl || buyerProfile?.avatarPhoto || '',
-        badge,
+        badge: synced.badge,
         role: 'buyer',
         isLoggedIn: true
       });
+    } else if (pendingRole === 'artisan') {
+      /* Guarantee an artisan returning from Google/Apple OAuth NEVER lands on
+         the buyer storefront homepage: unverified artisans go to GI/Standard
+         verification, while already-verified artisans go straight to /seller. */
+      const target = synced.artisanVerified ? '/seller' : '/auth?mode=register&step=verify';
+      const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+      const currentPath = (window.location.pathname || '/').replace(new RegExp(`^${base}`), '') || '/';
+      if (currentPath === '/' || currentPath === '/index.html' || currentPath === '/login' || currentPath === '/sso-callback') {
+        navigate(target, { replace: true });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isSignedIn, clerkUser?.id, clerkUser?.updatedAt]);
 
   const authenticateWithOAuth = useCallback(
-    async (provider, { role = 'user', mode = 'signin', redirectTo = '/profile' } = {}) => {
+    async (provider, { role = 'user', mode = 'signin', redirectTo = '/' } = {}) => {
       const normalizedRole = role === 'artisan' ? 'artisan' : 'buyer';
       const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-      const destPath = normalizedRole === 'artisan' ? '/seller' : redirectTo || '/profile';
-      const normalizedDest = destPath.startsWith('/') ? destPath : `/${destPath}`;
 
       /* If already signed in via Clerk, switch HunarLink workspace directly
          rather than letting Clerk throw "You're already signed in". */
       if (isSignedIn && clerkUser) {
         saveUserRole(clerkUser.id, normalizedRole);
-        const email = clerkUser.primaryEmailAddress?.emailAddress || '';
-        const first = clerkUser.firstName || (email ? email.split('@')[0] : 'Collector');
-        const last = clerkUser.lastName || '';
-        const fullName = clerkUser.fullName || `${first} ${last}`.trim();
-        setUser(
-          {
-            name: first,
-            fullName,
-            email,
-            phone: clerkUser.primaryPhoneNumber?.phoneNumber || '',
-            role: normalizedRole,
-            title:
-              normalizedRole === 'artisan'
-                ? 'Verified Artisan \u2022 Clerk SSO'
-                : 'Verified Valley Buyer \u2022 Clerk SSO',
-            badge: initialsOf(first, last, email),
-            avatarPhoto: clerkUser.imageUrl || '',
-            clerkUserId: clerkUser.id,
-            authProvider: 'clerk',
-            isLoggedIn: true
-          },
-          { silent: true }
-        );
+        const synced = buildSyncedUser(clerkUser, normalizedRole);
+        setUser(synced.payload, { silent: true });
+
         if (normalizedRole === 'buyer') {
           setBuyerProfile({
             ...(buyerProfile || {}),
-            firstName: first,
-            lastName: last,
-            fullName,
-            email,
-            phone: clerkUser.primaryPhoneNumber?.phoneNumber || buyerProfile?.phone || '',
+            firstName: synced.first,
+            lastName: synced.last,
+            fullName: synced.fullName,
+            email: synced.email,
+            phone: synced.phone || buyerProfile?.phone || '',
             avatarPhoto: clerkUser.imageUrl || buyerProfile?.avatarPhoto || '',
-            badge: initialsOf(first, last, email),
+            badge: synced.badge,
             role: 'buyer',
             isLoggedIn: true
           });
+          const buyerDest = (redirectTo || '/').startsWith('/') ? (redirectTo || '/') : `/${redirectTo}`;
+          return { alreadySignedIn: true, destination: buyerDest, artisanVerified: false };
         }
-        return { alreadySignedIn: true, destination: normalizedDest };
+
+        const artisanDest = synced.artisanVerified
+          ? '/seller'
+          : '/auth?mode=register&step=verify';
+        return {
+          alreadySignedIn: true,
+          destination: artisanDest,
+          artisanVerified: synced.artisanVerified
+        };
       }
 
       const useSignUpFlow = mode === 'signup' || mode === 'register';
@@ -217,14 +259,16 @@ function ClerkBridgeInner({ children }) {
 
       const strategy = provider === 'Apple' ? 'oauth_apple' : 'oauth_google';
       const origin = window.location.origin;
+      const destPath =
+        normalizedRole === 'artisan'
+          ? '/auth?mode=register&step=verify'
+          : (redirectTo || '/').startsWith('/')
+            ? redirectTo || '/'
+            : `/${redirectTo}`;
       const redirectUrl = `${origin}${base}/sso-callback`;
-      const redirectUrlComplete = `${origin}${base}${normalizedDest}`;
+      const redirectUrlComplete = `${origin}${base}${destPath}`;
 
-      try {
-        window.sessionStorage.setItem(CLERK_PENDING_ROLE_KEY, normalizedRole);
-      } catch {
-        /* ignore */
-      }
+      setPendingClerkRole(normalizedRole);
 
       const resource = useSignUpFlow ? signUp : signIn;
       const timeoutPromise = new Promise((_, reject) => {
@@ -248,6 +292,7 @@ function ClerkBridgeInner({ children }) {
         ]);
         return { redirected: true };
       } catch (err) {
+        clearPendingClerkRole();
         throw new Error(formatClerkError(err, provider));
       }
     },
@@ -255,8 +300,9 @@ function ClerkBridgeInner({ children }) {
   );
 
   const signOutClerk = useCallback(async () => {
+    clearPendingClerkRole();
     try {
-      window.sessionStorage.removeItem(CLERK_PENDING_ROLE_KEY);
+      window.localStorage.removeItem('hunarlink_auth_user');
     } catch {
       /* ignore */
     }
@@ -268,14 +314,10 @@ function ClerkBridgeInner({ children }) {
 
   const renderSsoCallback = useCallback(() => {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-    let dest = '/profile';
-    try {
-      if (window.sessionStorage.getItem(CLERK_PENDING_ROLE_KEY) === 'artisan') {
-        dest = '/seller';
-      }
-    } catch {
-      /* ignore */
-    }
+    const dest =
+      readPendingClerkRole() === 'artisan'
+        ? '/auth?mode=register&step=verify'
+        : '/';
     return (
       <AuthenticateWithRedirectCallback
         signInFallbackRedirectUrl={`${base}${dest}`}

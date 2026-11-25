@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
-import { useClerkBridge } from '../data/clerkConfig.js';
+import {
+  readClerkArtisanProfile,
+  saveClerkArtisanProfile,
+  useClerkBridge
+} from '../data/clerkConfig.js';
 import { AUTH_CONFIG, DEMO_ARTISANS } from '../data/authConfig.js';
 import AuthMarkup from './auth/AuthMarkup.jsx';
 import '../styles/auth.css';
@@ -33,6 +37,10 @@ export default function AuthPage() {
   const mode = ['login', 'register', 'forgot'].includes(params.get('mode'))
     ? params.get('mode')
     : 'login';
+  const step = params.get('step') || '';
+  const isClerkArtisanOnboarding = Boolean(
+    clerk.enabled && clerk.isSignedIn && clerk.clerkUser && mode === 'register'
+  );
   const [giMode, setGiMode] = useState('with_gi');
   const [pwShown, setPwShown] = useState({});
   /* Register fields are controlled here rather than read back off the DOM.
@@ -51,6 +59,33 @@ export default function AuthPage() {
     setReg((r) => ({ ...r, [key]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
   const [flashMsg, setFlashMsg] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
+
+  /* When an artisan arrives here from Google/Apple Clerk OAuth:
+     - Returning verified artisan -> go straight to Artisan Workspace (/seller).
+     - New unverified artisan -> pre-fill Name & Email from Clerk and require
+       Artisan GI / Standard verification before unlocking /seller. */
+  useEffect(() => {
+    if (!clerk.enabled || !clerk.isLoaded || !clerk.isSignedIn || !clerk.clerkUser) return;
+    const saved = readClerkArtisanProfile(clerk.clerkUser.id);
+    if (saved?.artisanVerified) {
+      if (step === 'verify' || mode === 'register') {
+        navigate('/seller', { replace: true });
+      }
+      return;
+    }
+    if (mode === 'register') {
+      const clerkEmail = clerk.clerkUser.primaryEmailAddress?.emailAddress || '';
+      const clerkName =
+        clerk.clerkUser.fullName ||
+        [clerk.clerkUser.firstName, clerk.clerkUser.lastName].filter(Boolean).join(' ') ||
+        '';
+      setReg((prev) => ({
+        ...prev,
+        name: prev.name || clerkName,
+        email: prev.email || clerkEmail
+      }));
+    }
+  }, [clerk.enabled, clerk.isLoaded, clerk.isSignedIn, clerk.clerkUser, mode, step, navigate]);
 
   /* ======================================================== capture suite
      The static build drove all of this through getElementById: it set
@@ -403,14 +438,15 @@ export default function AuthPage() {
     const authUser = {
       ...profile,
       role: 'artisan',
+      artisanVerified: true,
       giCertified: !!profile.giId,
       verified: true,
       isLoggedIn: true,
       loginTime: new Date().toISOString()
     };
     setUser(authUser);
-    flash(`Welcome ${authUser.name}! Verified Artisan Session Active. Opening Seller Portal...`);
-    setTimeout(() => navigate('/seller'), 900);
+    flash(`Welcome ${authUser.name}! Artisan Workspace ready. Opening Seller Portal...`);
+    setTimeout(() => navigate('/seller'), 700);
   }
 
   function submitLogin(e) {
@@ -491,9 +527,11 @@ export default function AuthPage() {
       return;
     }
 
-    if (pwd !== cpwd) {
-      flash('\u26a0\ufe0f Passwords do not match. Please verify.');
-      return;
+    if (!isClerkArtisanOnboarding) {
+      if (!pwd || pwd !== cpwd) {
+        flash('\u26a0\ufe0f Passwords do not match. Please verify.');
+        return;
+      }
     }
 
     let giId = null;
@@ -530,7 +568,7 @@ export default function AuthPage() {
     stopAllCameras();
 
     const accounts = platformUsers;
-    if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
+    if (!isClerkArtisanOnboarding && accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
       flash('\u26a0\ufe0f An artisan account with this email already exists. Please sign in instead.');
       return;
     }
@@ -543,41 +581,48 @@ export default function AuthPage() {
         .toUpperCase()
         .slice(0, 2) || 'AR';
 
-    const newAccount = {
+    const title =
+      giMode === 'with_gi'
+        ? `GI-Verified Artisan (${giId}) \u2022 ${district} Cluster`
+        : `Standard Artisan \u2022 ${district} Cluster`;
+
+    const verifiedProfile = {
+      name,
+      fullName: name,
       email,
       phone: `+91 ${phone}`,
-      password: pwd,
-      role: 'artisan',
-      name,
       business,
       craft,
       district,
+      cluster: district,
       giCertified: giMode === 'with_gi',
       giId,
-      title:
-        giMode === 'with_gi'
-          ? `GI-Verified Artisan (${giId}) \u2022 ${district} Cluster`
-          : `Standard Artisan \u2022 ${district} Cluster`,
-      badge: initials
+      skillDescription,
+      badge: initials,
+      title,
+      artisanVerified: true
+    };
+
+    if (isClerkArtisanOnboarding && clerk.clerkUser?.id) {
+      saveClerkArtisanProfile(clerk.clerkUser.id, verifiedProfile);
+      signInArtisan({
+        ...verifiedProfile,
+        clerkUserId: clerk.clerkUser.id,
+        avatarPhoto: clerk.clerkUser.imageUrl || '',
+        authProvider: 'clerk'
+      });
+      return;
+    }
+
+    const newAccount = {
+      ...verifiedProfile,
+      password: pwd,
+      role: 'artisan'
     };
     /* a new array, never a push onto store state */
     setPlatformUsers([...accounts, newAccount]);
 
-    signInArtisan({
-      name,
-      email,
-      phone: `+91 ${phone}`,
-      business,
-      craft,
-      district,
-      giId,
-      skillDescription,
-      badge: initials,
-      title:
-        giMode === 'with_gi'
-          ? `GI-Verified Artisan (${giId}) \u2022 ${district} Cluster`
-          : `Standard Artisan \u2022 ${district} Cluster`
-    });
+    signInArtisan(verifiedProfile);
   }
 
   function submitForgot(e) {
@@ -599,8 +644,14 @@ export default function AuthPage() {
           redirectTo: '/seller'
         });
         if (res && res.alreadySignedIn) {
-          flash('Signed in with Clerk! Opening your workspace...');
-          window.setTimeout(() => navigate('/seller'), 400);
+          const dest = res.destination || '/auth?mode=register&step=verify';
+          flash(
+            res.artisanVerified
+              ? 'Signed in with Clerk! Opening your Artisan Workspace...'
+              : 'Signed in with Clerk! Complete your Artisan Verification below to unlock Seller Portal.'
+          );
+          window.setTimeout(() => navigate(dest, { replace: true }), 400);
+          setOauthBusy(null);
         }
       } catch (err) {
         flash(err?.message || `Could not continue with ${provider}.`);
@@ -764,6 +815,8 @@ export default function AuthPage() {
               <AuthMarkup
                 giMode={giMode}
                 mode={mode}
+                isClerkOnboarding={isClerkArtisanOnboarding}
+                clerkEmail={clerk.clerkUser?.primaryEmailAddress?.emailAddress || ''}
                 formTitle={conf.title}
                 formSubtitle={conf.subtitle}
                 submitBtnText={conf.submitBtnText}
@@ -796,7 +849,7 @@ export default function AuthPage() {
             <div
               className="auth-social-section"
               id="auth-social-section"
-              style={{ display: mode === 'forgot' ? 'none' : 'block' }}
+              style={{ display: mode === 'forgot' || isClerkArtisanOnboarding ? 'none' : 'block' }}
             >
               <div className="social-divider">
                 <span>or continue with</span>

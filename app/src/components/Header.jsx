@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
+import { useClerkBridge } from '../data/clerkConfig.js';
 import { Heart, Bag, Search, Close } from './Icons.jsx';
 import { asset } from '../utils/legacy.js';
 import { scrollToSection } from '../utils/scrollToSection.js';
@@ -38,6 +39,7 @@ function initialsFor(user) {
 export default function Header({ showSectionNav = true, activeSection = 'home' }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const clerk = useClerkBridge();
   const {
     cartCount,
     wishlistCount,
@@ -47,8 +49,42 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
     raiseVeil,
     lowerVeil,
     openModal,
-    user
+    user,
+    setUser,
+    buyerProfile,
+    setBuyerProfile,
+    toast
   } = useStore();
+
+  const isSignedIn = Boolean(
+    user &&
+      user.isLoggedIn !== false &&
+      (user.email || user.fullName || user.name || user.clerkUserId)
+  );
+  const isArtisan = isSignedIn && user.role === 'artisan';
+  const isArtisanPending = isArtisan && user.artisanVerified === false;
+
+  async function handleSignOut() {
+    setProfileOpen(false);
+    try {
+      window.localStorage.removeItem('hunarlink_auth_user');
+    } catch {
+      /* ignore */
+    }
+    if (buyerProfile && buyerProfile.isLoggedIn) {
+      setBuyerProfile({ ...buyerProfile, isLoggedIn: false });
+    }
+    if (clerk.enabled && clerk.signOutClerk) {
+      try {
+        await clerk.signOutClerk();
+      } catch {
+        /* ignore */
+      }
+    }
+    setUser(null, { silent: true });
+    toast('Signed out of HunarLink.');
+    navigate('/');
+  }
 
   const [query, setQuery] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
@@ -266,60 +302,122 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
               </span>
             </button>
 
-            {/* One way in, was three. The role question is asked once, by the
-                modal, and each answer routes to the page that already owns
-                that job: /login for a collector, /auth for an artisan. */}
-            <button
-              type="button"
-              className="btn-login"
-              id="login-btn"
-              title="Sign in as a collector or an artisan"
-              data-testid="login-btn"
-              onClick={() => navigate('/login')}
-            >
-              {/* Always reads LOGIN. Who you are is answered in the modal and
-                  shown by the avatar beside it, not by relabelling this. */}
-              <span className="btn-login-label" id="login-btn-text">LOGIN</span>
-            </button>
-
-            <div className="profile-dropdown-wrap">
+            {!isSignedIn ? (
               <button
                 type="button"
-                className="profile-avatar-btn"
-                id="profile-menu-btn"
-                ref={profileBtnRef}
-                aria-label="User Profile Menu"
-                aria-expanded={profileOpen}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setProfileOpen((v) => !v);
-                }}
+                className="btn-login"
+                id="login-btn"
+                title="Sign in as a collector or an artisan"
+                data-testid="login-btn"
+                onClick={() => navigate('/login')}
               >
-                {initialsFor(user)}
+                <span className="btn-login-label" id="login-btn-text">LOGIN</span>
               </button>
-              <div className={`profile-menu${profileOpen ? ' open' : ''}`} id="profile-menu" ref={profileMenuRef}>
-                <div className="profile-menu-header">
-                  <div className="profile-menu-name">
-                    {user?.fullName || user?.name || 'Priya Sharma'}
+            ) : (
+              <div className="profile-dropdown-wrap">
+                <button
+                  type="button"
+                  className="profile-avatar-btn"
+                  id="profile-menu-btn"
+                  ref={profileBtnRef}
+                  aria-label="User Profile Menu"
+                  aria-expanded={profileOpen}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileOpen((v) => !v);
+                  }}
+                >
+                  {initialsFor(user)}
+                </button>
+                <div className={`profile-menu${profileOpen ? ' open' : ''}`} id="profile-menu" ref={profileMenuRef}>
+                  <div className="profile-menu-header">
+                    <div className="profile-menu-name">
+                      {user?.fullName || user?.name}
+                    </div>
+                    <div className="profile-menu-role">
+                      {isArtisanPending
+                        ? 'Artisan Verification Pending \u2022 Clerk SSO'
+                        : user?.title || (isArtisan ? 'Verified Artisan' : 'Verified Valley Buyer \u2022 J&K')}
+                    </div>
                   </div>
-                  <div className="profile-menu-role">
-                    {user?.title || 'Verified Valley Buyer \u2022 J&K'}
-                  </div>
+                  {isArtisan ? (
+                    isArtisanPending ? (
+                      <button
+                        type="button"
+                        className="profile-menu-item"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          navigate('/auth?mode=register&step=verify');
+                        }}
+                      >
+                        <span>Complete Artisan Verification</span>
+                        <span>&rarr;</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="profile-menu-item"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            navigate('/seller');
+                          }}
+                        >
+                          <span>Artisan Workspace</span>
+                          <span>&rarr;</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="profile-menu-item"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            navigate('/seller?tab=publish');
+                          }}
+                        >
+                          <span>List New Craft</span>
+                          <span>&rarr;</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="profile-menu-item"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            navigate('/seller?tab=orders');
+                          }}
+                        >
+                          <span>Orders &amp; Inquiries</span>
+                          <span>&rarr;</span>
+                        </button>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); navigate('/profile'); }}>
+                        <span>My Profile (Customize)</span>
+                        <span>&rarr;</span>
+                      </button>
+                      <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); navigate('/orders'); }}>
+                        <span>My Orders &amp; Live Tracking</span>
+                        <span>&rarr;</span>
+                      </button>
+                      <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); openDrawer('wishlist'); }}>
+                        <span>Saved Wishlist</span>
+                        <span>&rarr;</span>
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="profile-menu-item"
+                    style={{ borderTop: '1px solid rgba(18, 33, 27, 0.08)', color: '#9c2d1f' }}
+                    onClick={handleSignOut}
+                  >
+                    <span>Sign out</span>
+                    <span>&rarr;</span>
+                  </button>
                 </div>
-                <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); navigate('/profile'); }}>
-                  <span>My Profile (Customize)</span>
-                  <span>&rarr;</span>
-                </button>
-                <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); navigate('/orders'); }}>
-                  <span>My Orders &amp; Live Tracking</span>
-                  <span>&rarr;</span>
-                </button>
-                <button type="button" className="profile-menu-item" onClick={() => { setProfileOpen(false); openDrawer('wishlist'); }}>
-                  <span>Saved Wishlist</span>
-                  <span>&rarr;</span>
-                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>

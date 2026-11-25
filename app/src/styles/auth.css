@@ -1488,9 +1488,18 @@ html.auth-route .input-field {
   border: 1px solid var(--input-border);
   border-radius: 10px;
   height: 48px;
+  padding: 0 16px 0 42px;
   background-color: var(--card-bg);
   font-size: 0.9rem;
   color: var(--text-main);
+}
+
+html.auth-route .input-wrapper.phone-wrap .input-field {
+  padding-left: 82px;
+}
+
+html.auth-route select.input-field {
+  padding-right: 38px;
 }
 
 html.auth-route .input-field::placeholder {

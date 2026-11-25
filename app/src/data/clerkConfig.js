@@ -9,7 +9,7 @@ import { createContext, useContext } from 'react';
 
 const rawKey = String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim();
 const isValidKey =
-  /^pk_(test|live)_[A-Za-z0-9_-]{12,}$/.test(rawKey) &&
+  /^pk_(test|live)_[A-Za-z0-9_+/$=-]{12,}$/.test(rawKey) &&
   !rawKey.includes('your_publishable_key');
 
 export const CLERK_PUBLISHABLE_KEY = isValidKey ? rawKey : '';
@@ -30,6 +30,71 @@ export const HAS_CLERK = Boolean(
 
 export const CLERK_PENDING_ROLE_KEY = 'hunarlink_clerk_pending_role';
 export const CLERK_ROLE_MAP_KEY = 'hunarlink_clerk_role_map';
+export const CLERK_ARTISAN_PROFILES_KEY = 'hunarlink_clerk_artisan_profiles';
+
+export function setPendingClerkRole(role) {
+  if (!role) return;
+  try {
+    window.sessionStorage.setItem(CLERK_PENDING_ROLE_KEY, role);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.localStorage.setItem(CLERK_PENDING_ROLE_KEY, role);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPendingClerkRole() {
+  try {
+    const s = window.sessionStorage.getItem(CLERK_PENDING_ROLE_KEY);
+    if (s) return s;
+  } catch {
+    /* ignore */
+  }
+  try {
+    return window.localStorage.getItem(CLERK_PENDING_ROLE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingClerkRole() {
+  try {
+    window.sessionStorage.removeItem(CLERK_PENDING_ROLE_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.localStorage.removeItem(CLERK_PENDING_ROLE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readClerkArtisanProfile(clerkUserId) {
+  if (!clerkUserId) return null;
+  try {
+    const raw = window.localStorage.getItem(CLERK_ARTISAN_PROFILES_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return map[clerkUserId] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveClerkArtisanProfile(clerkUserId, profile) {
+  if (!clerkUserId || !profile) return;
+  try {
+    const raw = window.localStorage.getItem(CLERK_ARTISAN_PROFILES_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[clerkUserId] = { ...(map[clerkUserId] || {}), ...profile };
+    window.localStorage.setItem(CLERK_ARTISAN_PROFILES_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
 
 export const DEFAULT_CLERK_BRIDGE = {
   enabled: false,

@@ -142,7 +142,7 @@ const initialState = {
   wishlist: loadStorage(KEYS.wishlist, ['hl-kani-004', 'hl-papr-003', 'hl-waln-001']),
   savedLater: loadStorage(KEYS.savedLater, []),
   coupon: loadStorage(KEYS.coupon, null),
-  user: loadStorage(KEYS.user, DEFAULT_BUYER),
+  user: loadStorage(KEYS.user, null),
   addresses: (() => {
     const loaded = loadStorage(KEYS.addresses, [DEFAULT_ADDRESS]);
     return Array.isArray(loaded) ? loaded.map(normaliseAddress) : [DEFAULT_ADDRESS];
