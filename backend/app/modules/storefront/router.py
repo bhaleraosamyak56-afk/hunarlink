@@ -818,6 +818,7 @@ def admin_live_overview(
     users_by_id = {u.id: u for u in users}
     sellers_by_id = {s.id: s for s in sellers}
     seller_by_user_id = {s.user_id: s for s in sellers}
+    active_admin_user_ids = {ac.user_id for ac in admin_creds if ac.is_active}
     docs_by_app_id: dict[str, list[SellerDocument]] = defaultdict(list)
     for d in seller_docs:
         if d.application_id:
@@ -968,12 +969,23 @@ def admin_live_overview(
                 "phone": u.phone,
                 "roles": roles_by_user_id.get(u.id, []),
                 "onboarding_state": (
-                    seller_by_user_id[u.id].verification_status
-                    if u.id in seller_by_user_id
+                    "ADMIN"
+                    if (
+                        u.id in active_admin_user_ids
+                        or bool(
+                            set(roles_by_user_id.get(u.id, []))
+                            & {"SUPER_ADMIN", "OPS_ADMIN", "VERIFICATION_OFFICER", "FINANCE_ADMIN"}
+                        )
+                        or str(u.clerk_user_id or "").startswith("hl_admin_")
+                    )
                     else (
-                        "STEP_1_ONLY_NO_CARD_YET"
-                        if "DIRECT_SELLER" in roles_by_user_id.get(u.id, [])
-                        else "BUYER"
+                        seller_by_user_id[u.id].verification_status
+                        if u.id in seller_by_user_id
+                        else (
+                            "STEP_1_ONLY_NO_CARD_YET"
+                            if "DIRECT_SELLER" in roles_by_user_id.get(u.id, [])
+                            else "BUYER"
+                        )
                     )
                 ),
                 "account_status": u.account_status,

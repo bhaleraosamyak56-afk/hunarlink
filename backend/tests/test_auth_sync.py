@@ -411,6 +411,8 @@ def test_07_admin_password_login_allows_only_db_provisioned_admins_and_revocatio
     assert creds_list[0]["email"] == admin_user.email
     assert creds_list[0]["password_hash"].startswith("pbkdf2_sha256$")
     assert secret_pw not in creds_list[0]["password_hash"]
+    admin_row = next(u for u in ov.json()["users"] if u["email"] == admin_user.email)
+    assert admin_row["onboarding_state"] == "ADMIN"
 
     # 6. Revoking admin credential immediately invalidates existing token (403)
     cred.is_active = False

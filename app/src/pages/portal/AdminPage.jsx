@@ -483,7 +483,21 @@ export default function AdminPage() {
                       <td style={{ padding: '0.55rem' }}>{u.email}</td>
                       <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>{u.clerk_user_id}</td>
                       <td style={{ padding: '0.55rem', fontSize: '0.78rem' }}>
-                        {u.onboarding_state === 'STEP_1_ONLY_NO_CARD_YET' ? (
+                        {u.onboarding_state === 'ADMIN' ? (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '0.16rem 0.52rem',
+                              borderRadius: '999px',
+                              background: 'rgba(20, 62, 48, 0.12)',
+                              color: '#143e30',
+                              fontWeight: 700,
+                              letterSpacing: '0.03em'
+                            }}
+                          >
+                            ADMIN
+                          </span>
+                        ) : u.onboarding_state === 'STEP_1_ONLY_NO_CARD_YET' ? (
                           <span style={{ color: '#8a5300', fontWeight: 600 }}>
                             Step 1 Signed In (Awaiting Card Upload on /auth?tab=verify)
                           </span>
