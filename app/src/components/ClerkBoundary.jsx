@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  AuthenticateWithRedirectCallback,
   ClerkProvider,
   useAuth,
   useClerk,
@@ -144,6 +143,114 @@ function buildSyncedUser(clerkUser, resolvedRole) {
       isLoggedIn: true
     }
   };
+}
+
+function SsoCallbackRunner() {
+  const clerk = useClerk();
+  const navigate = useNavigate();
+  const ranRef = useRef(false);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    const pendingRole = readPendingClerkRole();
+    const pendingMode = readPendingClerkAuthMode();
+    const isSignInAttempt = pendingMode !== 'signup';
+    const dest = pendingRole === 'artisan' ? '/auth?tab=verify' : '/login';
+    const registerDest =
+      pendingRole === 'artisan'
+        ? '/auth?mode=register&not_registered=1'
+        : '/login?mode=register&not_registered=1';
+    const fallbackAuthDest =
+      pendingRole === 'artisan'
+        ? `/auth?mode=${isSignInAttempt ? 'signin' : 'register'}`
+        : `/login?mode=${isSignInAttempt ? 'signin' : 'register'}`;
+
+    const safetyTimer = window.setTimeout(() => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      if (clerk?.user) {
+        navigate(dest, { replace: true });
+      } else {
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+        navigate(isSignInAttempt ? registerDest : fallbackAuthDest, { replace: true });
+      }
+    }, 4500);
+
+    return () => window.clearTimeout(safetyTimer);
+  }, [clerk, navigate]);
+
+  useEffect(() => {
+    if (!clerk || !clerk.loaded || ranRef.current) return;
+    ranRef.current = true;
+
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    const pendingRole = readPendingClerkRole();
+    const pendingMode = readPendingClerkAuthMode();
+    const isSignInAttempt = pendingMode !== 'signup';
+    const dest = pendingRole === 'artisan' ? '/auth?tab=verify' : '/login';
+    const registerDest =
+      pendingRole === 'artisan'
+        ? '/auth?mode=register&not_registered=1'
+        : '/login?mode=register&not_registered=1';
+    const fallbackAuthDest =
+      pendingRole === 'artisan'
+        ? `/auth?mode=${isSignInAttempt ? 'signin' : 'register'}`
+        : `/login?mode=${isSignInAttempt ? 'signin' : 'register'}`;
+
+    const go = (target) => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      navigate(target, { replace: true });
+    };
+
+    Promise.resolve()
+      .then(() =>
+        clerk.handleRedirectCallback({
+          transferable: !isSignInAttempt,
+          signInUrl: `${base}${registerDest}`,
+          signUpUrl: `${base}${registerDest}`,
+          continueSignUpUrl: `${base}${registerDest}`,
+          signInFallbackRedirectUrl: `${base}${dest}`,
+          signUpFallbackRedirectUrl: `${base}${dest}`
+        })
+      )
+      .then(() => {
+        if (doneRef.current) return;
+        const currentPath =
+          (window.location.pathname || '/').replace(new RegExp(`^${base}`), '') || '/';
+        if (currentPath !== '/sso-callback') {
+          doneRef.current = true;
+          return;
+        }
+        const siStatus = clerk.client?.signIn?.firstFactorVerification?.status;
+        if (isSignInAttempt && (!clerk.user || siStatus === 'transferable' || siStatus === 'failed')) {
+          clearPendingClerkRole();
+          clearPendingClerkAuthMode();
+          go(registerDest);
+          return;
+        }
+        if (clerk.user) {
+          go(dest);
+          return;
+        }
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+        go(isSignInAttempt ? registerDest : fallbackAuthDest);
+      })
+      .catch(() => {
+        if (doneRef.current) return;
+        if (clerk.user) {
+          go(dest);
+          return;
+        }
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+        go(isSignInAttempt ? registerDest : fallbackAuthDest);
+      });
+  }, [clerk, clerk?.loaded, navigate]);
+
+  return null;
 }
 
 function ClerkBridgeInner({ children }) {
@@ -550,27 +657,7 @@ function ClerkBridgeInner({ children }) {
     }
   }, [clerk, clearSessionState, isSignedIn, setUser]);
 
-  const renderSsoCallback = useCallback(() => {
-    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-    const pendingRole = readPendingClerkRole();
-    const pendingMode = readPendingClerkAuthMode();
-    const isSignInAttempt = pendingMode !== 'signup';
-    const dest = pendingRole === 'artisan' ? '/auth?tab=verify' : '/login';
-    const registerDest =
-      pendingRole === 'artisan'
-        ? '/auth?mode=register&not_registered=1'
-        : '/login?mode=register&not_registered=1';
-    return (
-      <AuthenticateWithRedirectCallback
-        transferable={!isSignInAttempt}
-        signInUrl={`${base}${registerDest}`}
-        signUpUrl={`${base}${registerDest}`}
-        continueSignUpUrl={`${base}${registerDest}`}
-        signInFallbackRedirectUrl={`${base}${dest}`}
-        signUpFallbackRedirectUrl={`${base}${dest}`}
-      />
-    );
-  }, []);
+  const renderSsoCallback = useCallback(() => <SsoCallbackRunner />, []);
 
   const getToken = useCallback(async () => {
     if (!isSignedIn || typeof clerkGetToken !== 'function') return null;
