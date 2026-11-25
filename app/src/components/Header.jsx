@@ -61,8 +61,8 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
       user.isLoggedIn !== false &&
       (user.email || user.fullName || user.name || user.clerkUserId)
   );
-  const isArtisan = isSignedIn && user.role === 'artisan';
-  const isArtisanPending = isArtisan && user.artisanVerified === false;
+  const isArtisan = isSignedIn && (user.role === 'artisan' || user.role === 'seller');
+  const isArtisanPending = isArtisan && !user.artisanVerified;
 
   async function handleSignOut() {
     setProfileOpen(false);
@@ -347,7 +347,7 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
                         className="profile-menu-item"
                         onClick={() => {
                           setProfileOpen(false);
-                          navigate('/auth?mode=register&step=verify');
+                          navigate('/auth?tab=verify');
                         }}
                       >
                         <span>Complete Artisan Verification</span>

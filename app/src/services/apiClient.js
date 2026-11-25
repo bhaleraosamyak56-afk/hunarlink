@@ -168,6 +168,13 @@ export function syncAuthenticatedUser(payload, token) {
   return apiRequest('/api/v1/auth/sync', { method: 'POST', body: payload, token });
 }
 
+export function checkAuthAccount(email) {
+  return apiRequest('/api/v1/auth/check-account', {
+    method: 'POST',
+    body: { email }
+  });
+}
+
 export function fetchMyAuthProfile(token) {
   return apiRequest('/api/v1/auth/me', { token });
 }
@@ -268,6 +275,14 @@ export function decideAdminArtisanApplication(applicationId, { decision, notes }
 
 export function fetchGuardrailDocumentBlobUrl(scanId, token) {
   return fetchProtectedBlobUrl(`/api/v1/guardrails/documents/${encodeURIComponent(scanId)}`, token);
+}
+
+export function verifyAdminSeller(sellerId, decision, token) {
+  return apiRequest(`/api/v1/admin/sellers/${encodeURIComponent(sellerId)}/verify`, {
+    method: 'POST',
+    body: { decision },
+    token
+  });
 }
 
 export function uploadGuardrailDocument(file, ownerScope, token) {

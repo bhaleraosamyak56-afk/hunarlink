@@ -26,6 +26,21 @@ class AuthSyncRequest(BaseModel):
     display_name: str | None = Field(default=None, max_length=160)
     phone: str | None = Field(default=None, max_length=32)
     requested_role: Literal["buyer", "artisan"] = "buyer"
+    auth_mode: Literal["signup", "signin", "sync"] = "sync"
+
+
+class AccountCheckRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(..., min_length=3, max_length=255)
+
+
+class AccountCheckResponse(BaseModel):
+    exists: bool
+    roles: list[str] = Field(default_factory=list)
+    is_artisan: bool = False
+    artisan_verified: bool = False
+    artisan_verification_status: str | None = None
 
 
 class SellerProfileBrief(BaseModel):
@@ -58,6 +73,8 @@ class AuthUserProfileResponse(BaseModel):
     phone: str | None = None
     account_status: str
     roles: list[str]
+    is_artisan: bool = False
+    artisan_verified: bool = False
     is_admin: bool = False
     admin_permissions: list[str] = Field(default_factory=list)
     seller_profile: SellerProfileBrief | None = None

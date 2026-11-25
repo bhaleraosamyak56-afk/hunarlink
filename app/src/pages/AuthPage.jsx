@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import {
+  clearPendingClerkAuthMode,
   clearPendingClerkRole,
+  readClerkArtisanProfile,
   saveClerkArtisanProfile,
   useClerkBridge
 } from '../data/clerkConfig.js';
@@ -42,6 +44,9 @@ export default function AuthPage() {
   const clerk = useClerkBridge();
   const { setUser, toast, hydrateFromBackend } = useStore();
 
+  const [authMode, setAuthMode] = useState(
+    params.get('mode') === 'register' || params.get('mode') === 'signup' ? 'register' : 'signin'
+  );
   const [giMode, setGiMode] = useState('with_gi');
   const [form, setForm] = useState({
     storeName: '',
@@ -56,7 +61,7 @@ export default function AuthPage() {
   const [cardPreviewUrl, setCardPreviewUrl] = useState('');
   const [dbSellerProfile, setDbSellerProfile] = useState(null);
   const [checkingDbStatus, setCheckingDbStatus] = useState(false);
-  const [resubmitMode, setResubmitMode] = useState(false);
+  const [resubmitMode, setResubmitMode] = useState(params.get('edit') === '1');
 
   const [errMsg, setErrMsg] = useState('');
   const [busyProvider, setBusyProvider] = useState(null);
@@ -73,7 +78,10 @@ export default function AuthPage() {
   useEffect(() => {
     const reset = (ev) => {
       setBusyProvider(null);
-      if (ev?.persisted) clearPendingClerkRole();
+      if (ev?.persisted) {
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+      }
     };
     window.addEventListener('pageshow', reset);
     window.addEventListener('focus', reset);
@@ -90,53 +98,72 @@ export default function AuthPage() {
   }, [cardPreviewUrl]);
 
   const refreshLiveApplicationStatus = useCallback(async () => {
-    if (!signedIn || !clerkUser || !clerk.getToken || !canAttemptBackend()) return;
+    if (!signedIn || !clerkUser) return;
     setCheckingDbStatus(true);
     try {
-      const token = await clerk.getToken();
-      if (!token) return;
-      const me = await fetchMyAuthProfile(token);
-      const sp = me?.seller_profile || null;
-      setDbSellerProfile(sp);
+      if (canAttemptBackend() && clerk.getToken) {
+        const token = await clerk.getToken();
+        if (!token) return;
+        const me = await fetchMyAuthProfile(token);
+        const sp = me?.seller_profile || null;
+        setDbSellerProfile(sp);
 
-      if (sp) {
-        const isApproved =
-          sp.verification_status === 'APPROVED' && sp.profile_status === 'ACTIVE';
-        const profileToSave = {
-          artisanVerified: isApproved,
-          verificationStatus: sp.verification_status,
-          profileStatus: sp.profile_status,
-          sellerProfileId: sp.seller_profile_id,
-          business: sp.store_name || '',
-          craft: sp.craft_specialty || 'pashmina',
-          district: sp.workshop_district || 'Srinagar',
-          phone: me.phone || '',
-          giCertified: sp.verification_path === 'GI' && isApproved,
-          giId: sp.claimed_gi_authorized_user_no || null,
-          verificationPath: sp.verification_path,
-          applicationNumber: sp.latest_application_number || null,
-          reviewDecisionNotes: sp.review_decision_notes || null
-        };
-        saveClerkArtisanProfile(clerkUser.id, profileToSave);
-        setUser(
-          {
-            id: clerkUser.id,
-            clerkUserId: clerkUser.id,
-            name: clerkName || sp.store_name,
-            fullName: clerkName || sp.store_name,
-            email: clerkEmail,
+        if (sp) {
+          setForm((prev) => ({
+            ...prev,
+            storeName: prev.storeName || sp.store_name || '',
+            craft: sp.craft_specialty || prev.craft,
+            district: sp.workshop_district || prev.district,
+            phone: prev.phone || me?.phone || '',
+            giId: prev.giId || sp.claimed_gi_authorized_user_no || ''
+          }));
+          setGiMode(sp.verification_path === 'GI' ? 'with_gi' : 'without_gi');
+
+          const isApproved =
+            Boolean(me?.artisan_verified) ||
+            (sp.verification_status === 'APPROVED' && sp.profile_status === 'ACTIVE');
+          const profileToSave = {
+            artisanVerified: isApproved,
+            verificationStatus: sp.verification_status,
+            profileStatus: sp.profile_status,
+            sellerProfileId: sp.seller_profile_id,
+            business: sp.store_name || '',
+            craft: sp.craft_specialty || 'pashmina',
+            district: sp.workshop_district || 'Srinagar',
             phone: me.phone || '',
-            role: 'artisan',
-            isLoggedIn: true,
-            authProvider: 'clerk',
-            ...profileToSave
-          },
-          { silent: true }
-        );
+            giCertified: sp.verification_path === 'GI' && isApproved,
+            giId: sp.claimed_gi_authorized_user_no || null,
+            verificationPath: sp.verification_path,
+            applicationNumber: sp.latest_application_number || null,
+            reviewDecisionNotes: sp.review_decision_notes || null
+          };
+          saveClerkArtisanProfile(clerkUser.id, profileToSave);
+          setUser(
+            {
+              id: clerkUser.id,
+              clerkUserId: clerkUser.id,
+              name: me?.display_name || clerkName || sp.store_name,
+              fullName: me?.display_name || clerkName || sp.store_name,
+              email: me?.email || clerkEmail,
+              phone: me.phone || '',
+              role: 'artisan',
+              isLoggedIn: true,
+              authProvider: 'clerk',
+              sellerProfile: sp,
+              ...profileToSave
+            },
+            { silent: true }
+          );
 
-        if (isApproved && params.get('edit') !== '1') {
-          toast('Your Artisan Workshop has been verified by Admin! Entering Seller Studio.', 'success');
-          await hydrateFromBackend(token);
+          if (isApproved && params.get('edit') !== '1') {
+            toast('Your Artisan Workshop has been verified by Admin! Entering Seller Studio.', 'success');
+            await hydrateFromBackend(token);
+            navigate('/seller', { replace: true });
+          }
+        }
+      } else {
+        const saved = readClerkArtisanProfile(clerkUser.id);
+        if (saved?.artisanVerified && params.get('edit') !== '1') {
           navigate('/seller', { replace: true });
         }
       }
@@ -151,7 +178,7 @@ export default function AuthPage() {
     if (signedIn && clerkUser) {
       refreshLiveApplicationStatus();
     }
-  }, [signedIn, clerkUser, refreshLiveApplicationStatus]);
+  }, [signedIn, clerkUser?.id, refreshLiveApplicationStatus]);
 
   function handleCardFileChange(e) {
     const file = e.target.files?.[0] || null;
@@ -191,7 +218,7 @@ export default function AuthPage() {
     try {
       const res = await clerk.authenticateWithOAuth(provider, {
         role: 'artisan',
-        mode: 'register',
+        mode: authMode === 'register' ? 'signup' : 'signin',
         redirectTo: '/auth?tab=verify'
       });
       if (res?.alreadySignedIn && res?.destination) {
@@ -253,7 +280,8 @@ export default function AuthPage() {
           last_name: clerkUser.lastName || null,
           display_name: clerkName || form.storeName.trim(),
           phone: form.phone.trim() || null,
-          requested_role: 'artisan'
+          requested_role: 'artisan',
+          auth_mode: 'sync'
         },
         token
       );
@@ -282,8 +310,10 @@ export default function AuthPage() {
       );
 
       const sp = submitRes.seller_profile;
+      const isApprovedNow =
+        sp.verification_status === 'APPROVED' && sp.profile_status === 'ACTIVE';
       const pendingProfile = {
-        artisanVerified: false,
+        artisanVerified: isApprovedNow,
         verificationStatus: sp.verification_status,
         profileStatus: sp.profile_status,
         sellerProfileId: sp.seller_profile_id,
@@ -307,6 +337,7 @@ export default function AuthPage() {
           role: 'artisan',
           isLoggedIn: true,
           authProvider: 'clerk',
+          sellerProfile: sp,
           ...pendingProfile
         },
         { silent: true }
@@ -319,10 +350,15 @@ export default function AuthPage() {
       });
       setResubmitMode(false);
       await hydrateFromBackend(token);
-      toast(
-        `Application ${submitRes.application_number} staged in database for Admin verification!`,
-        'success'
-      );
+      if (isApprovedNow) {
+        toast('Artisan verification approved! Opening Artisan Workspace.', 'success');
+        navigate('/seller', { replace: true });
+      } else {
+        toast(
+          `Application ${submitRes.application_number} staged in database for Admin verification!`,
+          'success'
+        );
+      }
     } catch (err) {
       setErrMsg(err?.message || 'Could not submit artisan verification to the database.');
     } finally {
@@ -430,11 +466,44 @@ export default function AuthPage() {
             {!signedIn ? (
               <>
                 <div className="login-head">
-                  <h2 className="login-title">Step 1: Verify Your Identity</h2>
+                  <h2 className="login-title">
+                    {authMode === 'register'
+                      ? 'Step 1: Register Artisan Account'
+                      : 'Step 1: Artisan Sign In'}
+                  </h2>
                   <p className="login-sub">
-                    Sign in with Google or Apple to link your artisan workshop profile.
+                    {authMode === 'register'
+                      ? 'New artisans register below. Already registered in our DB? Switch to Sign In — existing accounts cannot re-register.'
+                      : 'Sign in with Google or Apple. Unverified artisans proceed straight to Verification.'}
                   </p>
                 </div>
+
+                <div className="seg" style={{ marginBottom: '0.9rem' }}>
+                  <span className="seg-label">Action</span>
+                  <div className="seg-track">
+                    <button
+                      type="button"
+                      className={`seg-btn${authMode === 'signin' ? ' is-on' : ''}`}
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setErrMsg('');
+                      }}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className={`seg-btn${authMode === 'register' ? ' is-on' : ''}`}
+                      onClick={() => {
+                        setAuthMode('register');
+                        setErrMsg('');
+                      }}
+                    >
+                      Register
+                    </button>
+                  </div>
+                </div>
+
                 {errMsg && (
                   <div className="login-error show" role="alert" style={{ marginBottom: '0.85rem' }}>
                     {errMsg}
@@ -450,7 +519,13 @@ export default function AuthPage() {
                         onClick={() => launchOAuth('google')}
                       >
                         <GoogleGlyph />
-                        <span>{busyProvider === 'google' ? 'Redirecting…' : 'Continue with Google'}</span>
+                        <span>
+                          {busyProvider === 'google'
+                            ? 'Redirecting…'
+                            : authMode === 'register'
+                              ? 'Register with Google'
+                              : 'Sign in with Google'}
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -459,9 +534,22 @@ export default function AuthPage() {
                         onClick={() => launchOAuth('apple')}
                       >
                         <AppleGlyph />
-                        <span>{busyProvider === 'apple' ? 'Redirecting…' : 'Continue with Apple'}</span>
+                        <span>
+                          {busyProvider === 'apple'
+                            ? 'Redirecting…'
+                            : authMode === 'register'
+                              ? 'Register with Apple'
+                              : 'Sign in with Apple'}
+                        </span>
                       </button>
                     </div>
+                    <p className="login-footer-note" style={{ marginTop: '0.85rem' }}>
+                      Prefer email code? Use{' '}
+                      <Link to={`/login?role=artisan&mode=${authMode}`}>
+                        Artisan Email {authMode === 'register' ? 'Registration' : 'Sign In'}
+                      </Link>
+                      .
+                    </p>
                   </div>
                 ) : (
                   <div className="login-error show" role="alert">
@@ -655,7 +743,8 @@ export default function AuthPage() {
                       <option value="Anantnag">Anantnag</option>
                       <option value="Baramulla">Baramulla</option>
                       <option value="Pulwama">Pulwama</option>
-                      <option value="Ganderbal">Bandipora / Ganderbal</option>
+                      <option value="Ganderbal">Ganderbal</option>
+                      <option value="Bandipora">Bandipora</option>
                     </select>
                   </div>
                 </div>

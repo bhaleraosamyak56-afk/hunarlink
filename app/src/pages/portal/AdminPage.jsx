@@ -16,7 +16,8 @@ import {
   fetchGuardrailDocumentBlobUrl,
   fetchMyAuthProfile,
   initiateAdminRefund,
-  moderateAdminListing
+  moderateAdminListing,
+  verifyAdminSeller
 } from '../../services/apiClient.js';
 import { generateIdempotencyKey } from '../../services/razorpayCheckout.js';
 import AdminLoginPage from './AdminLoginPage.jsx';
@@ -315,6 +316,16 @@ export default function AdminPage() {
       toast(err?.message || 'Could not update artisan application.', 'error');
     } finally {
       setBusyAppId(null);
+    }
+  }
+
+  async function handleVerifySeller(sellerId, decision) {
+    try {
+      await verifyAdminSeller(sellerId, decision, adminToken);
+      toast(`Artisan verification marked ${decision}.`, 'success');
+      loadLiveAdminData(adminToken);
+    } catch (err) {
+      toast(err?.message || 'Could not update artisan verification.', 'error');
     }
   }
 
@@ -688,6 +699,7 @@ export default function AdminPage() {
                     <th style={{ padding: '0.55rem' }}>District</th>
                     <th style={{ padding: '0.55rem' }}>Path / GI</th>
                     <th style={{ padding: '0.55rem' }}>Status</th>
+                    <th style={{ padding: '0.55rem' }}>Verification</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -697,6 +709,30 @@ export default function AdminPage() {
                       <td style={{ padding: '0.55rem' }}>{s.workshop_district || '—'}</td>
                       <td style={{ padding: '0.55rem' }}>{s.verification_path} {s.claimed_gi_code ? `(${s.claimed_gi_code})` : ''}</td>
                       <td style={{ padding: '0.55rem' }}>{s.verification_status} / {s.profile_status}</td>
+                      <td style={{ padding: '0.55rem' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {s.verification_status !== 'APPROVED' && (
+                            <button
+                              type="button"
+                              className="btn-orange"
+                              style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                              onClick={() => handleVerifySeller(s.id, 'APPROVED')}
+                            >
+                              Approve Artisan
+                            </button>
+                          )}
+                          {s.verification_status !== 'REJECTED' && (
+                            <button
+                              type="button"
+                              className="btn-orange-outline"
+                              style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                              onClick={() => handleVerifySeller(s.id, 'REJECTED')}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

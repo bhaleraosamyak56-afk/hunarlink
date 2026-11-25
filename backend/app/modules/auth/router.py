@@ -48,6 +48,8 @@ from app.models.core_models import (
 )
 from app.models.guardrail_models import FileSecurityScan
 from app.modules.auth.schemas import (
+    AccountCheckRequest,
+    AccountCheckResponse,
     AdminPasswordLoginRequest,
     AdminPasswordLoginResponse,
     ArtisanVerificationSubmitRequest,
@@ -192,6 +194,12 @@ def _build_user_response(
     is_admin, admin_permissions = _load_admin_access(db, user.id, role_codes)
     seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
     seller_brief = _build_seller_brief(db, seller)
+    is_artisan = ("DIRECT_SELLER" in role_codes) or (seller is not None)
+    artisan_verified = bool(
+        seller is not None
+        and seller.verification_status == "APPROVED"
+        and seller.profile_status == "ACTIVE"
+    )
     return AuthUserProfileResponse(
         synced=True,
         is_new_user=is_new_user,
@@ -205,11 +213,62 @@ def _build_user_response(
         phone=user.phone,
         account_status=user.account_status,
         roles=role_codes,
+        is_artisan=is_artisan,
+        artisan_verified=artisan_verified,
         is_admin=is_admin,
         admin_permissions=admin_permissions,
         seller_profile=seller_brief,
         created_at=user.created_at,
         updated_at=user.updated_at,
+    )
+
+
+_account_check_limiter = SlidingWindowRateLimiter(max_requests=30, window_seconds=60)
+
+
+@router.post("/check-account", response_model=AccountCheckResponse)
+def check_existing_account(
+    payload: AccountCheckRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> AccountCheckResponse:
+    """Check whether an email already exists in the HunarLink DB before registration/login."""
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, retry_after = _account_check_limiter.allow(f"check-account:{client_ip}")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many account check requests. Retry in {retry_after}s.",
+        )
+
+    clean_email = payload.email.strip().lower()
+    user = db.scalar(select(User).where(User.email == clean_email))
+    if user is None:
+        return AccountCheckResponse(exists=False)
+
+    role_codes = sorted(
+        set(
+            db.scalars(
+                select(PlatformRole.code)
+                .join(
+                    UserRoleAssignment,
+                    UserRoleAssignment.platform_role_id == PlatformRole.id,
+                )
+                .where(
+                    UserRoleAssignment.user_id == user.id,
+                    UserRoleAssignment.assignment_status == "ACTIVE",
+                    PlatformRole.is_active == True,  # noqa: E712
+                )
+            ).all()
+        )
+    )
+    seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
+    return AccountCheckResponse(
+        exists=True,
+        roles=role_codes,
+        is_artisan=("DIRECT_SELLER" in role_codes) or (seller is not None),
+        artisan_verified=bool(seller is not None and seller.verification_status == "APPROVED"),
+        artisan_verification_status=seller.verification_status if seller is not None else "UNVERIFIED",
     )
 
 
@@ -264,6 +323,11 @@ def sync_authenticated_user(
         db.add(user)
         db.flush()
     else:
+        if payload.auth_mode == "signup":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This account already exists in HunarLink. You cannot register again — please log in instead.",
+            )
         if user.account_status != "ACTIVE":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
