@@ -7,6 +7,11 @@ import {
   saveClerkArtisanProfile,
   useClerkBridge
 } from '../data/clerkConfig.js';
+import {
+  canAttemptBackend,
+  submitArtisanVerification,
+  syncAuthenticatedUser
+} from '../services/apiClient.js';
 import { AUTH_CONFIG, DEMO_ARTISANS } from '../data/authConfig.js';
 import AuthMarkup from './auth/AuthMarkup.jsx';
 import '../styles/auth.css';
@@ -627,6 +632,44 @@ export default function AuthPage() {
 
     if (isClerkArtisanOnboarding && clerk.clerkUser?.id) {
       saveClerkArtisanProfile(clerk.clerkUser.id, verifiedProfile);
+      /* Also persist the artisan's SellerProfile + VerificationApplication into
+         FastAPI DB when backend is reachable (never blocks UI on static hosts). */
+      if (canAttemptBackend() && clerk.getToken) {
+        (async () => {
+          try {
+            const token = await clerk.getToken();
+            if (!token) return;
+            await syncAuthenticatedUser(
+              {
+                email,
+                email_verified: true,
+                first_name: name.split(/\s+/)[0] || name,
+                last_name: name.split(/\s+/).slice(1).join(' ') || null,
+                display_name: name,
+                phone: `+91 ${phone}`,
+                requested_role: 'artisan'
+              },
+              token
+            );
+            await submitArtisanVerification(
+              {
+                store_name: business || `${name} Atelier`,
+                craft_specialty: craft || 'Kashmiri Handicrafts',
+                workshop_district: district || 'Srinagar',
+                verification_path: giMode === 'with_gi' ? 'GI' : 'NON_GI',
+                claimed_gi_code: giId || null,
+                skill_description: skillDescription || null,
+                phone: `+91 ${phone}`
+              },
+              token
+            );
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.warn('[HunarLink DB] Artisan verification DB sync skipped:', err?.message);
+            }
+          }
+        })();
+      }
       signInArtisan({
         ...verifiedProfile,
         clerkUserId: clerk.clerkUser.id,

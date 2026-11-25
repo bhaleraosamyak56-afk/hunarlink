@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.security import CorrelationAndHeadersMiddleware
+from app.modules.auth.router import router as auth_router
 from app.modules.guardrails.router import router as guardrails_router
 from app.modules.payments.router import router as payments_router
 from app.modules.payments.webhook_router import webhook_router as razorpay_webhook_router
@@ -111,6 +112,9 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
             "status": "ready" if db_connected else "degraded",
             "database": "connected" if db_connected else "unavailable",
             "database_dialect": dialect_name,
+            "clerk_configured": bool(
+                (settings.clerk_issuer or "").strip() and (settings.clerk_jwks_url or "").strip()
+            ),
             "gi_llm_provider": settings.gi_llm_provider,
             "malware_scanner_mode": settings.malware_scanner_mode,
             "razorpay_configured": bool(
@@ -122,6 +126,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
             content=payload,
         )
 
+    application.include_router(auth_router, prefix=settings.api_v1_prefix)
     application.include_router(storefront_router, prefix=settings.api_v1_prefix)
     application.include_router(guardrails_router, prefix=settings.api_v1_prefix)
     application.include_router(payments_router, prefix=settings.api_v1_prefix)

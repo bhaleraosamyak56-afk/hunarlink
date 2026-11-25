@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AuthenticateWithRedirectCallback,
@@ -9,6 +9,7 @@ import {
 } from '@clerk/react';
 import { useSignIn, useSignUp } from '@clerk/react/legacy';
 import { useStore } from '../state/StoreContext.jsx';
+import { canAttemptBackend, syncAuthenticatedUser } from '../services/apiClient.js';
 import {
   CLERK_PUBLISHABLE_KEY,
   CLERK_ROLE_MAP_KEY,
@@ -156,6 +157,53 @@ function ClerkBridgeInner({ children }) {
   } = useStore();
 
   const isLoaded = Boolean(userLoaded && authLoaded);
+  const lastDbSyncKeyRef = useRef('');
+
+  /* Sync the Clerk-authenticated user into HunarLink's FastAPI database
+     (`users` + `user_role_assignments`) using a cryptographically verified
+     Clerk RS256 session JWT. Silently skipped on static GitHub Pages. */
+  const syncUserToBackend = useCallback(
+    async (clerkAccount, syncedMeta, requestedRole) => {
+      if (!canAttemptBackend() || !clerkAccount?.id || !clerkGetToken) return;
+      const syncKey = `${clerkAccount.id}:${requestedRole}`;
+      if (lastDbSyncKeyRef.current === syncKey) return;
+      const email = syncedMeta.email || '';
+      if (!email) return;
+
+      try {
+        const token = await clerkGetToken();
+        if (!token) return;
+        const emailVerified = Boolean(
+          clerkAccount.primaryEmailAddress?.verification?.status === 'verified'
+        );
+        const res = await syncAuthenticatedUser(
+          {
+            email,
+            email_verified: emailVerified,
+            first_name: syncedMeta.first || 'Collector',
+            last_name: syncedMeta.last || null,
+            display_name: syncedMeta.fullName || syncedMeta.first || null,
+            phone: syncedMeta.phone || null,
+            requested_role: requestedRole === 'artisan' ? 'artisan' : 'buyer'
+          },
+          token
+        );
+        lastDbSyncKeyRef.current = syncKey;
+        if (import.meta.env.DEV) {
+          console.info(
+            `[HunarLink DB] ${res.is_new_user ? 'Created new' : 'Synced'} user ${res.email} (id=${res.user_id}, roles=${res.roles.join(',')})`
+          );
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[HunarLink DB] Could not sync Clerk user to FastAPI (${err?.status || 'offline'}): ${err?.message || 'unknown error'}`
+          );
+        }
+      }
+    },
+    [clerkGetToken]
+  );
 
   /* Mirror the live Clerk user into StoreContext so Header, ProfilePage,
      OrdersPage, AuthPage and SellerPage all reflect the authenticated session. */
@@ -163,6 +211,7 @@ function ClerkBridgeInner({ children }) {
     if (!isLoaded) return;
 
     if (!isSignedIn || !clerkUser) {
+      lastDbSyncKeyRef.current = '';
       if (storeUser && storeUser.authProvider === 'clerk') {
         setUser(null, { silent: true });
       }
@@ -184,6 +233,7 @@ function ClerkBridgeInner({ children }) {
 
     const synced = buildSyncedUser(clerkUser, resolvedRole);
     setUser(synced.payload, { silent: true });
+    syncUserToBackend(clerkUser, synced, resolvedRole);
 
     if (resolvedRole === 'buyer') {
       setBuyerProfile({
@@ -223,6 +273,7 @@ function ClerkBridgeInner({ children }) {
         saveUserRole(clerkUser.id, normalizedRole);
         const synced = buildSyncedUser(clerkUser, normalizedRole);
         setUser(synced.payload, { silent: true });
+        syncUserToBackend(clerkUser, synced, normalizedRole);
 
         if (normalizedRole === 'buyer') {
           setBuyerProfile({
@@ -296,7 +347,7 @@ function ClerkBridgeInner({ children }) {
         throw new Error(formatClerkError(err, provider));
       }
     },
-    [buyerProfile, clerkUser, isSignedIn, setBuyerProfile, setUser, signIn, signInLoaded, signUp, signUpLoaded]
+    [buyerProfile, clerkUser, isSignedIn, setBuyerProfile, setUser, signIn, signInLoaded, signUp, signUpLoaded, syncUserToBackend]
   );
 
   const signOutClerk = useCallback(async () => {

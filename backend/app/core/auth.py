@@ -52,6 +52,17 @@ class AuthenticatedPrincipal:
         return self.is_active_admin and permission_code in self.admin_permissions
 
 
+_JWKS_CLIENT_CACHE: dict[str, PyJWKClient] = {}
+
+
+def _get_jwks_client(jwks_url: str) -> PyJWKClient:
+    client = _JWKS_CLIENT_CACHE.get(jwks_url)
+    if client is None:
+        client = PyJWKClient(jwks_url)
+        _JWKS_CLIENT_CACHE[jwks_url] = client
+    return client
+
+
 class ClerkTokenVerifier:
     """Verifies Clerk RS256 session JWTs using Clerk's JWKS endpoint."""
 
@@ -60,13 +71,15 @@ class ClerkTokenVerifier:
         self._jwks_client: PyJWKClient | None = None
 
     def verify(self, token: str) -> dict:
-        if not self.settings.clerk_jwks_url or not self.settings.clerk_issuer:
+        issuer = (self.settings.clerk_issuer or "").strip().rstrip("/")
+        jwks_url = (self.settings.clerk_jwks_url or "").strip()
+        if not jwks_url or not issuer:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Clerk authentication is not configured on this server.",
             )
         if self._jwks_client is None:
-            self._jwks_client = PyJWKClient(self.settings.clerk_jwks_url)
+            self._jwks_client = _get_jwks_client(jwks_url)
         try:
             signing_key = self._jwks_client.get_signing_key_from_jwt(token)
             options = {"verify_aud": bool(self.settings.clerk_audience)}
@@ -74,8 +87,9 @@ class ClerkTokenVerifier:
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
-                issuer=self.settings.clerk_issuer,
+                issuer=issuer,
                 audience=self.settings.clerk_audience or None,
+                leeway=30,
                 options=options,
             )
             if not claims.get("sub"):
@@ -95,6 +109,19 @@ class ClerkTokenVerifier:
 
 def get_token_verifier(settings: Settings = Depends(get_settings)) -> ClerkTokenVerifier:
     return ClerkTokenVerifier(settings)
+
+
+def get_verified_clerk_claims(
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    verifier: ClerkTokenVerifier = Depends(get_token_verifier),
+) -> dict:
+    """Verify the Clerk Bearer JWT and return raw signed claims (for user sync)."""
+    if creds is None or creds.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Bearer authentication token.",
+        )
+    return verifier.verify(creds.credentials)
 
 
 def load_principal_by_clerk_id(db: Session, clerk_user_id: str) -> AuthenticatedPrincipal:

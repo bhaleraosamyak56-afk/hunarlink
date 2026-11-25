@@ -134,6 +134,23 @@ export async function apiRequest(path, { method = 'GET', body = undefined, token
   return data;
 }
 
+/* --- 1:1 Clerk Auth -> DB User Sync & Artisan Onboarding Endpoints --- */
+export function syncAuthenticatedUser(payload, token) {
+  return apiRequest('/api/v1/auth/sync', { method: 'POST', body: payload, token });
+}
+
+export function fetchMyAuthProfile(token) {
+  return apiRequest('/api/v1/auth/me', { token });
+}
+
+export function submitArtisanVerification(payload, token) {
+  return apiRequest('/api/v1/auth/artisan-verification', {
+    method: 'POST',
+    body: payload,
+    token
+  });
+}
+
 /* --- 1:1 Storefront & Retail Order Endpoints --- */
 export function fetchCatalogProducts(categorySlug = null) {
   const qs = categorySlug ? `?category_slug=${encodeURIComponent(categorySlug)}` : '';

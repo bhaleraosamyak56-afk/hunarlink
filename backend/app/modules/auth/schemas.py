@@ -1,0 +1,79 @@
+"""Pydantic schemas for Clerk -> HunarLink DB user synchronization."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class AuthSyncRequest(BaseModel):
+    """Profile metadata supplied alongside a verified Clerk RS256 JWT.
+
+    Security notes:
+      - `clerk_user_id` is NEVER accepted from the body; it is read exclusively
+        from the verified JWT `sub` claim.
+      - `requested_role` only allows non-privileged self-onboarding roles
+        (`buyer` -> CUSTOMER, `artisan` -> DIRECT_SELLER). ADMIN is forbidden.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(..., min_length=3, max_length=255)
+    email_verified: bool = False
+    first_name: str = Field(default="Collector", min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    display_name: str | None = Field(default=None, max_length=160)
+    phone: str | None = Field(default=None, max_length=32)
+    requested_role: Literal["buyer", "artisan"] = "buyer"
+
+
+class SellerProfileBrief(BaseModel):
+    seller_profile_id: str
+    store_name: str
+    store_slug: str
+    craft_specialty: str | None = None
+    workshop_district: str | None = None
+    verification_path: str
+    verification_status: str
+    profile_status: str
+    claimed_gi_authorized_user_no: str | None = None
+
+
+class AuthUserProfileResponse(BaseModel):
+    synced: bool = True
+    is_new_user: bool = False
+    user_id: str
+    clerk_user_id: str
+    email: str
+    email_verified: bool
+    first_name: str
+    last_name: str | None = None
+    display_name: str | None = None
+    phone: str | None = None
+    account_status: str
+    roles: list[str]
+    seller_profile: SellerProfileBrief | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ArtisanVerificationSubmitRequest(BaseModel):
+    """Artisan GI or Standard verification submission stored in seller_profiles."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    store_name: str = Field(..., min_length=2, max_length=160)
+    craft_specialty: str = Field(..., min_length=2, max_length=160)
+    workshop_district: str = Field(..., min_length=2, max_length=100)
+    verification_path: Literal["GI", "NON_GI"] = "NON_GI"
+    claimed_gi_code: str | None = Field(default=None, max_length=120)
+    skill_description: str | None = Field(default=None, max_length=2000)
+    phone: str | None = Field(default=None, max_length=32)
+
+
+class ArtisanVerificationSubmitResponse(BaseModel):
+    application_id: str
+    application_number: str
+    application_status: str
+    seller_profile: SellerProfileBrief
