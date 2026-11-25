@@ -525,13 +525,17 @@ function ClerkBridgeInner({ children }) {
   }, [isSignedIn, clerkGetToken]);
 
   const sendEmailCode = useCallback(
-    async (emailAddress, role = 'buyer', authMode = 'signin') => {
+    async (emailAddress, role = 'buyer', authMode = 'signin', password = '') => {
       const cleaned = String(emailAddress || '').trim().toLowerCase();
       if (!cleaned || !cleaned.includes('@')) {
         throw new Error('Please enter a valid email address.');
       }
+      const trimmedPassword = String(password || '');
       const normalizedRole = role === 'artisan' ? 'artisan' : 'buyer';
       const normalizedMode = authMode === 'register' || authMode === 'signup' ? 'signup' : 'signin';
+      if (normalizedMode === 'signup' && trimmedPassword && trimmedPassword.length < 15) {
+        throw new Error('Password must be at least 15 characters long.');
+      }
       setPendingClerkRole(normalizedRole);
       setPendingClerkAuthMode(normalizedMode);
 
@@ -571,7 +575,11 @@ function ClerkBridgeInner({ children }) {
 
       if (normalizedMode === 'signup') {
         try {
-          await signUp.create({ emailAddress: cleaned });
+          const createParams = { emailAddress: cleaned };
+          if (trimmedPassword) {
+            createParams.password = trimmedPassword;
+          }
+          await signUp.create(createParams);
           await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
           return { flow: 'signUp' };
         } catch (err) {
@@ -621,18 +629,22 @@ function ClerkBridgeInner({ children }) {
   );
 
   const verifyEmailCode = useCallback(
-    async (code, flow = 'signIn') => {
+    async (code, flow = 'signIn', password = '') => {
       if (isSignedIn && clerkUser) {
         return true;
       }
       const cleaned = String(code || '').trim();
+      const trimmedPassword = String(password || '');
       if (flow === 'signIn') {
         if (signIn?.status === 'complete' && signIn?.createdSessionId) {
           await clerk.setActive({ session: signIn.createdSessionId });
           return true;
         }
         try {
-          const res = await signIn.attemptFirstFactor({ strategy: 'email_code', code: cleaned });
+          const res =
+            signIn?.status === 'needs_second_factor' && typeof signIn.attemptSecondFactor === 'function'
+              ? await signIn.attemptSecondFactor({ strategy: 'email_code', code: cleaned })
+              : await signIn.attemptFirstFactor({ strategy: 'email_code', code: cleaned });
           if (res.status === 'complete' && res.createdSessionId) {
             await clerk.setActive({ session: res.createdSessionId });
             return true;
@@ -671,7 +683,11 @@ function ClerkBridgeInner({ children }) {
               patch.username = `${localPrefix}_${Math.floor(1000 + Math.random() * 9000)}`;
             }
             if (missing.includes('password')) {
-              patch.password = `Hl!${Math.random().toString(36).slice(2, 10)}9A#`;
+              const randTail = `${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+              patch.password =
+                trimmedPassword.length >= 15
+                  ? trimmedPassword
+                  : `Hl!Kmr#${randTail.slice(0, 12)}9A@2026`;
             }
             if (missing.includes('legal_accepted')) {
               patch.legalAccepted = true;
@@ -717,6 +733,90 @@ function ClerkBridgeInner({ children }) {
     [clerk, clerkUser, isSignedIn, signIn, signUp]
   );
 
+  const signInWithPassword = useCallback(
+    async (emailAddress, password, role = 'buyer') => {
+      const cleaned = String(emailAddress || '').trim().toLowerCase();
+      if (!cleaned || !cleaned.includes('@')) {
+        throw new Error('Please enter a valid email address.');
+      }
+      if (!password) {
+        throw new Error('Please enter your password.');
+      }
+      const normalizedRole = role === 'artisan' ? 'artisan' : 'buyer';
+      setPendingClerkRole(normalizedRole);
+      setPendingClerkAuthMode('signin');
+
+      if (!signInLoaded || !signIn) {
+        throw new Error('Authentication service is initializing. Please retry.');
+      }
+
+      if (canAttemptBackend()) {
+        try {
+          const acct = await checkAuthAccount(cleaned);
+          if (acct && acct.exists === false) {
+            const missErr = new Error(
+              'No HunarLink account exists for this email yet. Please switch to Register to create one.'
+            );
+            missErr.code = 'NOT_REGISTERED';
+            throw missErr;
+          }
+        } catch (checkErr) {
+          if (checkErr?.code === 'NOT_REGISTERED') {
+            clearPendingClerkRole();
+            clearPendingClerkAuthMode();
+            throw checkErr;
+          }
+        }
+      }
+
+      try {
+        const res = await signIn.create({
+          identifier: cleaned,
+          password: String(password)
+        });
+        if (res.status === 'complete' && res.createdSessionId) {
+          await clerk.setActive({ session: res.createdSessionId });
+          return { status: 'complete' };
+        }
+        if (res.status === 'needs_second_factor') {
+          const emailSecond = res.supportedSecondFactors?.find((f) => f.strategy === 'email_code');
+          if (emailSecond) {
+            await signIn.prepareSecondFactor({
+              strategy: 'email_code',
+              emailAddressId: emailSecond.emailAddressId
+            });
+            return { status: 'needs_second_factor', strategy: 'email_code' };
+          }
+        }
+        const emailFirst = res.supportedFirstFactors?.find((f) => f.strategy === 'email_code');
+        if (res.status === 'needs_first_factor' && emailFirst) {
+          await signIn.prepareFirstFactor({
+            strategy: 'email_code',
+            emailAddressId: emailFirst.emailAddressId
+          });
+          return { status: 'needs_email_code' };
+        }
+        throw new Error(
+          'Password sign-in could not complete for this account. Try "Send Sign-In Code" or Google.'
+        );
+      } catch (err) {
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+        const errCode = err?.errors?.[0]?.code || '';
+        const msg = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || '';
+        if (errCode === 'form_identifier_not_found' || msg.toLowerCase().includes("couldn't find")) {
+          const missErr = new Error(
+            'No account found for this email yet. Please switch to Register to create one.'
+          );
+          missErr.code = 'NOT_REGISTERED';
+          throw missErr;
+        }
+        throw new Error(msg || 'Invalid email or password.');
+      }
+    },
+    [clerk, signIn, signInLoaded]
+  );
+
   const bridgeValue = useMemo(
     () => ({
       enabled: true,
@@ -727,6 +827,7 @@ function ClerkBridgeInner({ children }) {
       authenticateWithOAuth,
       sendEmailCode,
       verifyEmailCode,
+      signInWithPassword,
       signOutClerk,
       renderSsoCallback
     }),
@@ -738,6 +839,7 @@ function ClerkBridgeInner({ children }) {
       authenticateWithOAuth,
       sendEmailCode,
       verifyEmailCode,
+      signInWithPassword,
       signOutClerk,
       renderSsoCallback
     ]

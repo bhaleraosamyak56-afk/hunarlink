@@ -62,6 +62,8 @@ export default function LoginPage() {
   const [busyProvider, setBusyProvider] = useState(null);
 
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [signInMethod, setSignInMethod] = useState('password'); // 'password' | 'code'
   const [code, setCode] = useState('');
   const [emailStep, setEmailStep] = useState('input'); // 'input' | 'verify'
   const [pendingFlow, setPendingFlow] = useState('signIn');
@@ -136,10 +138,49 @@ export default function LoginPage() {
     }
   }
 
+  async function handlePasswordSignIn(e) {
+    e.preventDefault();
+    if (!clerk.signInWithPassword) {
+      setErrMsg('Clerk password authentication is unavailable.');
+      return;
+    }
+    setErrMsg('');
+    setEmailBusy(true);
+    try {
+      const res = await clerk.signInWithPassword(
+        email,
+        password,
+        role === 'artisan' ? 'artisan' : 'buyer'
+      );
+      if (res?.status === 'complete') {
+        navigate(role === 'artisan' ? '/auth?tab=verify' : nextUrl || '/', { replace: true });
+        return;
+      }
+      if (res?.status === 'needs_email_code' || res?.status === 'needs_second_factor') {
+        setPendingFlow('signIn');
+        setEmailStep('verify');
+      }
+    } catch (err) {
+      if (err?.code === 'NOT_REGISTERED') {
+        setAuthMode('register');
+        setEmailStep('input');
+        setErrMsg(err.message);
+      } else {
+        setErrMsg(err?.message || 'Invalid email or password.');
+      }
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
   async function handleSendCode(e) {
     e.preventDefault();
     if (!clerk.sendEmailCode) {
       setErrMsg('Clerk email authentication is unavailable.');
+      return;
+    }
+    if (authMode === 'register' && password.length < 15) {
+      setErrMsg('Password must be at least 15 characters long.');
       return;
     }
     setErrMsg('');
@@ -148,7 +189,8 @@ export default function LoginPage() {
       const res = await clerk.sendEmailCode(
         email,
         role === 'artisan' ? 'artisan' : 'buyer',
-        authMode === 'register' ? 'signup' : 'signin'
+        authMode === 'register' ? 'signup' : 'signin',
+        authMode === 'register' ? password : ''
       );
       setPendingFlow(res.flow || (authMode === 'register' ? 'signUp' : 'signIn'));
       setEmailStep('verify');
@@ -160,6 +202,10 @@ export default function LoginPage() {
           err.message ||
             'This email already exists in HunarLink. Switched to Sign In — please sign in below.'
         );
+      } else if (err?.code === 'NOT_REGISTERED') {
+        setAuthMode('register');
+        setEmailStep('input');
+        setErrMsg(err.message);
       } else {
         setErrMsg(err?.message || 'Could not send email code. Try Sign in with Google.');
       }
@@ -171,10 +217,14 @@ export default function LoginPage() {
   async function handleVerifyCode(e) {
     e.preventDefault();
     if (!clerk.verifyEmailCode) return;
+    if (pendingFlow === 'signUp' && password && password.length < 15) {
+      setErrMsg('Password must be at least 15 characters long.');
+      return;
+    }
     setErrMsg('');
     setEmailBusy(true);
     try {
-      await clerk.verifyEmailCode(code, pendingFlow);
+      await clerk.verifyEmailCode(code, pendingFlow, password);
       navigate(role === 'artisan' ? '/auth?tab=verify' : nextUrl || '/', { replace: true });
     } catch (err) {
       if (err?.code === 'SWITCH_TO_SIGNIN') {
@@ -486,42 +536,145 @@ export default function LoginPage() {
                     <div className="login-social-divider" aria-hidden="true">
                       <span>
                         {authMode === 'register'
-                          ? 'or register with email verification code'
-                          : 'or sign in with email verification code'}
+                          ? 'or register with email & password'
+                          : signInMethod === 'password'
+                            ? 'or sign in with email & password'
+                            : 'or sign in with email verification code'}
                       </span>
                     </div>
 
                     {emailStep === 'input' ? (
-                      <form onSubmit={handleSendCode}>
-                        <div className="form-field">
-                          <label className="up-label" htmlFor="clerk-email-input">
-                            Email Address *
-                          </label>
-                          <input
-                            id="clerk-email-input"
-                            type="email"
-                            className="up-input"
-                            placeholder="name@example.com"
-                            required
-                            autoComplete="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          className="btn-orange"
-                          style={{ width: '100%', justifyContent: 'center', marginTop: '0.25rem' }}
-                          disabled={emailBusy}
-                        >
-                          <IconShield size={15} />
-                          {emailBusy
-                            ? 'Checking database & sending code…'
-                            : authMode === 'register'
-                              ? 'Send Registration Code'
-                              : 'Send Sign-In Code'}
-                        </button>
-                      </form>
+                      authMode === 'signin' && signInMethod === 'password' ? (
+                        <form onSubmit={handlePasswordSignIn}>
+                          <div className="form-field">
+                            <label className="up-label" htmlFor="clerk-email-input">
+                              Email Address *
+                            </label>
+                            <input
+                              id="clerk-email-input"
+                              type="email"
+                              className="up-input"
+                              placeholder="name@example.com"
+                              required
+                              autoComplete="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                            />
+                          </div>
+                          <div className="form-field">
+                            <label className="up-label" htmlFor="clerk-password-input">
+                              Password *
+                            </label>
+                            <input
+                              id="clerk-password-input"
+                              type="password"
+                              className="up-input"
+                              placeholder="Enter your password"
+                              required
+                              autoComplete="current-password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="btn-orange"
+                            style={{ width: '100%', justifyContent: 'center', marginTop: '0.25rem' }}
+                            disabled={emailBusy}
+                          >
+                            <IconShield size={15} />
+                            {emailBusy ? 'Signing in…' : 'Sign In with Password'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-orange-outline"
+                            style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                            onClick={() => {
+                              setSignInMethod('code');
+                              setErrMsg('');
+                            }}
+                          >
+                            Sign in with 6-digit email code instead
+                          </button>
+                        </form>
+                      ) : (
+                        <form onSubmit={handleSendCode}>
+                          <div className="form-field">
+                            <label className="up-label" htmlFor="clerk-email-input">
+                              Email Address *
+                            </label>
+                            <input
+                              id="clerk-email-input"
+                              type="email"
+                              className="up-input"
+                              placeholder="name@example.com"
+                              required
+                              autoComplete="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                            />
+                          </div>
+                          {authMode === 'register' && (
+                            <div className="form-field">
+                              <label className="up-label" htmlFor="clerk-reg-password-input">
+                                Create Password (min. 15 characters) *
+                              </label>
+                              <input
+                                id="clerk-reg-password-input"
+                                type="password"
+                                className="up-input"
+                                placeholder="Create a strong password (15+ characters)"
+                                required
+                                minLength={15}
+                                autoComplete="new-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                              />
+                              <div
+                                style={{
+                                  fontSize: '0.74rem',
+                                  marginTop: '0.28rem',
+                                  opacity: 0.78,
+                                  color:
+                                    password.length > 0 && password.length < 15
+                                      ? '#b33818'
+                                      : 'inherit'
+                                }}
+                              >
+                                {password.length > 0
+                                  ? `${password.length}/15+ characters`
+                                  : 'Minimum 15 characters required by security policy.'}
+                              </div>
+                            </div>
+                          )}
+                          <button
+                            type="submit"
+                            className="btn-orange"
+                            style={{ width: '100%', justifyContent: 'center', marginTop: '0.25rem' }}
+                            disabled={emailBusy}
+                          >
+                            <IconShield size={15} />
+                            {emailBusy
+                              ? 'Checking database & sending code…'
+                              : authMode === 'register'
+                                ? 'Send Registration Code'
+                                : 'Send Sign-In Code'}
+                          </button>
+                          {authMode === 'signin' && (
+                            <button
+                              type="button"
+                              className="btn-orange-outline"
+                              style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                              onClick={() => {
+                                setSignInMethod('password');
+                                setErrMsg('');
+                              }}
+                            >
+                              Sign in with Email &amp; Password instead
+                            </button>
+                          )}
+                        </form>
+                      )
                     ) : (
                       <form onSubmit={handleVerifyCode}>
                         <div className="form-field">
@@ -540,6 +693,24 @@ export default function LoginPage() {
                             onChange={(e) => setCode(e.target.value)}
                           />
                         </div>
+                        {pendingFlow === 'signUp' && password.length < 15 && (
+                          <div className="form-field">
+                            <label className="up-label" htmlFor="clerk-verify-password-input">
+                              Create Password (min. 15 characters) *
+                            </label>
+                            <input
+                              id="clerk-verify-password-input"
+                              type="password"
+                              className="up-input"
+                              placeholder="Create a strong password (15+ characters)"
+                              required
+                              minLength={15}
+                              autoComplete="new-password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                            />
+                          </div>
+                        )}
                         <button
                           type="submit"
                           className="btn-orange"
