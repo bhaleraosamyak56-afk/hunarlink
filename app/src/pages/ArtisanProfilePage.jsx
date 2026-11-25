@@ -27,11 +27,7 @@ export default function ArtisanProfilePage() {
       setLoading(true);
       setNotFound(false);
       try {
-        const token = await clerkAuth.getToken();
-        if (!token) {
-          if (active) setLoading(false);
-          return;
-        }
+        const token = clerkAuth.isSignedIn && clerkAuth.getToken ? await clerkAuth.getToken() : null;
         const res = await fetchArtisanBySlug(slug, token);
         if (active) {
           setDetail(res);
@@ -74,7 +70,7 @@ export default function ArtisanProfilePage() {
         <p style={{ opacity: 0.72, marginTop: '0.5rem' }}>
           No verified artisan with slug <code>{slug}</code> exists in the HunarLink database.
         </p>
-        <Link to="/artisans" className="up-btn up-btn-primary" style={{ marginTop: '1.25rem' }}>
+        <Link to="/artisans" className="btn btn-primary" style={{ marginTop: '1.25rem' }}>
           Browse Verified Artisans <IconArrowRight size={14} />
         </Link>
       </main>
