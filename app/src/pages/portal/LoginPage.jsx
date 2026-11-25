@@ -31,7 +31,6 @@ const SEED_ARTISANS = [
   {
     email: 'ghulam.mir@zadibalpashmina.com',
     phone: '+91 94190 88210',
-    password: 'SozniLoom100%',
     role: 'artisan',
     name: 'Master Ghulam Qadir Mir',
     business: 'Mir Heritage Loom Guild',
@@ -45,7 +44,6 @@ const SEED_ARTISANS = [
   {
     email: 'fayaz.wani@anantnagcrafts.org',
     phone: '+91 94190 55218',
-    password: 'WalnutArtisan#1',
     role: 'artisan',
     name: 'Fayaz Ahmad Wani',
     business: 'Wani Woodcraft Atelier',

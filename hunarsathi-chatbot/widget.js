@@ -4,7 +4,21 @@
              Client-Side Micro-Cache, and Instant HunarLink Knowledge Fallback
    ========================================================================== */
 (function () {
-  const API_BASE = "http://127.0.0.1:5050";
+  function resolveApiBase() {
+    if (typeof window !== "undefined" && window.HUNARSATHI_API_URL) {
+      return String(window.HUNARSATHI_API_URL).trim().replace(/\/+$/, "");
+    }
+    const scriptEl = document.currentScript || document.querySelector('script[data-api-base]');
+    if (scriptEl && scriptEl.getAttribute("data-api-base")) {
+      return String(scriptEl.getAttribute("data-api-base")).trim().replace(/\/+$/, "");
+    }
+    const host = typeof location !== "undefined" ? location.hostname : "";
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://127.0.0.1:5050";
+    }
+    return "";
+  }
+  const API_BASE = resolveApiBase();
   const SESSION_KEY = "hunarsathi_session_id";
   const HEALTH_TIMEOUT_MS = 2200;
   const STREAM_TIMEOUT_MS = 20000;
@@ -215,6 +229,10 @@
   }
 
   async function checkBackendHealth(alsoWarmup) {
+    if (!API_BASE) {
+      backendOnline = false;
+      return false;
+    }
     const now = Date.now();
     if (!alsoWarmup && now - lastHealthCheck < 15000) return backendOnline;
     lastHealthCheck = now;

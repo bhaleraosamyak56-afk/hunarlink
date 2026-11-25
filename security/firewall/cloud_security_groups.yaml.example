@@ -1,0 +1,64 @@
+# ==============================================================================
+# HunarLink 3-Tier Cloud Security Group Blueprint — EXAMPLE ONLY
+# ==============================================================================
+# Adapt to AWS Security Groups, DigitalOcean Cloud Firewalls, GCP VPC Rules,
+# or Azure NSGs depending on your chosen hosting provider.
+
+security_groups:
+  hunarlink-edge-proxy-sg:
+    description: "Public Nginx reverse proxy tier (Staging / Production)"
+    inbound:
+      - protocol: tcp
+        port: 443
+        source: "0.0.0.0/0" # Or restrict to Cloudflare IPv4/IPv6 ranges when proxied
+        comment: "Public HTTPS storefront API & Razorpay webhooks"
+      - protocol: tcp
+        port: 80
+        source: "0.0.0.0/0"
+        comment: "HTTP -> HTTPS 301 redirect + Let's Encrypt HTTP-01 only"
+      - protocol: tcp
+        port: 22
+        source: "<YOUR_ADMIN_IP_OR_BASTION_CIDR>"
+        comment: "Admin SSH restricted by IP/VPN"
+    outbound:
+      - protocol: tcp
+        port: 8000
+        destination: "sg:hunarlink-app-sg"
+        comment: "Proxy to FastAPI backend"
+      - protocol: tcp
+        port: 5050
+        destination: "sg:hunarlink-app-sg"
+        comment: "Proxy to HunarSathi chatbot"
+
+  hunarlink-app-sg:
+    description: "Private FastAPI + HunarSathi application tier (NO public IP)"
+    inbound:
+      - protocol: tcp
+        port: 8000
+        source: "sg:hunarlink-edge-proxy-sg"
+        comment: "Accept FastAPI traffic ONLY from Nginx proxy"
+      - protocol: tcp
+        port: 5050
+        source: "sg:hunarlink-edge-proxy-sg"
+        comment: "Accept Chatbot traffic ONLY from Nginx proxy"
+    outbound:
+      - protocol: tcp
+        port: 3306
+        destination: "sg:hunarlink-mysql-sg"
+        comment: "Encrypted MySQL 8.4 LTS queries"
+      - protocol: tcp
+        port: 443
+        destination: "0.0.0.0/0"
+        comment: "Outbound HTTPS to api.razorpay.com, Clerk JWKS, Gemini API"
+
+  hunarlink-mysql-sg:
+    description: "Private MySQL 8.4 LTS database tier (NEVER publicly routable)"
+    inbound:
+      - protocol: tcp
+        port: 3306
+        source: "sg:hunarlink-app-sg"
+        comment: "Accept MySQL ONLY from private FastAPI app security group"
+    outbound:
+      - protocol: all
+        destination: "none"
+        comment: "Database requires zero unsolicited internet outbound access"

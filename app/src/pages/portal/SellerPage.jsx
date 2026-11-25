@@ -4,6 +4,11 @@ import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { useClerkBridge } from '../../data/clerkConfig.js';
+import {
+  probeBackendHealth,
+  uploadGuardrailDocument,
+  validateSellerListing
+} from '../../services/apiClient.js';
 import { formatINR, asset } from '../../utils/legacy.js';
 import { appHref } from '../../utils/href.js';
 import { IconGrid, IconPlus, IconPalette, IconPackage, IconChat, IconHeart, IconX } from '../../components/LineIcons.jsx';
@@ -217,6 +222,10 @@ export default function SellerPage() {
   const editFileRef = useRef(null);
 
   const [seller, setSeller] = useState(null);
+  const [backendStatus, setBackendStatus] = useState({ online: false, ready: null });
+  const [asigsResult, setAsigsResult] = useState(null);
+  const [asigsBusy, setAsigsBusy] = useState(false);
+  const [docScanResult, setDocScanResult] = useState(null);
   const [tab, setTab] = useState(() => {
     const req = searchParams.get('tab');
     if (req === 'wholesale') return 'responses';
@@ -247,6 +256,71 @@ export default function SellerPage() {
     addInquiry,
     setReviews
   } = useStore();
+
+  useEffect(() => {
+    let active = true;
+    probeBackendHealth().then((st) => {
+      if (active) setBackendStatus(st);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function runAsigsValidationCheck() {
+    if (!backendStatus.online) {
+      setAsigsResult({
+        info: 'FastAPI backend is offline (Static Preview mode). Start uvicorn on :8000 or set VITE_API_BASE_URL to run live server ASIGS guardrails.'
+      });
+      return;
+    }
+    setAsigsBusy(true);
+    setAsigsResult(null);
+    try {
+      const token = clerk?.getToken ? await clerk.getToken() : null;
+      const sku = `HL-${(newForm.guild || 'CRAFT').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-4)}`;
+      const res = await validateSellerListing(
+        {
+          product_id: '00000000-0000-0000-0000-000000000001',
+          product_variant_id: '00000000-0000-0000-0000-000000000002',
+          seller_sku: sku,
+          listing_title: newForm.title || 'Untitled Craft',
+          description: newForm.description || '',
+          selling_price: String(Math.max(1, Number(newForm.price) || 1)),
+          compare_at_mrp: newForm.mrp ? String(Number(newForm.mrp)) : null,
+          currency_code: 'INR',
+          min_order_qty: 1
+        },
+        token
+      );
+      setAsigsResult({ response: res });
+    } catch (err) {
+      setAsigsResult({
+        error: err?.message || 'ASIGS check could not complete.',
+        status: err?.status,
+        detail: err?.payload?.detail
+      });
+    } finally {
+      setAsigsBusy(false);
+    }
+  }
+
+  async function handlePrivateDocUpload(file) {
+    if (!file) return;
+    if (!backendStatus.online) {
+      setDocScanResult({
+        error: 'FastAPI backend is offline (Static Preview mode). Connect backend to scan & store private documents.'
+      });
+      return;
+    }
+    try {
+      const token = clerk?.getToken ? await clerk.getToken() : null;
+      const res = await uploadGuardrailDocument(file, 'gi_certificate', token);
+      setDocScanResult({ uploaded: res });
+    } catch (err) {
+      setDocScanResult({ error: err?.message || 'Private document upload rejected.' });
+    }
+  }
 
   /* Overrides and inquiries are maps/arrays owned by the store. These thin
      wrappers keep the call sites below readable while every write still goes
@@ -1182,6 +1256,80 @@ export default function SellerPage() {
                       value={newForm.description}
                       onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
                     ></textarea>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '18px',
+                      padding: '14px',
+                      borderRadius: '10px',
+                      background: 'var(--bg-ivory, #f8f5ef)',
+                      border: '1px solid var(--border-light, #e2dbcc)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <strong style={{ fontSize: '0.86rem' }}>ASIGS Server Guardrail Pre-Check</strong>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-500)' }}>
+                          {backendStatus.online
+                            ? '● FastAPI ASIGS connected (/api/v1/seller/listings/validate & /guardrails/documents/upload)'
+                            : '○ Static Preview Mode — local publishing stays active; connect FastAPI for live server ASIGS enforcement'}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          disabled={asigsBusy}
+                          onClick={runAsigsValidationCheck}
+                        >
+                          {asigsBusy ? 'Checking ASIGS…' : 'Run ASIGS Server Check'}
+                        </button>
+                        <label className="btn-outline" style={{ cursor: 'pointer' }}>
+                          Scan Private GI/KYC Doc
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              const f = e.target.files && e.target.files[0];
+                              handlePrivateDocUpload(f);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {asigsResult?.info && (
+                      <p style={{ marginTop: '10px', fontSize: '0.78rem', color: '#5f5646' }}>{asigsResult.info}</p>
+                    )}
+                    {asigsResult?.error && (
+                      <div style={{ marginTop: '10px', fontSize: '0.78rem', color: '#8f2424' }}>
+                        <strong>Server Response (HTTP {asigsResult.status || '—'}):</strong> {asigsResult.error}
+                        {asigsResult.status === 401 && ' — Sign in with Clerk to send a verified Bearer JWT.'}
+                      </div>
+                    )}
+                    {asigsResult?.response && (
+                      <div style={{ marginTop: '10px', fontSize: '0.78rem' }}>
+                        <strong>Outcome:</strong> <code>{asigsResult.response.outcome}</code>
+                        {' · '}
+                        <strong>Correlation ID:</strong> <code>{asigsResult.response.correlation_id}</code>
+                        {asigsResult.response.triggered_rule_codes?.length > 0 && (
+                          <div style={{ marginTop: '4px' }}>
+                            <strong>Rules:</strong> {asigsResult.response.triggered_rule_codes.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {docScanResult?.error && (
+                      <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#8f2424' }}>{docScanResult.error}</div>
+                    )}
+                    {docScanResult?.uploaded && (
+                      <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#124e33' }}>
+                        Private upload stored (<code>{docScanResult.uploaded.scan_status}</code> · {docScanResult.uploaded.detected_mime_type} · SHA-256 <code>{docScanResult.uploaded.sha256_hash.slice(0, 12)}…</code>)
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>

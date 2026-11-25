@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# HunarLink Safe Host Firewall Baseline (UFW — Ubuntu / Debian) — EXAMPLE ONLY
+# ==============================================================================
+# IMPORTANT SAFETY WARNINGS:
+#   1. Replace <YOUR_ADMIN_STATIC_IP_OR_VPN_CIDR> before running.
+#   2. Keep ONE active SSH terminal open while running this script, and test a
+#      SECOND SSH login before closing your first session!
+#   3. Do NOT expose ports 8000 (FastAPI), 5050 (HunarSathi), or 3306 (MySQL)
+#      to the public internet.
+# ==============================================================================
+set -euo pipefail
+
+ADMIN_SSH_CIDR="${ADMIN_SSH_CIDR:-<YOUR_ADMIN_STATIC_IP_OR_VPN_CIDR>}"
+SSH_PORT="${SSH_PORT:-22}"
+
+if [[ "${ADMIN_SSH_CIDR}" == "<YOUR_ADMIN_STATIC_IP_OR_VPN_CIDR>" ]]; then
+  echo "ERROR: Set ADMIN_SSH_CIDR (e.g. export ADMIN_SSH_CIDR='203.0.113.10/32') before applying."
+  exit 1
+fi
+
+# 1. Allow SSH FIRST (prevents accidental lockout!)
+sudo ufw allow from "${ADMIN_SSH_CIDR}" to any port "${SSH_PORT}" proto tcp comment 'HunarLink Admin SSH'
+
+# 2. Set default policies (deny all unsolicited inbound, allow outbound)
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# 3. Allow ONLY HTTP (for ACME/HTTPS redirect) and HTTPS publicly
+sudo ufw allow 80/tcp comment 'HTTP redirect to HTTPS'
+sudo ufw allow 443/tcp comment 'HTTPS Nginx reverse proxy'
+
+# 4. Explicitly document that app & DB ports remain closed externally
+#    (FastAPI 8000, HunarSathi 5050, MySQL 3306 bind to 127.0.0.1 or private VPC)
+sudo ufw deny 3306/tcp comment 'Block public MySQL'
+sudo ufw deny 8000/tcp comment 'Block direct FastAPI access'
+sudo ufw deny 5050/tcp comment 'Block direct HunarSathi access'
+
+# 5. Enable firewall logging (low/medium) & enable UFW
+sudo ufw logging on
+sudo ufw --force enable
+
+echo "=== UFW Active Rules ==="
+sudo ufw status verbose
+echo "NEXT STEP: Open a SECOND terminal and confirm SSH login works before closing this terminal!"

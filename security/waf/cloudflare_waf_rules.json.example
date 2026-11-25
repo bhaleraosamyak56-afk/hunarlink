@@ -1,0 +1,39 @@
+{
+  "description": "HunarLink Edge WAF Custom Rules Blueprint (Cloudflare Ruleset Syntax — EXAMPLE ONLY)",
+  "notes": [
+    "Always deploy new WAF rules in LOG / SIMULATE mode first on Staging to verify zero false positives.",
+    "NEVER apply browser JS Challenges or Bot Captchas to /api/v1/webhooks/razorpay — Razorpay servers cannot solve CAPTCHAs."
+  ],
+  "rules": [
+    {
+      "name": "HL-WAF-01-Allow-Razorpay-Webhook-No-Challenge",
+      "expression": "(http.request.method eq \"POST\" and http.request.uri.path eq \"/api/v1/webhooks/razorpay\")",
+      "action": "skip",
+      "action_parameters": {
+        "products": ["bic", "hot", "securityLevel"]
+      },
+      "note": "Allows server-to-server Razorpay POSTs without JS challenge; FastAPI still enforces raw-body HMAC SHA-256 verification."
+    },
+    {
+      "name": "HL-WAF-02-Block-Hidden-Files-And-Env-Probes",
+      "expression": "(http.request.uri.path contains \"/.env\" or http.request.uri.path contains \"/.git\" or http.request.uri.path contains \"wp-login\")",
+      "action": "block"
+    },
+    {
+      "name": "HL-WAF-03-Protect-Admin-API-Endpoints",
+      "expression": "(starts_with(http.request.uri.path, \"/api/v1/admin/\") and not ip.src in {<OPTIONAL_OFFICE_OR_VPN_IPS>})",
+      "action": "managed_challenge",
+      "note": "Optional extra edge defense; FastAPI still enforces Clerk JWT + MySQL Admin RBAC on every admin route."
+    },
+    {
+      "name": "HL-WAF-04-Rate-Limit-Payment-And-Chatbot-Abuse",
+      "expression": "(starts_with(http.request.uri.path, \"/api/v1/payments/\") or starts_with(http.request.uri.path, \"/chatbot/\"))",
+      "action": "block",
+      "ratelimit": {
+        "requests_per_period": 60,
+        "period": 60,
+        "mitigation_timeout": 120
+      }
+    }
+  ]
+}
