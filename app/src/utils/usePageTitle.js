@@ -45,7 +45,17 @@ export default function usePageTitle() {
 
   useEffect(() => {
     const isAdminRoute = pathname === '/admin' || pathname === '/admin.html';
-    const label = isAdminRoute && !adminToken ? 'Admin Login' : TITLES[pathname];
+    let label = isAdminRoute && !adminToken ? 'Admin Login' : TITLES[pathname];
+    if (!label && pathname.startsWith('/artisans/')) {
+      const slug = decodeURIComponent(pathname.slice('/artisans/'.length)).replace(/\/+$/, '');
+      if (slug) {
+        label = slug
+          .split('-')
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+      }
+    }
     /* '/' is the storefront, so it takes the brand title alone */
     if (!label || pathname === '/' || pathname === '/index.html') {
       document.title = SUFFIX;

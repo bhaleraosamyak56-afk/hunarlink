@@ -80,12 +80,21 @@ export default function HeroSection() {
           opacity these three were being named as the LCP element at 12–13 s
           even though the real content (the h1) paints in ~1 s. As background
           images they are not LCP candidates, so LCP measures the headline the
-          design actually leads with. The url()s live in base.css and use the
-          WebP variants. */}
+          design actually leads with. Resolve via asset() so both localhost (/)
+          and GitHub Pages (/hunarlink/) load the WebP variants cleanly. */}
       <div className="hero-atmosphere" aria-hidden="true">
-        <span className="ha-img ha-1" />
-        <span className="ha-img ha-2" />
-        <span className="ha-img ha-3" />
+        <span
+          className="ha-img ha-1"
+          style={{ backgroundImage: `url("${asset('img/artisans/artisan-02-840.webp')}")` }}
+        />
+        <span
+          className="ha-img ha-2"
+          style={{ backgroundImage: `url("${asset('img/artisans/artisan-03-840.webp')}")` }}
+        />
+        <span
+          className="ha-img ha-3"
+          style={{ backgroundImage: `url("${asset('img/artisans/artisan-05-840.webp')}")` }}
+        />
       </div>
       <div className="container">
         <div className="hero-grid">

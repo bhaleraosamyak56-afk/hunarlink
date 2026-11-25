@@ -1,70 +1,52 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ARTISAN_SHOWCASE } from '../data/artisanShowcase.js';
 import { srcSetFor } from '../data/imageVariants.js';
 import { useStore } from '../state/StoreContext.jsx';
-import { asset } from '../utils/legacy.js';
+import { collectArtisans } from '../utils/artisans.js';
+import { asset, formatINR } from '../utils/legacy.js';
+import { Star } from '../components/Icons.jsx';
 import '../styles/artisan-directory.css';
 
-const normalizeName = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-IN');
-const featuredByName = new Map(ARTISAN_SHOWCASE.map((artisan, index) => [
-  normalizeName(artisan.name), { artisan, index }
-]));
-
-function collectArtisans(catalogue) {
-  const grouped = new Map();
-
-  for (const product of catalogue) {
-    const name = String(product.artisan || '').trim();
-    if (!name) continue;
-
-    const key = normalizeName(name);
-    let entry = grouped.get(key);
-    if (!entry) {
-      entry = {
-        key,
-        name,
-        listings: 0,
-        districts: new Map(),
-        crafts: new Map(),
-        topProduct: product
-      };
-      grouped.set(key, entry);
-    }
-
-    entry.listings += 1;
-    if (product.district) {
-      entry.districts.set(product.district, (entry.districts.get(product.district) || 0) + 1);
-    }
-    if (product.guildLabel) {
-      entry.crafts.set(product.guildLabel, (entry.crafts.get(product.guildLabel) || 0) + 1);
-    }
-    if ((product.price || 0) > (entry.topProduct.price || 0)) entry.topProduct = product;
-  }
-
-  return [...grouped.values()]
-    .map((entry) => {
-      const featured = featuredByName.get(entry.key);
-      const mainDistrict = [...entry.districts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-      const mainCraft = [...entry.crafts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'Jammu & Kashmir craft';
-      const profile = featured?.artisan;
-      const image = profile?.portrait || entry.topProduct.image;
-
-      return {
-        ...entry,
-        featured: Boolean(profile),
-        featuredOrder: featured?.index ?? Number.MAX_SAFE_INTEGER,
-        craft: profile?.craft || mainCraft,
-        image,
-        district: mainDistrict
-      };
-    })
-    .sort((a, b) => a.featuredOrder - b.featuredOrder || a.name.localeCompare(b.name, 'en-IN'));
-}
+/* ==========================================================================
+   ArtisansPage — /artisans
+   --------------------------------------------------------------------------
+   Searchable, filterable directory of every artisan in the live catalogue.
+   Clicking any card opens their Fiverr-style profile at /artisans/:slug.
+   ========================================================================== */
 
 export default function ArtisansPage() {
-  const { catalogue } = useStore();
-  const artisans = useMemo(() => collectArtisans(catalogue), [catalogue]);
+  const { catalogue, reviews } = useStore();
+  const [guildFilter, setGuildFilter] = useState('all');
+  const [query, setQuery] = useState('');
+
+  const artisans = useMemo(() => collectArtisans(catalogue, reviews), [catalogue, reviews]);
+
+  const guildOptions = useMemo(() => {
+    const map = new Map();
+    for (const a of artisans) {
+      for (const g of a.guilds) {
+        if (!map.has(g.id)) map.set(g.id, { id: g.id, label: g.label, count: 0 });
+        map.get(g.id).count += 1;
+      }
+    }
+    return [...map.values()];
+  }, [artisans]);
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return artisans.filter((a) => {
+      if (guildFilter !== 'all' && !a.guilds.some((g) => g.id === guildFilter)) {
+        return false;
+      }
+      if (!term) return true;
+      return (
+        a.name.toLowerCase().includes(term) ||
+        a.craft.toLowerCase().includes(term) ||
+        a.district.toLowerCase().includes(term) ||
+        a.skills.some((s) => s.toLowerCase().includes(term))
+      );
+    });
+  }, [artisans, guildFilter, query]);
 
   return (
     <main className="artisan-directory-page" id="main-content">
@@ -78,26 +60,66 @@ export default function ArtisansPage() {
               <p className="artisan-directory-kicker">THE HANDS BEHIND THE HEIRLOOMS</p>
               <h1 id="artisan-directory-title">Our Artisans</h1>
               <p className="artisan-directory-intro">
-                Meet every artisan represented in the current HunarLink collection.
-                Each profile is grouped from their live craft listings.
+                Select any master artisan to open their full workshop profile, inspect GI
+                passports, browse their pieces, read collector reviews, or message them directly.
               </p>
             </div>
             <div className="artisan-directory-count" aria-live="polite">
-              <strong>{artisans.length}</strong>
-              <span>{artisans.length === 1 ? 'artisan' : 'artisans'}</span>
+              <strong>{filtered.length}</strong>
+              <span>{filtered.length === 1 ? 'artisan' : 'artisans'}</span>
             </div>
+          </div>
+
+          <div className="artisan-directory-toolbar">
+            <div className="artisan-directory-pills" role="tablist" aria-label="Filter by craft guild">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={guildFilter === 'all'}
+                className={`artisan-directory-pill${guildFilter === 'all' ? ' is-active' : ''}`}
+                onClick={() => setGuildFilter('all')}
+              >
+                All Guilds ({artisans.length})
+              </button>
+              {guildOptions.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={guildFilter === g.id}
+                  className={`artisan-directory-pill${guildFilter === g.id ? ' is-active' : ''}`}
+                  onClick={() => setGuildFilter(g.id)}
+                >
+                  {g.label} ({g.count})
+                </button>
+              ))}
+            </div>
+
+            <label className="artisan-directory-search">
+              <span className="sr-only">Search artisans by name, craft, or district</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search artisan, craft, or district..."
+              />
+            </label>
           </div>
         </div>
       </section>
 
       <section className="artisan-directory-list" aria-label="Artisan directory">
         <div className="container artisan-directory-wrap">
-          {artisans.length ? (
+          {filtered.length ? (
             <div className="artisan-directory-grid">
-              {artisans.map((artisan) => {
+              {filtered.map((artisan) => {
                 const srcSet = srcSetFor(artisan.image);
                 return (
-                  <article className="artisan-directory-card" key={artisan.key}>
+                  <Link
+                    to={`/artisans/${artisan.slug}`}
+                    className="artisan-directory-card"
+                    key={artisan.key}
+                  >
                     <div className="artisan-directory-image">
                       <picture>
                         {srcSet && (
@@ -109,27 +131,56 @@ export default function ArtisansPage() {
                         )}
                         <img
                           src={asset(artisan.image)}
-                          alt={artisan.featured ? `${artisan.name} at work` : `${artisan.craft} by ${artisan.name}`}
+                          alt={
+                            artisan.featured
+                              ? `${artisan.name} at work`
+                              : `${artisan.craft} by ${artisan.name}`
+                          }
                           loading="lazy"
                           decoding="async"
                         />
                       </picture>
-                      {artisan.featured && <span className="artisan-directory-featured">Featured artisan</span>}
+                      {artisan.featured && (
+                        <span className="artisan-directory-featured">Featured master</span>
+                      )}
+                      <span className="artisan-directory-rating">
+                        <Star size={11} /> {artisan.avgRating.toFixed(1)} ({artisan.totalReviews})
+                      </span>
                     </div>
                     <div className="artisan-directory-card-body">
                       <p className="artisan-directory-craft">{artisan.craft}</p>
                       <h2>{artisan.name}</h2>
+                      <p className="artisan-directory-loc">
+                        {artisan.district}, Kashmir &bull; {artisan.listingCount}{' '}
+                        {artisan.listingCount === 1 ? 'listing' : 'listings'}
+                      </p>
                       <div className="artisan-directory-meta">
-                        {artisan.district && <span>{artisan.district}</span>}
-                        <span>{artisan.listings} {artisan.listings === 1 ? 'listing' : 'listings'}</span>
+                        <span className="artisan-directory-price">
+                          From <strong>{formatINR(artisan.startingPrice)}</strong>
+                        </span>
+                        <span className="artisan-directory-cta">
+                          View profile <span aria-hidden="true">&rarr;</span>
+                        </span>
                       </div>
                     </div>
-                  </article>
+                  </Link>
                 );
               })}
             </div>
           ) : (
-            <p className="artisan-directory-empty">No artisan listings are available yet.</p>
+            <div className="artisan-directory-empty">
+              <p>No artisans matched your filter.</p>
+              <button
+                type="button"
+                className="artisan-directory-reset"
+                onClick={() => {
+                  setGuildFilter('all');
+                  setQuery('');
+                }}
+              >
+                Reset filters
+              </button>
+            </div>
           )}
         </div>
       </section>

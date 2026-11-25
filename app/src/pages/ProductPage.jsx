@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { formatINR, asset } from '../utils/legacy.js';
+import { artisanSlug, featuredPortraitFor } from '../utils/artisans.js';
 import { buildThumbnails, techniqueTag, techniqueSpec } from '../data/pdpThumbs.js';
 import ProductGallery from '../components/ProductGallery.jsx';
 import ProductCard from '../components/ProductCard.jsx';
@@ -166,13 +167,17 @@ export default function ProductPage() {
               {describeCraft(product.guild, product.technique)} &mdash; Heritage Kashmiri Masterpiece
             </div>
 
-            <div className="pdp-artisan-box">
+            <Link
+              to={`/artisans/${artisanSlug(product.artisan)}`}
+              className="pdp-artisan-box pdp-artisan-box-link"
+              aria-label={`Open ${product.artisan}'s full workshop profile`}
+            >
               <div className="pdp-artisan-profile">
                 <img
                   loading="lazy"
                   decoding="async"
-                  src={asset('assets/image_1.jpg')}
-                  alt="Master Artisan"
+                  src={asset(featuredPortraitFor(product.artisan) || 'assets/image_1.jpg')}
+                  alt={product.artisan}
                   className="pdp-artisan-avatar-img"
                   id="pdp-artisan-avatar"
                 />
@@ -188,10 +193,13 @@ export default function ProductPage() {
                   </div>
                 </div>
               </div>
-              <div className="pdp-artisan-exp-pill" id="pdp-artisan-exp">
-                {product.loomHours > 500 ? '45+' : '30+'} Yrs Lineage
+              <div className="pdp-artisan-right">
+                <div className="pdp-artisan-exp-pill" id="pdp-artisan-exp">
+                  {product.loomHours > 500 ? '45+' : '30+'} Yrs Lineage
+                </div>
+                <span className="pdp-artisan-open">View profile &rarr;</span>
               </div>
-            </div>
+            </Link>
 
             <div className="pdp-price-wrap">
               <div className="pdp-price-eyebrow">PATRON ACQUISITION PRICE</div>
