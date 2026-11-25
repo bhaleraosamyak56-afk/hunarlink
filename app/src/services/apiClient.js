@@ -151,10 +151,33 @@ export function submitArtisanVerification(payload, token) {
   });
 }
 
-/* --- 1:1 Storefront & Retail Order Endpoints --- */
-export function fetchCatalogProducts(categorySlug = null) {
+export function fetchMyAddresses(token) {
+  return apiRequest('/api/v1/auth/addresses', { token });
+}
+
+export function createMyAddress(payload, token) {
+  return apiRequest('/api/v1/auth/addresses', { method: 'POST', body: payload, token });
+}
+
+export function deleteMyAddress(addressId, token) {
+  return apiRequest(`/api/v1/auth/addresses/${encodeURIComponent(addressId)}`, {
+    method: 'DELETE',
+    token
+  });
+}
+
+/* --- 1:1 Authenticated Storefront, Artisans & Retail Order Endpoints --- */
+export function fetchCatalogProducts(categorySlug = null, token = null) {
   const qs = categorySlug ? `?category_slug=${encodeURIComponent(categorySlug)}` : '';
-  return apiRequest(`/api/v1/catalog/products${qs}`);
+  return apiRequest(`/api/v1/catalog/products${qs}`, { token });
+}
+
+export function fetchArtisans(token) {
+  return apiRequest('/api/v1/artisans', { token });
+}
+
+export function fetchArtisanBySlug(slug, token) {
+  return apiRequest(`/api/v1/artisans/${encodeURIComponent(slug)}`, { token });
 }
 
 export function createRetailOrder(payload, token) {

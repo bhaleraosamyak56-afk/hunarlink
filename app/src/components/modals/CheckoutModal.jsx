@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../state/StoreContext.jsx';
 import { useClerkBridge } from '../../data/clerkConfig.js';
 import { formatINR } from '../../utils/legacy.js';
-import { probeBackendHealth } from '../../services/apiClient.js';
+import {
+  createMyAddress,
+  createRetailOrder,
+  probeBackendHealth
+} from '../../services/apiClient.js';
 import {
   executeServerRetailCheckout,
   startRazorpayStandardCheckout
@@ -202,14 +206,15 @@ export default function CheckoutModal() {
     placeOrder,
     clearCart,
     removeCoupon,
+    hydrateFromBackend,
     toast
   } = useStore();
 
   const { getToken, isSignedIn: clerkSignedIn } = useClerkBridge();
   const [step, setStep] = useState(1);
   const [buyer, setBuyer] = useState({
-    name: user?.name || 'Demo User',
-    phone: user?.phone || '+91 0000000000'
+    name: user?.fullName || user?.name || '',
+    phone: user?.phone || ''
   });
   const [addressId, setAddressId] = useState(addresses[0]?.id);
   const [draft, setDraft] = useState({
@@ -267,13 +272,39 @@ export default function CheckoutModal() {
   const qrMins = String(Math.floor(qrSeconds / 60)).padStart(2, '0');
   const qrSecs = String(qrSeconds % 60).padStart(2, '0');
 
-  const saveAddress = (e) => {
+  const saveAddress = async (e) => {
     e.preventDefault();
     const clean = Object.fromEntries(
       Object.entries(draft).map(([k, v]) => [k, String(v).trim()])
     );
     if (!clean.name || !clean.phone || !clean.pin || !clean.loc || !clean.city) {
       toast('\u26a0\ufe0f Please fill every delivery field (name, mobile, pincode, locality & city)');
+      return;
+    }
+    try {
+      const token = clerkSignedIn && getToken ? await getToken() : null;
+      if (backendStatus.online && token) {
+        const saved = await createMyAddress(
+          {
+            address_label: 'DELIVERY',
+            recipient_name: clean.name,
+            recipient_phone: clean.phone,
+            line1: clean.loc,
+            city: clean.city,
+            state_province: 'Jammu and Kashmir',
+            postal_code: clean.pin,
+            is_default: addresses.length === 0
+          },
+          token
+        );
+        await hydrateFromBackend(token);
+        setAddressId(saved.id);
+        setStep(3);
+        toast('Delivery address saved to database and selected', 'success');
+        return;
+      }
+    } catch (err) {
+      toast(err?.message || 'Could not save address to database.', 'error');
       return;
     }
     const next = {
@@ -363,19 +394,19 @@ export default function CheckoutModal() {
             }
           });
           verifiedPaymentStatus = `${verified.payment_status} (${verified.fulfilment_status})`;
-        } else if (allItemsHaveServerListing && (isCod || backendStatus.ready?.razorpay_configured)) {
+        } else if (allItemsHaveServerListing && backendStatus.ready?.razorpay_configured && !isCod) {
           ranLiveServerCheckout = true;
           const result = await executeServerRetailCheckout({
             items: serverListingItems,
             shippingAddress: {
-              name: buyer.name || selected?.name || 'HunarLink Collector',
-              phone: buyer.phone || selected?.phone || '+91 9811044210',
+              name: buyer.name || selected?.name || user?.fullName || 'Verified Buyer',
+              phone: buyer.phone || selected?.phone || user?.phone || '+91 9811044210',
               locality: selected?.locality || 'Residency Road',
               city: selected?.city || 'Jammu',
               state: selected?.state || 'Jammu and Kashmir',
               pincode: selected?.pincode || '180001'
             },
-            paymentMethod: isCod ? 'COD' : 'RAZORPAY_STANDARD',
+            paymentMethod: 'RAZORPAY_STANDARD',
             authToken,
             buyer: {
               name: buyer.name || selected?.name,
@@ -386,6 +417,31 @@ export default function CheckoutModal() {
           orderId = result.order.order_number || orderId;
           authoritativeTotal = Number(result.order.total_amount) || totals.netPayable;
           verifiedPaymentStatus = result.paymentStatusLabel;
+        } else if (allItemsHaveServerListing) {
+          ranLiveServerCheckout = true;
+          if (!isCod) {
+            setProcessingBanner(bannerText || `Recording ${paymentMethod} order in database…`);
+          }
+          const createdOrder = await createRetailOrder(
+            {
+              items: serverListingItems,
+              shipping_address: {
+                name: buyer.name || selected?.name || user?.fullName || 'Verified Buyer',
+                phone: buyer.phone || selected?.phone || user?.phone || '+91 9811044210',
+                locality: selected?.locality || 'Residency Road',
+                city: selected?.city || 'Jammu',
+                state: selected?.state || 'Jammu and Kashmir',
+                pincode: selected?.pincode || '180001'
+              },
+              payment_method: isCod ? 'COD' : 'RAZORPAY_STANDARD',
+              payment_label: paymentMethod
+            },
+            authToken
+          );
+          setProcessingBanner(null);
+          orderId = createdOrder.order_number || orderId;
+          authoritativeTotal = Number(createdOrder.total_amount) || totals.netPayable;
+          verifiedPaymentStatus = `${createdOrder.payment_status} (${createdOrder.fulfilment_status})`;
         }
       } catch (err) {
         setMethod(null);
@@ -395,11 +451,8 @@ export default function CheckoutModal() {
       }
     }
 
-    // In interactive demo / preview mode, show a realistic 1.1s UPI/gateway handoff animation
-    if (!ranLiveServerCheckout && !isCod) {
-      setProcessingBanner(bannerText || `Authorizing ${paymentMethod}…`);
-      await new Promise((resolve) => window.setTimeout(resolve, 1100));
-      setProcessingBanner(null);
+    if (ranLiveServerCheckout && authToken) {
+      await hydrateFromBackend(authToken);
     }
 
     const order = {
@@ -412,9 +465,9 @@ export default function CheckoutModal() {
       time: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
       createdAt: now.toISOString(),
       buyer: {
-        name: buyer.name || selected?.name || 'Priya Sharma',
-        phone: buyer.phone || selected?.phone || '+91 98110 44210',
-        email: user?.email || 'collector@hunarlink.in',
+        name: buyer.name || selected?.name || user?.fullName || user?.name || 'Verified Buyer',
+        phone: buyer.phone || selected?.phone || user?.phone || '',
+        email: user?.email || '',
         addressType: selected?.type || 'Home',
         locality: selected?.locality || '',
         city: selected?.city || '',
@@ -449,7 +502,9 @@ export default function CheckoutModal() {
       isNewForSeller: true
     };
 
-    placeOrder(order);
+    if (!ranLiveServerCheckout) {
+      placeOrder(order);
+    }
     clearCart();
     removeCoupon();
     setMethod(null);

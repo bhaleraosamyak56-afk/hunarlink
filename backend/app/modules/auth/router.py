@@ -30,6 +30,7 @@ from app.models.core_models import (
     SellerProfile,
     SellerVerificationApplication,
     User,
+    UserAddress,
     UserRoleAssignment,
 )
 from app.modules.auth.schemas import (
@@ -38,6 +39,8 @@ from app.modules.auth.schemas import (
     AuthSyncRequest,
     AuthUserProfileResponse,
     SellerProfileBrief,
+    UserAddressCreateRequest,
+    UserAddressResponse,
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication & User Sync"])
@@ -351,3 +354,103 @@ def submit_artisan_verification(
             claimed_gi_authorized_user_no=seller.claimed_gi_authorized_user_no,
         ),
     )
+
+
+@router.get("/addresses", response_model=list[UserAddressResponse])
+def list_my_addresses(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+) -> list[UserAddressResponse]:
+    rows = db.scalars(
+        select(UserAddress)
+        .where(UserAddress.user_id == principal.user_id, UserAddress.is_active == True)  # noqa: E712
+        .order_by(UserAddress.is_default.desc(), UserAddress.created_at.desc())
+    ).all()
+    return [
+        UserAddressResponse(
+            id=a.id,
+            address_label=a.address_label,
+            recipient_name=a.recipient_name,
+            recipient_phone=a.recipient_phone,
+            line1=a.line1,
+            line2=a.line2,
+            city=a.city,
+            state_province=a.state_province,
+            postal_code=a.postal_code,
+            is_default=a.is_default,
+            created_at=a.created_at,
+        )
+        for a in rows
+    ]
+
+
+@router.post("/addresses", response_model=UserAddressResponse, status_code=status.HTTP_201_CREATED)
+def create_my_address(
+    payload: UserAddressCreateRequest,
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+) -> UserAddressResponse:
+    existing = db.scalars(
+        select(UserAddress).where(
+            UserAddress.user_id == principal.user_id,
+            UserAddress.is_active == True,  # noqa: E712
+        )
+    ).all()
+    make_default = payload.is_default or len(existing) == 0
+    if make_default:
+        for row in existing:
+            if row.is_default:
+                row.is_default = False
+        db.flush()
+
+    addr = UserAddress(
+        id=new_uuid(),
+        user_id=principal.user_id,
+        address_label=payload.address_label.strip().upper()[:50],
+        recipient_name=payload.recipient_name.strip(),
+        recipient_phone=payload.recipient_phone.strip(),
+        line1=payload.line1.strip(),
+        line2=(payload.line2 or "").strip() or None,
+        city=payload.city.strip(),
+        state_province=payload.state_province.strip(),
+        postal_code=payload.postal_code.strip(),
+        country_code="IN",
+        is_default=make_default,
+        is_active=True,
+    )
+    db.add(addr)
+    db.commit()
+    db.refresh(addr)
+    return UserAddressResponse(
+        id=addr.id,
+        address_label=addr.address_label,
+        recipient_name=addr.recipient_name,
+        recipient_phone=addr.recipient_phone,
+        line1=addr.line1,
+        line2=addr.line2,
+        city=addr.city,
+        state_province=addr.state_province,
+        postal_code=addr.postal_code,
+        is_default=addr.is_default,
+        created_at=addr.created_at,
+    )
+
+
+@router.delete("/addresses/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_my_address(
+    address_id: str,
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+) -> None:
+    addr = db.scalar(
+        select(UserAddress).where(
+            UserAddress.id == address_id,
+            UserAddress.user_id == principal.user_id,
+            UserAddress.is_active == True,  # noqa: E712
+        )
+    )
+    if addr is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found.")
+    addr.is_active = False
+    addr.is_default = False
+    db.commit()

@@ -1,4 +1,10 @@
-"""FastAPI storefront router bridging React checkout/catalog with MySQL & Razorpay."""
+"""Authenticated FastAPI storefront router: real DB catalog, artisans & retail orders.
+
+Security rule:
+  ALL catalog, artisan, and order endpoints require a verified Clerk RS256 JWT
+  mapped to an active user in HunarLink's database (`get_current_principal`).
+  No unauthenticated visitor can access marketplace or artisan APIs.
+"""
 from __future__ import annotations
 
 import uuid
@@ -21,29 +27,76 @@ from app.models.core_models import (
     SellerFulfilmentGroup,
     SellerProductListing,
     SellerProfile,
+    User,
 )
 from app.modules.storefront.schemas import (
+    ArtisanDetailResponse,
+    ArtisanSummaryItem,
     CatalogProductItem,
     CreateRetailOrderRequest,
+    RetailOrderItemSummary,
     RetailOrderSummaryResponse,
 )
 
-router = APIRouter(tags=["Storefront & Retail Orders"])
+router = APIRouter(tags=["Storefront, Artisans & Retail Orders"])
+
+
+def _serialize_catalog_row(
+    listing: SellerProductListing,
+    product: Product,
+    category: Category,
+    seller: SellerProfile,
+    artisan_user: User | None,
+) -> CatalogProductItem:
+    artisan_name = (
+        (artisan_user.display_name or f"{artisan_user.first_name} {artisan_user.last_name or ''}".strip())
+        if artisan_user is not None
+        else seller.store_name
+    )
+    return CatalogProductItem(
+        listing_id=listing.id,
+        product_id=product.id,
+        product_variant_id=listing.product_variant_id,
+        seller_profile_id=seller.id,
+        seller_sku=listing.seller_sku,
+        product_slug=product.slug,
+        title=listing.listing_title,
+        description=product.description,
+        category_slug=category.slug,
+        category_name=category.name,
+        store_name=seller.store_name,
+        artisan_name=artisan_name,
+        artisan_slug=seller.store_slug,
+        workshop_district=seller.workshop_district,
+        craft_specialty=seller.craft_specialty,
+        verification_path=seller.verification_path,
+        verification_status=seller.verification_status,
+        claimed_gi_code=seller.claimed_gi_authorized_user_no,
+        selling_price=listing.selling_price,
+        compare_at_mrp=listing.compare_at_mrp,
+        currency_code=listing.currency_code,
+        min_order_qty=listing.min_order_qty,
+        max_order_qty=listing.max_order_qty,
+        gi_status=product.gi_status,
+    )
 
 
 @router.get("/catalog/products", response_model=list[CatalogProductItem])
 def list_active_catalog_products(
     category_slug: str | None = None,
     limit: int = 100,
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ) -> list[CatalogProductItem]:
-    """Return active, approved marketplace listings from the database."""
+    """Return active, approved marketplace listings from the DB (authenticated users only)."""
+    _ = principal
     safe_limit = max(1, min(limit, 200))
     stmt = (
-        select(SellerProductListing, Product, Category, SellerProfile)
+        select(SellerProductListing, Product, Category, SellerProfile, User)
         .join(Product, Product.id == SellerProductListing.product_id)
         .join(Category, Category.id == Product.category_id)
         .join(SellerProfile, SellerProfile.id == SellerProductListing.seller_profile_id)
+        .join(User, User.id == SellerProfile.user_id)
         .where(
             SellerProductListing.listing_status == "ACTIVE",
             Product.is_active == True,  # noqa: E712
@@ -59,25 +112,157 @@ def list_active_catalog_products(
 
     rows = db.execute(stmt).all()
     return [
-        CatalogProductItem(
-            listing_id=listing.id,
-            product_id=product.id,
-            product_variant_id=listing.product_variant_id,
-            seller_profile_id=seller.id,
-            seller_sku=listing.seller_sku,
-            title=listing.listing_title,
-            category_slug=category.slug,
-            category_name=category.name,
-            store_name=seller.store_name,
-            selling_price=listing.selling_price,
-            compare_at_mrp=listing.compare_at_mrp,
-            currency_code=listing.currency_code,
-            min_order_qty=listing.min_order_qty,
-            max_order_qty=listing.max_order_qty,
-            gi_status=product.gi_status,
-        )
-        for listing, product, category, seller in rows
+        _serialize_catalog_row(listing, product, category, seller, artisan_user)
+        for listing, product, category, seller, artisan_user in rows
     ]
+
+
+@router.get("/artisans", response_model=list[ArtisanSummaryItem])
+def list_verified_artisans(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+) -> list[ArtisanSummaryItem]:
+    """Return verified/active artisans strictly from the database (authenticated users only)."""
+    _ = principal
+    sellers = db.execute(
+        select(SellerProfile, User)
+        .join(User, User.id == SellerProfile.user_id)
+        .where(
+            SellerProfile.profile_status == "ACTIVE",
+            SellerProfile.verification_status == "APPROVED",
+        )
+        .order_by(SellerProfile.created_at.desc())
+    ).all()
+
+    results: list[ArtisanSummaryItem] = []
+    for seller, artisan_user in sellers:
+        listing_rows = db.execute(
+            select(SellerProductListing, Category)
+            .join(Product, Product.id == SellerProductListing.product_id)
+            .join(Category, Category.id == Product.category_id)
+            .where(
+                SellerProductListing.seller_profile_id == seller.id,
+                SellerProductListing.listing_status == "ACTIVE",
+                Product.is_active == True,  # noqa: E712
+                Product.approval_status == "APPROVED",
+            )
+        ).all()
+        prices = [Decimal(l.selling_price) for l, _ in listing_rows]
+        cats = sorted({c.name for _, c in listing_rows})
+        name = artisan_user.display_name or f"{artisan_user.first_name} {artisan_user.last_name or ''}".strip()
+        results.append(
+            ArtisanSummaryItem(
+                seller_profile_id=seller.id,
+                slug=seller.store_slug,
+                name=name,
+                store_name=seller.store_name,
+                craft_specialty=seller.craft_specialty,
+                workshop_district=seller.workshop_district,
+                verification_path=seller.verification_path,
+                verification_status=seller.verification_status,
+                profile_status=seller.profile_status,
+                claimed_gi_code=seller.claimed_gi_authorized_user_no,
+                listing_count=len(listing_rows),
+                starting_price=min(prices) if prices else None,
+                categories=cats,
+            )
+        )
+    return results
+
+
+@router.get("/artisans/{slug}", response_model=ArtisanDetailResponse)
+def get_verified_artisan_by_slug(
+    slug: str,
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+) -> ArtisanDetailResponse:
+    """Return a single verified artisan + their real DB listings (authenticated users only)."""
+    _ = principal
+    row = db.execute(
+        select(SellerProfile, User)
+        .join(User, User.id == SellerProfile.user_id)
+        .where(
+            SellerProfile.store_slug == slug.strip(),
+            SellerProfile.profile_status == "ACTIVE",
+            SellerProfile.verification_status == "APPROVED",
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artisan not found.")
+
+    seller, artisan_user = row
+    listing_rows = db.execute(
+        select(SellerProductListing, Product, Category)
+        .join(Product, Product.id == SellerProductListing.product_id)
+        .join(Category, Category.id == Product.category_id)
+        .where(
+            SellerProductListing.seller_profile_id == seller.id,
+            SellerProductListing.listing_status == "ACTIVE",
+            Product.is_active == True,  # noqa: E712
+            Product.approval_status == "APPROVED",
+        )
+        .order_by(SellerProductListing.created_at.desc())
+    ).all()
+
+    serialized = [
+        _serialize_catalog_row(listing, product, category, seller, artisan_user)
+        for listing, product, category in listing_rows
+    ]
+    prices = [Decimal(l.selling_price) for l, _, _ in listing_rows]
+    cats = sorted({c.name for _, _, c in listing_rows})
+    name = artisan_user.display_name or f"{artisan_user.first_name} {artisan_user.last_name or ''}".strip()
+
+    return ArtisanDetailResponse(
+        seller_profile_id=seller.id,
+        slug=seller.store_slug,
+        name=name,
+        store_name=seller.store_name,
+        craft_specialty=seller.craft_specialty,
+        workshop_district=seller.workshop_district,
+        verification_path=seller.verification_path,
+        verification_status=seller.verification_status,
+        profile_status=seller.profile_status,
+        claimed_gi_code=seller.claimed_gi_authorized_user_no,
+        listing_count=len(serialized),
+        starting_price=min(prices) if prices else None,
+        categories=cats,
+        listings=serialized,
+    )
+
+
+def _serialize_order(order: RetailOrder, items: list[RetailOrderItem]) -> RetailOrderSummaryResponse:
+    snap = order.shipping_address_snapshot_json if isinstance(order.shipping_address_snapshot_json, dict) else {}
+    return RetailOrderSummaryResponse(
+        order_id=order.id,
+        order_number=order.order_number,
+        order_scope="RETAIL",
+        payment_method=order.payment_method,
+        payment_label=snap.get("payment_label"),
+        payment_status=order.payment_status,
+        fulfilment_status=order.fulfilment_status,
+        currency_code=order.currency_code,
+        subtotal_amount=order.subtotal_amount,
+        discount_amount=order.discount_amount,
+        tax_amount=order.tax_amount,
+        shipping_fee=order.shipping_fee,
+        total_amount=order.total_amount,
+        item_count=sum(i.quantity for i in items),
+        shipping_address=snap,
+        items=[
+            RetailOrderItemSummary(
+                product_id=i.product_id,
+                seller_listing_id=i.seller_listing_id,
+                title=i.product_name_snapshot,
+                sku=i.sku_snapshot,
+                gi_status=i.gi_status_snapshot,
+                quantity=i.quantity,
+                unit_price=i.unit_price_snapshot,
+                line_total=i.line_total_amount,
+            )
+            for i in items
+        ],
+        created_at=order.created_at,
+    )
 
 
 @router.post(
@@ -93,7 +278,6 @@ def create_retail_order_from_cart(
     """Create a server-validated RetailOrder whose totals come strictly from DB prices."""
     grouped_lines: dict[str, list[tuple[SellerProductListing, Product, ProductVariant, int, Decimal]]] = defaultdict(list)
     order_subtotal = Decimal("0.00")
-    total_qty = 0
 
     for req_item in payload.items:
         listing = db.scalar(
@@ -138,15 +322,18 @@ def create_retail_order_from_cart(
 
         line_total = (Decimal(listing.selling_price) * Decimal(req_item.quantity)).quantize(Decimal("0.01"))
         order_subtotal += line_total
-        total_qty += req_item.quantity
         grouped_lines[seller.id].append((listing, product, variant, req_item.quantity, line_total))
 
     is_cod = payload.payment_method == "COD"
+    addr_snap = payload.shipping_address.model_dump(mode="json")
+    if payload.payment_label:
+        addr_snap["payment_label"] = payload.payment_label.strip()
+
     order = RetailOrder(
         id=new_uuid(),
         order_number=f"HL-RET-{uuid.uuid4().hex[:8].upper()}",
         customer_user_id=principal.user_id,
-        shipping_address_snapshot_json=payload.shipping_address.model_dump(mode="json"),
+        shipping_address_snapshot_json=addr_snap,
         currency_code="INR",
         subtotal_amount=order_subtotal,
         discount_amount=Decimal("0.00"),
@@ -161,6 +348,7 @@ def create_retail_order_from_cart(
     db.add(order)
     db.flush()
 
+    created_items: list[RetailOrderItem] = []
     for seller_profile_id, seller_items in grouped_lines.items():
         group_sub = sum((lt for _, _, _, _, lt in seller_items), Decimal("0.00")).quantize(Decimal("0.01"))
         group = SellerFulfilmentGroup(
@@ -177,41 +365,26 @@ def create_retail_order_from_cart(
         db.flush()
 
         for listing, product, variant, qty, line_total in seller_items:
-            db.add(
-                RetailOrderItem(
-                    id=new_uuid(),
-                    retail_order_id=order.id,
-                    seller_fulfilment_group_id=group.id,
-                    seller_listing_id=listing.id,
-                    product_id=product.id,
-                    product_variant_id=variant.id,
-                    product_name_snapshot=listing.listing_title,
-                    sku_snapshot=variant.variant_sku,
-                    gi_status_snapshot=product.gi_status,
-                    quantity=qty,
-                    unit_price_snapshot=listing.selling_price,
-                    line_total_amount=line_total,
-                    currency_code="INR",
-                )
+            row = RetailOrderItem(
+                id=new_uuid(),
+                retail_order_id=order.id,
+                seller_fulfilment_group_id=group.id,
+                seller_listing_id=listing.id,
+                product_id=product.id,
+                product_variant_id=variant.id,
+                product_name_snapshot=listing.listing_title,
+                sku_snapshot=variant.variant_sku,
+                gi_status_snapshot=product.gi_status,
+                quantity=qty,
+                unit_price_snapshot=listing.selling_price,
+                line_total_amount=line_total,
+                currency_code="INR",
             )
+            db.add(row)
+            created_items.append(row)
 
     db.commit()
-    return RetailOrderSummaryResponse(
-        order_id=order.id,
-        order_number=order.order_number,
-        order_scope="RETAIL",
-        payment_method=order.payment_method,
-        payment_status=order.payment_status,
-        fulfilment_status=order.fulfilment_status,
-        currency_code=order.currency_code,
-        subtotal_amount=order.subtotal_amount,
-        discount_amount=order.discount_amount,
-        tax_amount=order.tax_amount,
-        shipping_fee=order.shipping_fee,
-        total_amount=order.total_amount,
-        item_count=total_qty,
-        created_at=order.created_at,
-    )
+    return _serialize_order(order, created_items)
 
 
 @router.get("/orders/retail/my", response_model=list[RetailOrderSummaryResponse])
@@ -232,22 +405,5 @@ def list_my_retail_orders(
         items = list(
             db.scalars(select(RetailOrderItem).where(RetailOrderItem.retail_order_id == order.id)).all()
         )
-        results.append(
-            RetailOrderSummaryResponse(
-                order_id=order.id,
-                order_number=order.order_number,
-                order_scope="RETAIL",
-                payment_method=order.payment_method,
-                payment_status=order.payment_status,
-                fulfilment_status=order.fulfilment_status,
-                currency_code=order.currency_code,
-                subtotal_amount=order.subtotal_amount,
-                discount_amount=order.discount_amount,
-                tax_amount=order.tax_amount,
-                shipping_fee=order.shipping_fee,
-                total_amount=order.total_amount,
-                item_count=sum(i.quantity for i in items),
-                created_at=order.created_at,
-            )
-        )
+        results.append(_serialize_order(order, items))
     return results

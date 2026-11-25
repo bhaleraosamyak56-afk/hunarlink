@@ -77,3 +77,31 @@ class ArtisanVerificationSubmitResponse(BaseModel):
     application_number: str
     application_status: str
     seller_profile: SellerProfileBrief
+
+
+class UserAddressCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    address_label: str = Field(default="HOME", min_length=1, max_length=50)
+    recipient_name: str = Field(..., min_length=2, max_length=160)
+    recipient_phone: str = Field(..., min_length=7, max_length=32)
+    line1: str = Field(..., min_length=2, max_length=255)
+    line2: str | None = Field(default=None, max_length=255)
+    city: str = Field(..., min_length=2, max_length=100)
+    state_province: str = Field(default="Jammu and Kashmir", min_length=2, max_length=100)
+    postal_code: str = Field(..., min_length=4, max_length=20)
+    is_default: bool = False
+
+
+class UserAddressResponse(BaseModel):
+    id: str
+    address_label: str
+    recipient_name: str
+    recipient_phone: str
+    line1: str
+    line2: str | None = None
+    city: str
+    state_province: str
+    postal_code: str
+    is_default: bool
+    created_at: datetime

@@ -36,7 +36,7 @@ const resolveImg = (src) => {
 };
 
 export default function OrdersPage() {
-  const { user, orders, addReview, advanceOrder, addOrder, toast } = useStore();
+  const { user, orders, addReview, advanceOrder, toast } = useStore();
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [drafts, setDrafts] = useState({});
@@ -65,58 +65,14 @@ export default function OrdersPage() {
     return list;
   }, [orders, filter, query]);
 
-  const placeSampleOrder = () => {
-    const now = new Date();
-    const orderId = `HL-ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    addOrder({
-      id: orderId,
-      date: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      createdAt: now.toISOString(),
-      buyer: {
-        name: user?.fullName || 'Priya Sharma',
-        phone: '+91 98110 44210',
-        email: user?.email || 'priya.sharma@valleycollector.in',
-        addressType: 'Home',
-        locality: 'B-42 Defence Colony, Ring Road',
-        city: 'New Delhi',
-        pincode: '110024'
-      },
-      items: [
-        {
-          productId: 'hl-pash-002',
-          title: 'Jamawar Heirloom Stole',
-          qty: 1,
-          price: 1850,
-          lineTotal: 1850,
-          giId: 'GI-JK-PASH-8810',
-          artisan: 'Master Ghulam Qadir Mir',
-          image: 'assets/products/pashmina_02.jpg'
-        }
-      ],
-      subtotal: 1850,
-      discount: 0,
-      total: 1850,
-      artisanPayout: 1850,
-      paymentMethod: 'UPI Verified Escrow',
-      paymentStatus: 'Paid (Escrow Protected)',
-      address: 'B-42 Defence Colony, Ring Road, New Delhi - 110024',
-      stage: 2,
-      sellerNote:
-        'GI Laser Seal verified at Srinagar Guild. Preparing insured heirloom packaging.',
-      isNewForSeller: true
-    });
-    toast(`Live Order #${orderId} created & synced to Seller Portal!`, 'success');
-  };
-
   const submitReview = (e, order) => {
     e.preventDefault();
     const id = order.id;
     const d = drafts[id] || {};
     if (!d.text || !d.text.trim()) return;
-    const productId = order.items?.[0]?.productId || 'hl-pash-001';
+    const productId = order.items?.[0]?.productId || 'craft-item';
     addReview(productId, {
-      author: user?.fullName || 'Priya Sharma',
+      author: user?.fullName || user?.name || user?.email || 'Verified Buyer',
       rating: Number(d.rating) || 5,
       date: new Date().toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -156,9 +112,11 @@ export default function OrdersPage() {
             <Link to="/orders" className="up-nav-pill active">
               <IconPackage size={15} /> Track Orders
             </Link>
-            <Link to="/login" className="up-nav-pill" id="nav-auth-pill">
-              <IconLogin size={15} /> User Login
-            </Link>
+            {!signedIn && (
+              <Link to="/login" className="up-nav-pill" id="nav-auth-pill">
+                <IconLogin size={15} /> Sign in
+              </Link>
+            )}
           </nav>
         </div>
       </header>
@@ -199,10 +157,10 @@ export default function OrdersPage() {
                     }}
                     id="trk-user-name"
                   >
-                    {user?.fullName || 'Priya Sharma'}
+                    {user?.fullName || user?.name || 'Verified Buyer'}
                   </div>
                   <div style={{ fontSize: '0.76rem', color: 'var(--text-700)' }} id="trk-user-contact">
-                    {user?.email || 'priya.sharma@valleycollector.in'}
+                    {user?.email || ''}
                   </div>
                   <Link
                     to="/profile"
@@ -281,15 +239,6 @@ export default function OrdersPage() {
                 </label>
               ))}
             </div>
-
-            <button
-              type="button"
-              className="btn-orange-outline"
-              style={{ width: '100%' }}
-              onClick={placeSampleOrder}
-            >
-              Create Sample Order
-            </button>
           </aside>
 
           <section>
@@ -313,7 +262,7 @@ export default function OrdersPage() {
                   <div style={{ fontSize: '2.2rem', marginBottom: 8 }}><IconUser size={15} /></div>
                   <h3>Sign in to view your orders</h3>
                   <p style={{ fontSize: '0.84rem', color: 'var(--text-500)', margin: '6px 0 18px' }}>
-                    Orders are tied to the collector account, so they are hidden while you are
+                    Orders are tied to your verified account, so they are hidden while you are
                     signed out.
                   </p>
                   <Link to="/login" className="btn-orange">
@@ -323,20 +272,17 @@ export default function OrdersPage() {
               ) : visible.length === 0 ? (
                 <div className="fk-panel-card" style={{ textAlign: 'center', padding: '42px 20px' }}>
                   <div style={{ fontSize: '2.2rem', marginBottom: 8 }}><IconPackage size={15} /></div>
-                  <h3>No orders found</h3>
+                  <h3>No orders placed yet</h3>
                   <p style={{ fontSize: '0.84rem', color: 'var(--text-500)', margin: '6px 0 18px' }}>
-                    Place an order on HunarLink or click below to create a live sample order for
-                    tracking.
+                    Orders you place at Checkout are stored live in HunarLink&rsquo;s database and
+                    tracked right here from workshop to door.
                   </p>
                   <div
                     style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}
                   >
                     <Link to="/#marketplace-section" className="btn-orange">
-                      Shop Kashmiri Crafts &rarr;
+                      Explore Verified Crafts &rarr;
                     </Link>
-                    <button type="button" className="btn-orange-outline" onClick={placeSampleOrder}>
-                      Create Sample Order
-                    </button>
                   </div>
                 </div>
               ) : (
@@ -344,6 +290,7 @@ export default function OrdersPage() {
                   <OrderCard
                     key={o.id}
                     order={o}
+                    user={user}
                     draft={drafts[o.id] || {}}
                     onDraft={(patch) =>
                       setDrafts((p) => ({ ...p, [o.id]: { ...(p[o.id] || {}), ...patch } }))
@@ -363,13 +310,13 @@ export default function OrdersPage() {
   );
 }
 
-function OrderCard({ order: o, draft, onDraft, onAdvance, onReview }) {
+function OrderCard({ order: o, user, draft, onDraft, onAdvance, onReview }) {
   const stage = Math.max(1, Math.min(5, o.stage || 1));
   const stageInfo = ORDER_STAGES[stage - 1];
   const b = o.buyer || {};
-  const buyerName = b.name || 'Priya Sharma';
-  const buyerPhone = b.phone || '+91 98110 44210';
-  const buyerEmail = b.email || 'priya.sharma@valleycollector.in';
+  const buyerName = b.name || user?.fullName || user?.name || 'Verified Buyer';
+  const buyerPhone = b.phone || user?.phone || '';
+  const buyerEmail = b.email || user?.email || '';
   const buyerAddr = b.locality
     ? `${b.locality}, ${b.city || ''}${b.pincode ? ` - ${b.pincode}` : ''}`
     : o.address || 'Verified Delivery Address';

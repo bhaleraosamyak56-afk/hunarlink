@@ -153,7 +153,9 @@ function ClerkBridgeInner({ children }) {
     user: storeUser,
     setUser,
     buyerProfile,
-    setBuyerProfile
+    setBuyerProfile,
+    hydrateFromBackend,
+    clearSessionState
   } = useStore();
 
   const isLoaded = Boolean(userLoaded && authLoaded);
@@ -161,7 +163,8 @@ function ClerkBridgeInner({ children }) {
 
   /* Sync the Clerk-authenticated user into HunarLink's FastAPI database
      (`users` + `user_role_assignments`) using a cryptographically verified
-     Clerk RS256 session JWT. Silently skipped on static GitHub Pages. */
+     Clerk RS256 session JWT, then hydrate catalog, artisans, orders &
+     addresses strictly from the live database. */
   const syncUserToBackend = useCallback(
     async (clerkAccount, syncedMeta, requestedRole) => {
       if (!canAttemptBackend() || !clerkAccount?.id || !clerkGetToken) return;
@@ -194,6 +197,7 @@ function ClerkBridgeInner({ children }) {
             `[HunarLink DB] ${res.is_new_user ? 'Created new' : 'Synced'} user ${res.email} (id=${res.user_id}, roles=${res.roles.join(',')})`
           );
         }
+        await hydrateFromBackend(token);
       } catch (err) {
         if (import.meta.env.DEV) {
           console.warn(
@@ -202,7 +206,7 @@ function ClerkBridgeInner({ children }) {
         }
       }
     },
-    [clerkGetToken]
+    [clerkGetToken, hydrateFromBackend]
   );
 
   /* Mirror the live Clerk user into StoreContext so Header, ProfilePage,
@@ -212,7 +216,8 @@ function ClerkBridgeInner({ children }) {
 
     if (!isSignedIn || !clerkUser) {
       lastDbSyncKeyRef.current = '';
-      if (storeUser && storeUser.authProvider === 'clerk') {
+      clearSessionState();
+      if (storeUser) {
         setUser(null, { silent: true });
       }
       return;
@@ -352,16 +357,13 @@ function ClerkBridgeInner({ children }) {
 
   const signOutClerk = useCallback(async () => {
     clearPendingClerkRole();
-    try {
-      window.localStorage.removeItem('hunarlink_auth_user');
-    } catch {
-      /* ignore */
-    }
+    lastDbSyncKeyRef.current = '';
+    clearSessionState();
     setUser(null, { silent: true });
     if (isSignedIn && clerk?.signOut) {
       await clerk.signOut(() => {});
     }
-  }, [clerk, isSignedIn, setUser]);
+  }, [clerk, clearSessionState, isSignedIn, setUser]);
 
   const renderSsoCallback = useCallback(() => {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
@@ -386,6 +388,64 @@ function ClerkBridgeInner({ children }) {
     }
   }, [isSignedIn, clerkGetToken]);
 
+  const sendEmailCode = useCallback(
+    async (emailAddress, role = 'buyer') => {
+      const cleaned = String(emailAddress || '').trim().toLowerCase();
+      const normalizedRole = role === 'artisan' ? 'artisan' : 'buyer';
+      setPendingClerkRole(normalizedRole);
+      if (!signInLoaded || !signUpLoaded || !signIn || !signUp) {
+        throw new Error('Authentication service is initializing. Please retry.');
+      }
+      try {
+        const si = await signIn.create({ identifier: cleaned });
+        const emailFactor = si.supportedFirstFactors?.find((f) => f.strategy === 'email_code');
+        if (!emailFactor) {
+          throw new Error('Use "Continue with Google" or "Continue with Apple" for this account.');
+        }
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+          emailAddressId: emailFactor.emailAddressId
+        });
+        return { flow: 'signIn' };
+      } catch (err) {
+        const errCode = err?.errors?.[0]?.code;
+        if (errCode === 'form_identifier_not_found') {
+          await signUp.create({ emailAddress: cleaned });
+          await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+          return { flow: 'signUp' };
+        }
+        throw new Error(
+          err?.errors?.[0]?.longMessage ||
+            err?.errors?.[0]?.message ||
+            err?.message ||
+            'Could not send email verification code.'
+        );
+      }
+    },
+    [signIn, signInLoaded, signUp, signUpLoaded]
+  );
+
+  const verifyEmailCode = useCallback(
+    async (code, flow = 'signIn') => {
+      const cleaned = String(code || '').trim();
+      if (flow === 'signIn') {
+        const res = await signIn.attemptFirstFactor({ strategy: 'email_code', code: cleaned });
+        if (res.status === 'complete' && res.createdSessionId) {
+          await clerk.setActive({ session: res.createdSessionId });
+          return true;
+        }
+      } else {
+        const res = await signUp.attemptEmailAddressVerification({ code: cleaned });
+        if (res.status === 'complete' && res.createdSessionId) {
+          await clerk.setActive({ session: res.createdSessionId });
+          return true;
+        }
+      }
+      throw new Error('Verification incomplete. Please request a fresh code.');
+    },
+    [clerk, signIn, signUp]
+  );
+
   const bridgeValue = useMemo(
     () => ({
       enabled: true,
@@ -394,10 +454,22 @@ function ClerkBridgeInner({ children }) {
       clerkUser: clerkUser || null,
       getToken,
       authenticateWithOAuth,
+      sendEmailCode,
+      verifyEmailCode,
       signOutClerk,
       renderSsoCallback
     }),
-    [isLoaded, isSignedIn, clerkUser, getToken, authenticateWithOAuth, signOutClerk, renderSsoCallback]
+    [
+      isLoaded,
+      isSignedIn,
+      clerkUser,
+      getToken,
+      authenticateWithOAuth,
+      sendEmailCode,
+      verifyEmailCode,
+      signOutClerk,
+      renderSsoCallback
+    ]
   );
 
   return (

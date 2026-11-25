@@ -181,3 +181,54 @@ def test_04_artisan_sync_and_verification_persists_seller_profile_without_self_a
 
     _set_clerk_claims(app, None)
     app.dependency_overrides.pop(get_current_principal, None)
+
+
+def test_05_user_addresses_crud_requires_auth_and_persists_in_db(app_and_client, db_session):
+    app, client = app_and_client
+    _set_clerk_claims(app, {"sub": "user_2addrTest01"})
+    sync = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "addr.user@example.com",
+            "first_name": "Aarav",
+            "requested_role": "buyer",
+        },
+    )
+    assert sync.status_code == 200
+
+    from app.core.auth import load_principal_by_clerk_id
+
+    set_authenticated_principal(app, None)
+    assert client.get("/api/v1/auth/addresses").status_code == 401
+
+    principal = load_principal_by_clerk_id(db_session, "user_2addrTest01")
+    set_authenticated_principal(app, principal)
+    assert client.get("/api/v1/auth/addresses").json() == []
+
+    created = client.post(
+        "/api/v1/auth/addresses",
+        json={
+            "address_label": "HOME",
+            "recipient_name": "Aarav Sharma",
+            "recipient_phone": "+91 9811044210",
+            "line1": "Residency Road, Near Lal Chowk",
+            "city": "Srinagar",
+            "state_province": "Jammu and Kashmir",
+            "postal_code": "190001",
+            "is_default": True,
+        },
+    )
+    assert created.status_code == 201
+    addr_id = created.json()["id"]
+    assert created.json()["is_default"] is True
+
+    listed = client.get("/api/v1/auth/addresses").json()
+    assert len(listed) == 1
+    assert listed[0]["id"] == addr_id
+
+    del_resp = client.delete(f"/api/v1/auth/addresses/{addr_id}")
+    assert del_resp.status_code == 204
+    assert client.get("/api/v1/auth/addresses").json() == []
+
+    _set_clerk_claims(app, None)
+    app.dependency_overrides.pop(get_current_principal, None)

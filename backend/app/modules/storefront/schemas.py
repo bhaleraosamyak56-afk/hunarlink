@@ -1,4 +1,4 @@
-"""Pydantic schemas for storefront catalog & server-authoritative retail order creation."""
+"""Pydantic schemas for authenticated storefront catalog, artisans & retail orders."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -14,16 +14,45 @@ class CatalogProductItem(BaseModel):
     product_variant_id: str
     seller_profile_id: str
     seller_sku: str
+    product_slug: str
     title: str
+    description: str
     category_slug: str
     category_name: str
     store_name: str
+    artisan_name: str
+    artisan_slug: str
+    workshop_district: str | None = None
+    craft_specialty: str | None = None
+    verification_path: str
+    verification_status: str
+    claimed_gi_code: str | None = None
     selling_price: Decimal
     compare_at_mrp: Decimal | None = None
     currency_code: str
     min_order_qty: int
     max_order_qty: int | None = None
     gi_status: str
+
+
+class ArtisanSummaryItem(BaseModel):
+    seller_profile_id: str
+    slug: str
+    name: str
+    store_name: str
+    craft_specialty: str | None = None
+    workshop_district: str | None = None
+    verification_path: str
+    verification_status: str
+    profile_status: str
+    claimed_gi_code: str | None = None
+    listing_count: int = 0
+    starting_price: Decimal | None = None
+    categories: list[str] = Field(default_factory=list)
+
+
+class ArtisanDetailResponse(ArtisanSummaryItem):
+    listings: list[CatalogProductItem] = Field(default_factory=list)
 
 
 class RetailOrderLineInput(BaseModel):
@@ -56,6 +85,18 @@ class CreateRetailOrderRequest(BaseModel):
     items: list[RetailOrderLineInput] = Field(..., min_length=1, max_length=50)
     shipping_address: ShippingAddressInput
     payment_method: Literal["RAZORPAY_STANDARD", "COD"] = "RAZORPAY_STANDARD"
+    payment_label: str | None = Field(default=None, max_length=120)
+
+
+class RetailOrderItemSummary(BaseModel):
+    product_id: str
+    seller_listing_id: str
+    title: str
+    sku: str
+    gi_status: str
+    quantity: int
+    unit_price: Decimal
+    line_total: Decimal
 
 
 class RetailOrderSummaryResponse(BaseModel):
@@ -63,6 +104,7 @@ class RetailOrderSummaryResponse(BaseModel):
     order_number: str
     order_scope: str = "RETAIL"
     payment_method: str
+    payment_label: str | None = None
     payment_status: str
     fulfilment_status: str
     currency_code: str
@@ -72,4 +114,6 @@ class RetailOrderSummaryResponse(BaseModel):
     shipping_fee: Decimal
     total_amount: Decimal
     item_count: int
+    shipping_address: dict | None = None
+    items: list[RetailOrderItemSummary] = Field(default_factory=list)
     created_at: datetime

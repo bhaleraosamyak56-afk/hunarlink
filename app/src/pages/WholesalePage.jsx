@@ -522,7 +522,7 @@ export default function WholesalePage() {
               <div className="wp-field">
                 <label className="wp-label" htmlFor="bw-name">Buyer Full Name *</label>
                 <input type="text" id="bw-name" className="wp-input" value={buyer.name}
-                onChange={(e) => setBuyerField('name')(e.target.value)} required placeholder="e.g. Priya Sharma" />
+                onChange={(e) => setBuyerField('name')(e.target.value)} required placeholder="Full contact name" />
               </div>
 
               <div className="wp-field">
