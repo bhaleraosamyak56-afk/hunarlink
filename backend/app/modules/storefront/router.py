@@ -19,6 +19,7 @@ from app.core.auth import AuthenticatedPrincipal, get_current_principal, require
 from app.core.database import get_db
 from app.models.base import new_uuid, utcnow
 from app.models.core_models import (
+    AdminCredential,
     Category,
     Product,
     ProductVariant,
@@ -415,6 +416,9 @@ def admin_live_overview(
         db.scalars(select(SellerProductListing).order_by(SellerProductListing.created_at.desc()).limit(100)).all()
     )
     orders = list(db.scalars(select(RetailOrder).order_by(RetailOrder.created_at.desc()).limit(100)).all())
+    admin_creds = list(
+        db.scalars(select(AdminCredential).order_by(AdminCredential.created_at.asc())).all()
+    )
 
     return {
         "admin_user_id": admin.user_id,
@@ -424,7 +428,20 @@ def admin_live_overview(
             "sellers": len(sellers),
             "listings": len(listings),
             "orders": len(orders),
+            "admins": len(admin_creds),
         },
+        "admin_credentials": [
+            {
+                "id": ac.id,
+                "user_id": ac.user_id,
+                "email": ac.email,
+                "password_hash": ac.password_hash,
+                "is_active": ac.is_active,
+                "last_login_at": ac.last_login_at.isoformat() if ac.last_login_at else None,
+                "created_at": ac.created_at.isoformat(),
+            }
+            for ac in admin_creds
+        ],
         "users": [
             {
                 "id": u.id,

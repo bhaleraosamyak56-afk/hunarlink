@@ -227,7 +227,14 @@ export function fetchAdminGuardrailRules(token) {
   return apiRequest('/api/v1/admin/guardrail/rules', { token });
 }
 
-/* --- 1:1 Admin Overview, Razorpay Payments, Webhooks & Refunds Endpoints --- */
+/* --- 1:1 Dedicated Admin Email + Password Login & Overview Endpoints --- */
+export function adminPasswordLogin({ email, password }) {
+  return apiRequest('/api/v1/auth/admin-login', {
+    method: 'POST',
+    body: { email, password }
+  });
+}
+
 export function fetchAdminOverview(token) {
   return apiRequest('/api/v1/admin/overview', { token });
 }

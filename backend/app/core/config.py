@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     clerk_audience: str = Field(default="")
     clerk_webhook_secret: SecretStr = Field(default=SecretStr(""))
 
+    # Dedicated Admin Email+Password JWT signing secret (HS256; never hardcode in prod)
+    admin_jwt_secret: SecretStr = Field(default=SecretStr(""))
+    admin_session_ttl_seconds: int = Field(default=28800, ge=300, le=86400)
+
     # Razorpay Standard Checkout (India / INR initial release)
     razorpay_mode: str = Field(default="test")
     razorpay_key_id: str = Field(default="")

@@ -305,3 +305,118 @@ def test_06_admin_overview_blocks_guests_and_normal_users_but_allows_db_admin(ap
 
     _set_clerk_claims(app, None)
     app.dependency_overrides.pop(get_current_principal, None)
+
+
+def test_07_admin_password_login_allows_only_db_provisioned_admins_and_revocation_works(app_and_client, db_session):
+    from sqlalchemy import select
+    from app.core.admin_security import hash_admin_password
+    from app.models.base import new_uuid
+    from app.models.core_models import (
+        AdminCredential,
+        AdminPermission,
+        AdminProfile,
+        AdminRole,
+        AdminRolePermission,
+        AdminUserRole,
+        PlatformRole,
+        User,
+        UserRoleAssignment,
+    )
+
+    app, client = app_and_client
+    # Remove any dependency override so the REAL HS256 JWT + DB check runs end-to-end
+    app.dependency_overrides.pop(get_current_principal, None)
+
+    # 1. Unknown / non-admin email is rejected (401)
+    r_unknown = client.post(
+        "/api/v1/auth/admin-login",
+        json={"email": "outsider@example.com", "password": "SomePassword123!"},
+    )
+    assert r_unknown.status_code == 401
+
+    # 2. Provision one dedicated Admin directly in DB
+    admin_user = User(
+        id=new_uuid(),
+        clerk_user_id="hl_admin_test_001",
+        email="chief.admin@hunarlink.test",
+        email_verified=True,
+        first_name="Chief",
+        last_name="Admin",
+        display_name="Chief Admin",
+        account_status="ACTIVE",
+    )
+    db_session.add(admin_user)
+    db_session.flush()
+
+    plat_role = db_session.scalar(select(PlatformRole).where(PlatformRole.code == "ADMIN"))
+    if plat_role is None:
+        plat_role = PlatformRole(id=new_uuid(), code="ADMIN", name="Admin", is_active=True)
+        db_session.add(plat_role)
+    ap = AdminProfile(id=new_uuid(), user_id=admin_user.id, admin_status="ACTIVE")
+    ar = AdminRole(id=new_uuid(), code="SUPER_ADMIN_PW_TEST", name="Super Admin", is_active=True)
+    perm = db_session.scalar(select(AdminPermission).where(AdminPermission.code == "payments.read"))
+    if perm is None:
+        perm = AdminPermission(id=new_uuid(), code="payments.read", module_name="payments", is_high_risk=False)
+        db_session.add(perm)
+    db_session.add_all([ap, ar])
+    db_session.flush()
+
+    secret_pw = "ValleyAdmin#2026!"
+    cred = AdminCredential(
+        id=new_uuid(),
+        user_id=admin_user.id,
+        email=admin_user.email,
+        password_hash=hash_admin_password(secret_pw),
+        is_active=True,
+    )
+    db_session.add_all([
+        UserRoleAssignment(
+            id=new_uuid(),
+            user_id=admin_user.id,
+            platform_role_id=plat_role.id,
+            assignment_status="ACTIVE",
+        ),
+        AdminRolePermission(id=new_uuid(), admin_role_id=ar.id, admin_permission_id=perm.id),
+        AdminUserRole(id=new_uuid(), admin_profile_id=ap.id, admin_role_id=ar.id, is_active=True),
+        cred,
+    ])
+    db_session.commit()
+
+    # 3. Wrong password -> 401
+    r_bad = client.post(
+        "/api/v1/auth/admin-login",
+        json={"email": admin_user.email, "password": "WrongPassword!"},
+    )
+    assert r_bad.status_code == 401
+
+    # 4. Correct email + password -> 200 + working HS256 Admin JWT
+    r_ok = client.post(
+        "/api/v1/auth/admin-login",
+        json={"email": admin_user.email, "password": secret_pw},
+    )
+    assert r_ok.status_code == 200
+    body = r_ok.json()
+    token = body["access_token"]
+    assert body["email"] == admin_user.email
+    assert "payments.read" in body["admin_permissions"]
+
+    # 5. Live DB Admin Overview works with real Bearer token & returns hashed credential row
+    ov = client.get(
+        "/api/v1/admin/overview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert ov.status_code == 200
+    creds_list = ov.json()["admin_credentials"]
+    assert len(creds_list) == 1
+    assert creds_list[0]["email"] == admin_user.email
+    assert creds_list[0]["password_hash"].startswith("pbkdf2_sha256$")
+    assert secret_pw not in creds_list[0]["password_hash"]
+
+    # 6. Revoking admin credential immediately invalidates existing token (403)
+    cred.is_active = False
+    db_session.commit()
+    ov_revoked = client.get(
+        "/api/v1/admin/overview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert ov_revoked.status_code == 403
