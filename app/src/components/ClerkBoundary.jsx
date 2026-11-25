@@ -164,6 +164,7 @@ function ClerkBridgeInner({ children }) {
 
   const isLoaded = Boolean(userLoaded && authLoaded);
   const lastDbSyncKeyRef = useRef('');
+  const syncedAccountIdsRef = useRef(new Set());
   const conflictSigningOutRef = useRef(false);
 
   const getCurrentAppPath = () => {
@@ -192,6 +193,12 @@ function ClerkBridgeInner({ children }) {
         const emailVerified = Boolean(
           clerkAccount.primaryEmailAddress?.verification?.status === 'verified'
         );
+        const effectiveAuthMode =
+          authMode === 'signup' && syncedAccountIdsRef.current.has(clerkAccount.id)
+            ? 'sync'
+            : authMode === 'signup' || authMode === 'signin'
+              ? authMode
+              : 'sync';
         const res = await syncAuthenticatedUser(
           {
             email,
@@ -201,11 +208,12 @@ function ClerkBridgeInner({ children }) {
             display_name: syncedMeta.fullName || syncedMeta.first || null,
             phone: syncedMeta.phone || null,
             requested_role: requestedRole === 'artisan' ? 'artisan' : 'buyer',
-            auth_mode: authMode === 'signup' || authMode === 'signin' ? authMode : 'sync'
+            auth_mode: effectiveAuthMode
           },
           token
         );
         lastDbSyncKeyRef.current = syncKey;
+        syncedAccountIdsRef.current.add(clerkAccount.id);
 
         const dbIsArtisan = Boolean(res?.is_artisan) || requestedRole === 'artisan';
         const dbArtisanVerified = Boolean(res?.artisan_verified);
@@ -293,6 +301,7 @@ function ClerkBridgeInner({ children }) {
           clearPendingClerkRole();
           clearPendingClerkAuthMode();
           lastDbSyncKeyRef.current = '';
+          syncedAccountIdsRef.current.clear();
           clearSessionState();
           setUser(null, { silent: true });
           try {
@@ -325,6 +334,7 @@ function ClerkBridgeInner({ children }) {
 
     if (!isSignedIn || !clerkUser) {
       lastDbSyncKeyRef.current = '';
+      syncedAccountIdsRef.current.clear();
       clearSessionState();
       if (storeUser) {
         setUser(null, { silent: true });
@@ -612,23 +622,99 @@ function ClerkBridgeInner({ children }) {
 
   const verifyEmailCode = useCallback(
     async (code, flow = 'signIn') => {
+      if (isSignedIn && clerkUser) {
+        return true;
+      }
       const cleaned = String(code || '').trim();
       if (flow === 'signIn') {
-        const res = await signIn.attemptFirstFactor({ strategy: 'email_code', code: cleaned });
-        if (res.status === 'complete' && res.createdSessionId) {
-          await clerk.setActive({ session: res.createdSessionId });
+        if (signIn?.status === 'complete' && signIn?.createdSessionId) {
+          await clerk.setActive({ session: signIn.createdSessionId });
           return true;
         }
+        try {
+          const res = await signIn.attemptFirstFactor({ strategy: 'email_code', code: cleaned });
+          if (res.status === 'complete' && res.createdSessionId) {
+            await clerk.setActive({ session: res.createdSessionId });
+            return true;
+          }
+        } catch (err) {
+          const msg = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || '';
+          if (msg.toLowerCase().includes('already') && signIn?.createdSessionId) {
+            await clerk.setActive({ session: signIn.createdSessionId });
+            return true;
+          }
+          throw new Error(msg || 'Invalid or expired verification code.');
+        }
       } else {
-        const res = await signUp.attemptEmailAddressVerification({ code: cleaned });
-        if (res.status === 'complete' && res.createdSessionId) {
-          await clerk.setActive({ session: res.createdSessionId });
-          return true;
+        const finalizeSignUp = async (suResource) => {
+          let current = suResource || signUp;
+          if (!current) return false;
+          if (current.status === 'complete' && current.createdSessionId) {
+            await clerk.setActive({ session: current.createdSessionId });
+            return true;
+          }
+          if (current.status === 'missing_requirements') {
+            const missing = Array.isArray(current.missingFields) ? current.missingFields : [];
+            const emailStr =
+              current.emailAddress ||
+              current.verifications?.emailAddress?.nextAction ||
+              'artisan';
+            const localPrefix =
+              String(emailStr)
+                .split('@')[0]
+                .replace(/[^a-zA-Z0-9_]/g, '')
+                .slice(0, 20) || 'hunarlink';
+            const patch = {};
+            if (missing.includes('first_name')) patch.firstName = localPrefix;
+            if (missing.includes('last_name')) patch.lastName = 'Member';
+            if (missing.includes('username')) {
+              patch.username = `${localPrefix}_${Math.floor(1000 + Math.random() * 9000)}`;
+            }
+            if (missing.includes('password')) {
+              patch.password = `Hl!${Math.random().toString(36).slice(2, 10)}9A#`;
+            }
+            if (missing.includes('legal_accepted')) {
+              patch.legalAccepted = true;
+            }
+            if (Object.keys(patch).length > 0 && typeof current.update === 'function') {
+              current = await current.update(patch);
+              if (current.status === 'complete' && current.createdSessionId) {
+                await clerk.setActive({ session: current.createdSessionId });
+                return true;
+              }
+            }
+          }
+          return false;
+        };
+
+        if (signUp?.verifications?.emailAddress?.status === 'verified') {
+          if (await finalizeSignUp(signUp)) return true;
+        }
+
+        try {
+          const res = await signUp.attemptEmailAddressVerification({ code: cleaned });
+          if (await finalizeSignUp(res)) return true;
+        } catch (err) {
+          const errCode = err?.errors?.[0]?.code || '';
+          const msg = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || '';
+          if (
+            errCode === 'verification_already_verified' ||
+            msg.toLowerCase().includes('already been verified')
+          ) {
+            if (await finalizeSignUp(signUp)) return true;
+            if (isSignedIn) return true;
+            const switchErr = new Error(
+              'Email verified. Please enter a fresh Sign-In code below to continue.'
+            );
+            switchErr.code = 'SWITCH_TO_SIGNIN';
+            throw switchErr;
+          }
+          throw new Error(msg || 'Invalid or expired verification code.');
         }
       }
       throw new Error('Verification incomplete. Please request a fresh code.');
     },
-    [clerk, signIn, signUp]
+    [clerk, clerkUser, isSignedIn, signIn, signUp]
   );
 
   const bridgeValue = useMemo(

@@ -472,6 +472,7 @@ export default function AdminPage() {
                     <th style={{ padding: '0.55rem' }}>Name</th>
                     <th style={{ padding: '0.55rem' }}>Email</th>
                     <th style={{ padding: '0.55rem' }}>Identity ID</th>
+                    <th style={{ padding: '0.55rem' }}>Onboarding Stage</th>
                     <th style={{ padding: '0.55rem' }}>Status</th>
                   </tr>
                 </thead>
@@ -481,6 +482,23 @@ export default function AdminPage() {
                       <td style={{ padding: '0.55rem', fontWeight: 600 }}>{u.name}</td>
                       <td style={{ padding: '0.55rem' }}>{u.email}</td>
                       <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>{u.clerk_user_id}</td>
+                      <td style={{ padding: '0.55rem', fontSize: '0.78rem' }}>
+                        {u.onboarding_state === 'STEP_1_ONLY_NO_CARD_YET' ? (
+                          <span style={{ color: '#8a5300', fontWeight: 600 }}>
+                            Step 1 Signed In (Awaiting Card Upload on /auth?tab=verify)
+                          </span>
+                        ) : u.onboarding_state === 'SUBMITTED' ? (
+                          <span style={{ color: '#a34121', fontWeight: 600 }}>
+                            Pending Admin Review
+                          </span>
+                        ) : u.onboarding_state === 'APPROVED' ? (
+                          <span style={{ color: '#1b6d3f', fontWeight: 600 }}>
+                            Verified Artisan
+                          </span>
+                        ) : (
+                          <span style={{ opacity: 0.7 }}>{u.onboarding_state || 'BUYER'}</span>
+                        )}
+                      </td>
                       <td style={{ padding: '0.55rem' }}>{u.account_status}</td>
                     </tr>
                   ))}
@@ -501,6 +519,34 @@ export default function AdminPage() {
               <strong>Verify &amp; Push Live</strong> promotes their <code>seller_profiles</code> record to{' '}
               <code>APPROVED / ACTIVE</code> and publishes their unique workshop URL (<code>/artisan?id=&lt;uuid&gt;</code>).
             </p>
+            {(ov.incomplete_artisan_signups || []).length > 0 && (
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '0.8rem 1rem',
+                  borderRadius: '10px',
+                  background: 'rgba(138, 83, 0, 0.08)',
+                  border: '1px solid rgba(138, 83, 0, 0.25)',
+                  fontSize: '0.82rem'
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#7a4900', marginBottom: '0.3rem' }}>
+                  Step 1 Signed-In Artisans Awaiting Step 2 Card Submission ({ov.incomplete_artisan_signups.length})
+                </div>
+                <div style={{ opacity: 0.85, marginBottom: '0.45rem' }}>
+                  These accounts completed Step 1 login on <code>/login</code>, so they appear in{' '}
+                  <code>users</code>, and will appear in this verification queue as soon as they submit their
+                  Workshop &amp; Artisan Card on <code>/auth?tab=verify</code>:
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                  {ov.incomplete_artisan_signups.map((inc) => (
+                    <li key={inc.user_id}>
+                      <strong>{inc.name}</strong> ({inc.email})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {(ov.artisan_applications || []).length === 0 ? (
               <p style={{ opacity: 0.7 }}>No artisan verification applications in the database yet.</p>
             ) : (

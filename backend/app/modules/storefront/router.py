@@ -803,8 +803,21 @@ def admin_live_overview(
     admin_creds = list(
         db.scalars(select(AdminCredential).order_by(AdminCredential.created_at.asc())).all()
     )
+    role_rows = list(
+        db.execute(
+            select(UserRoleAssignment.user_id, PlatformRole.code)
+            .join(PlatformRole, PlatformRole.id == UserRoleAssignment.platform_role_id)
+            .where(UserRoleAssignment.assignment_status == "ACTIVE")
+        ).all()
+    )
+    roles_by_user_id: dict[str, list[str]] = defaultdict(list)
+    for uid, rcode in role_rows:
+        if rcode not in roles_by_user_id[uid]:
+            roles_by_user_id[uid].append(rcode)
+
     users_by_id = {u.id: u for u in users}
     sellers_by_id = {s.id: s for s in sellers}
+    seller_by_user_id = {s.user_id: s for s in sellers}
     docs_by_app_id: dict[str, list[SellerDocument]] = defaultdict(list)
     for d in seller_docs:
         if d.application_id:
@@ -826,6 +839,11 @@ def admin_live_overview(
     pending_apps_count = sum(
         1 for a in applications if a.application_status in {"SUBMITTED", "UNDER_REVIEW", "NEEDS_MORE_INFO"}
     )
+    incomplete_artisan_users = [
+        u
+        for u in users
+        if "DIRECT_SELLER" in roles_by_user_id.get(u.id, []) and u.id not in seller_by_user_id
+    ]
 
     return {
         "admin_user_id": admin.user_id,
@@ -834,10 +852,21 @@ def admin_live_overview(
             "users": len(users),
             "sellers": len(sellers),
             "pending_applications": pending_apps_count,
+            "incomplete_artisan_signups": len(incomplete_artisan_users),
             "listings": len(listings),
             "orders": len(orders),
             "admins": len(admin_creds),
         },
+        "incomplete_artisan_signups": [
+            {
+                "user_id": u.id,
+                "name": u.display_name or f"{u.first_name} {u.last_name or ''}".strip() or u.email,
+                "email": u.email,
+                "phone": u.phone,
+                "created_at": u.created_at.isoformat(),
+            }
+            for u in incomplete_artisan_users
+        ],
         "artisan_applications": [
             {
                 "id": app_row.id,
@@ -937,6 +966,16 @@ def admin_live_overview(
                 "email": u.email,
                 "name": u.display_name or f"{u.first_name} {u.last_name or ''}".strip(),
                 "phone": u.phone,
+                "roles": roles_by_user_id.get(u.id, []),
+                "onboarding_state": (
+                    seller_by_user_id[u.id].verification_status
+                    if u.id in seller_by_user_id
+                    else (
+                        "STEP_1_ONLY_NO_CARD_YET"
+                        if "DIRECT_SELLER" in roles_by_user_id.get(u.id, [])
+                        else "BUYER"
+                    )
+                ),
                 "account_status": u.account_status,
                 "created_at": u.created_at.isoformat(),
             }
