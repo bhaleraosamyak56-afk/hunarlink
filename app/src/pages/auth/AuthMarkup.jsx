@@ -29,6 +29,7 @@ export default function AuthMarkup(props) {
     setVideoEl,
     /* form visibility + controlled fields */
     showLogin = true, showRegister = false, showForgot = false,
+    isClerkOnboarding = false, clerkEmail = '',
     pwType = () => 'password',
     forgotEmail = '', setForgotEmail
   } = props;
@@ -113,6 +114,31 @@ export default function AuthMarkup(props) {
              ==================================================================== */}
         <form id="form-artisan-register" style={{display: showRegister ? 'block' : 'none'}} onSubmit={submitRegister}>
 
+          {isClerkOnboarding && (
+            <div
+              role="status"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                marginBottom: '14px',
+                background: '#eef7f1',
+                border: '1px solid #b6dec5',
+                color: '#124229',
+                fontSize: '0.82rem',
+                lineHeight: 1.45
+              }}
+            >
+              <span>✓</span>
+              <div>
+                <strong>Google / Clerk Identity Confirmed{clerkEmail ? ` (${clerkEmail})` : ''}</strong>
+                <div>Complete your Artisan &amp; GI Verification below to activate your Seller Workspace.</div>
+              </div>
+            </div>
+          )}
+
           {/* Info Banner for Standard Seller (No GI Certification) */}
           <div className="no-gi-info-banner" id="no-gi-info-banner" style={{display: giMode === 'no_gi' ? 'flex' : 'none'}}>
             <span style={{fontSize: '1rem', lineHeight: '1'}}>ℹ️</span>
@@ -121,9 +147,11 @@ export default function AuthMarkup(props) {
               right away. You can apply for GI Certification anytime later from your Artisan Studio.
             </div>
           </div>
-          <p className="auth-demo-note" role="note">
-            Demo only: account details stay in this browser; secure registration and verification uploads are not connected. Use a unique test password.
-          </p>
+          {!isClerkOnboarding && (
+            <p className="auth-demo-note" role="note">
+              Demo only: account details stay in this browser; secure registration and verification uploads are not connected. Use a unique test password.
+            </p>
+          )}
 
           {/* Row 1: Full Name & Phone */}
           <div className="form-grid-2col">
@@ -153,7 +181,7 @@ export default function AuthMarkup(props) {
             </div>
           </div>
 
-          {/* Row 2: Email & Password */}
+          {/* Row 2: Email & Password (password omitted when authenticated via Clerk SSO) */}
           <div className="form-grid-2col">
             <div className="form-group">
               <label className="form-label">Email Address <span className="req">*</span></label>
@@ -165,35 +193,61 @@ export default function AuthMarkup(props) {
                     <polyline points="22,6 12,13 2,6"></polyline>
                   </svg>
                 </span>
-                <input type="email" id="artisan-reg-email" aria-label="Email address" className="input-field" placeholder="Enter your email" required value={reg.email || ''} onChange={setRegField('email')} />
+                <input type="email" id="artisan-reg-email" aria-label="Email address" className="input-field" placeholder="Enter your email" required value={reg.email || ''} onChange={setRegField('email')} readOnly={isClerkOnboarding && Boolean(clerkEmail)} />
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Password <span className="req">*</span></label>
-              <div className="input-wrapper">
-                <span className="input-icon-left">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
-                </span>
-                <input type={pwType('artisan-reg-password')} id="artisan-reg-password" aria-label="Password" className="input-field" placeholder="Create strong password"
-                  required value={reg.password || ''} onChange={setRegField('password')} />
-                <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-password')}
-                  aria-label="Toggle password">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
-                </button>
+            {!isClerkOnboarding ? (
+              <div className="form-group">
+                <label className="form-label">Password <span className="req">*</span></label>
+                <div className="input-wrapper">
+                  <span className="input-icon-left">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  </span>
+                  <input type={pwType('artisan-reg-password')} id="artisan-reg-password" aria-label="Password" className="input-field" placeholder="Create strong password"
+                    required value={reg.password || ''} onChange={setRegField('password')} />
+                  <button type="button" className="input-btn-eye" onClick={() => togglePw('artisan-reg-password')}
+                    aria-label="Toggle password">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Craft Category <span className="req">*</span></label>
+                <div className="input-wrapper">
+                  <span className="input-icon-left">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <rect x="3" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="3" width="7" height="7"></rect>
+                      <rect x="14" y="14" width="7" height="7"></rect>
+                      <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                  </span>
+                  <select id="artisan-reg-craft" aria-label="Craft category" className="input-field" required value={reg.craft || ''} onChange={setRegField('craft')} >
+                    <option value="" disabled>Select Craft Discipline</option>
+                    <option value="walnut">Walnut Woodcarving</option>
+                    <option value="pashmina">Pashmina &amp; Cashmere Weaving</option>
+                    <option value="papier-mache">Papier-Mâché Naqash Art</option>
+                    <option value="silk-rugs">Silk Rugs &amp; Hand-Knotted Carpets</option>
+                    <option value="kani-sozni">Kani Loom &amp; Sozni Needlework</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Row 3: Confirm Password & Craft Category */}
+          {/* Row 3: Confirm Password & Craft Category (omitted when Clerk SSO already showed Craft Category above) */}
+          {!isClerkOnboarding && (
           <div className="form-grid-2col">
             <div className="form-group">
               <label className="form-label">Confirm Password <span className="req">*</span></label>
@@ -241,6 +295,7 @@ export default function AuthMarkup(props) {
               </div>
             </div>
           </div>
+          )}
 
           {/* Row 4: Business / Workshop Name & City/District */}
           <div className="form-grid-2col">

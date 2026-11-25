@@ -349,12 +349,25 @@ export default function SellerPage() {
 
   /* ---- session gate --------------------------------------------------
      The signed-in user is store state now, so signing in or out in any tab
-     re-renders this gate without a focus or storage listener. */
+     re-renders this gate without a focus or storage listener. Unverified Clerk
+     artisans must complete GI / Standard Artisan Verification before entering
+     the Seller Workspace. */
   useEffect(() => {
+    if (
+      storeUser &&
+      storeUser.isLoggedIn &&
+      storeUser.role === 'artisan' &&
+      storeUser.artisanVerified === false
+    ) {
+      setSeller(null);
+      toast('Complete your Artisan & GI Verification to unlock the Seller Workspace.');
+      navigate('/auth?mode=register&step=verify', { replace: true });
+      return;
+    }
     const artisan =
       storeUser && storeUser.isLoggedIn && storeUser.role === 'artisan' ? storeUser : null;
     setSeller(artisan);
-  }, [storeUser]);
+  }, [storeUser, navigate, toast]);
 
   /* seedInitialSellerInquiriesIfEmpty — the static console seeded two sample
      responses the first time a seller opened the workspace. */

@@ -180,7 +180,7 @@ export default function LoginPage() {
   });
 
   const role = params.get('role') === 'artisan' ? 'artisan' : 'user';
-  const target = params.get('redirect') || '/profile';
+  const target = params.get('redirect') || '/';
   const isSignin = mode === 'signin';
 
   /* Keep mode in step with ?mode= when navigating via browser Back/Forward. */
@@ -198,10 +198,11 @@ export default function LoginPage() {
   }, [mode, navigate, role]);
 
   /* Sync storefront session from saved buyerProfile only when a persisted
-     buyerProfile exists — never clobber an active buyer or artisan session. */
+     logged-in buyerProfile exists — never clobber an active artisan or
+     Clerk session, and never re-sign-in a signed-out buyer. */
   useEffect(() => {
-    if (!buyerProfile) return;
-    if (storeUser && storeUser.role === 'artisan' && storeUser.isLoggedIn) return;
+    if (!buyerProfile || !buyerProfile.isLoggedIn) return;
+    if (storeUser && storeUser.isLoggedIn && (storeUser.role === 'artisan' || storeUser.authProvider === 'clerk')) return;
     const p = readProfile(buyerProfile);
     setUser({
       name: p.firstName,
@@ -403,8 +404,15 @@ export default function LoginPage() {
           redirectTo: target
         });
         if (res && res.alreadySignedIn) {
-          toast(`Signed in with Clerk! Opening your ${role === 'artisan' ? 'workspace' : 'account'}...`, 'success');
+          const msg =
+            role === 'artisan'
+              ? res.artisanVerified
+                ? 'Signed in with Clerk! Opening your Artisan Workspace...'
+                : 'Signed in with Clerk! Complete your Artisan Verification to unlock Seller Portal.'
+              : 'Signed in with Clerk! Welcome back to HunarLink.';
+          toast(msg, 'success');
           scheduleNavigate(res.destination, 400);
+          setOauthBusy(null);
         }
       } catch (err) {
         toast(err?.message || `Could not continue with ${provider}.`, 'error');
