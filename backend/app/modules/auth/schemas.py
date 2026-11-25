@@ -53,6 +53,8 @@ class AuthUserProfileResponse(BaseModel):
     phone: str | None = None
     account_status: str
     roles: list[str]
+    is_admin: bool = False
+    admin_permissions: list[str] = Field(default_factory=list)
     seller_profile: SellerProfileBrief | None = None
     created_at: datetime
     updated_at: datetime
