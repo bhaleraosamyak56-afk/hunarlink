@@ -114,6 +114,45 @@ def list_guardrail_rules(db: Session) -> list[GuardrailRule]:
     return list(db.scalars(select(GuardrailRule).order_by(GuardrailRule.rule_code)).all())
 
 
+DEFAULT_ASIGS_RULES: list[tuple[str, str, str, str]] = [
+    ("ID_UNVERIFIED_OR_INACTIVE_PROFILE", "IDENTITY", "Block unapproved or inactive seller/supplier/dealer profiles", "BLOCK"),
+    ("ID_OWNERSHIP_SPOOFING", "IDENTITY", "Block cross-tenant profile ID spoofing attempts", "BLOCK"),
+    ("INPUT_UNSAFE_MARKUP_OR_SCRIPT", "INPUT_VALIDATION", "Block HTML/XSS script injection in titles & descriptions", "BLOCK"),
+    ("PROD_SELLER_CANNOT_SELF_VERIFY_GI", "PRODUCT", "Block seller self-assignment of GI_VERIFIED status", "BLOCK"),
+    ("PROD_LISTING_REQUIRES_APPROVAL", "PRODUCT", "Block bypassing PENDING_APPROVAL workflow", "BLOCK"),
+    ("COMM_PRICE_ABOVE_MRP", "COMMERCIAL", "Reject selling price exceeding compare-at MRP", "BLOCK"),
+    ("COMM_EXTREME_DISCOUNT_ANOMALY", "COMMERCIAL", "Escalate suspicious extreme discounts (>85%) for admin review", "REVIEW_REQUIRED"),
+    ("DOC_MIME_SIGNATURE_MISMATCH", "DOCUMENT", "Block spoofed file extensions vs binary magic bytes", "BLOCK"),
+    ("DUP_REPEATED_SUBMISSION", "DUPLICATE_DETECTION", "Escalate repeated/duplicate listings & document hashes", "REVIEW_REQUIRED"),
+    ("GI_AI_NOT_LEGAL_PROOF", "GI_VERIFICATION", "Keep AI/OCR GI assessments advisory-only; require admin decision", "REVIEW_REQUIRED"),
+]
+
+
+def ensure_default_guardrail_rules(db: Session) -> int:
+    """Seed canonical ASIGS 10-layer guardrail rules idempotently."""
+    existing = {
+        r.rule_code for r in db.scalars(select(GuardrailRule)).all()
+    }
+    created = 0
+    for rule_code, layer, name, outcome in DEFAULT_ASIGS_RULES:
+        if rule_code not in existing:
+            db.add(
+                GuardrailRule(
+                    id=new_uuid(),
+                    rule_code=rule_code,
+                    layer=layer,
+                    name=name,
+                    default_outcome=outcome,
+                    is_active=True,
+                    rule_version="1.0.0",
+                )
+            )
+            created += 1
+    if created:
+        db.flush()
+    return created
+
+
 def get_file_scan(db: Session, scan_id: str) -> FileSecurityScan | None:
     return db.scalar(select(FileSecurityScan).where(FileSecurityScan.id == scan_id))
 

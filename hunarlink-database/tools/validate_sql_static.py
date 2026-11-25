@@ -25,11 +25,11 @@ from sqlglot import exp
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SQL_DIR = ROOT / "sql"
 
-EXPECTED_95_TABLES = [
-    # A. Identity and Admin access (9)
+EXPECTED_96_TABLES = [
+    # A. Identity and Admin access (10)
     "users", "platform_roles", "user_role_assignments", "user_addresses",
     "admin_profiles", "admin_roles", "admin_permissions", "admin_user_roles",
-    "admin_role_permissions",
+    "admin_role_permissions", "admin_credentials",
     # B. Seller and GI verification (8)
     "seller_profiles", "seller_verification_applications", "seller_documents",
     "seller_verification_history", "gi_reference_records", "product_gi_claims",
@@ -210,9 +210,9 @@ def main() -> int:
                                     f"{fname}: `{tname}`.`{src_col}` FK type/collation mismatch against `{ref_tbl}`.`{ref_col}`"
                                 )
 
-    # 3. Verify exact 95-table match
+    # 3. Verify exact 96-table match
     found_set = set(tables.keys())
-    expected_set = set(EXPECTED_95_TABLES)
+    expected_set = set(EXPECTED_96_TABLES)
     missing = sorted(expected_set - found_set)
     extra = sorted(found_set - expected_set)
     if missing:
@@ -296,7 +296,7 @@ def main() -> int:
     (docs_dir / "data_dictionary.md").write_text("\n".join(dd_lines), encoding="utf-8")
 
     print("STATIC MYSQL 8.4 LTS VALIDATION PASSED!")
-    print(f"  Base tables verified : {len(tables)} / 95 (100% match)")
+    print(f"  Base tables verified : {len(tables)} / 96 (100% match)")
     print(f"  Foreign keys verified: {total_fks} (0 forward-ref errors, 0 charset/collation mismatches)")
     print(f"  CHECK constraints    : {total_checks}")
     print(f"  Generated columns    : {total_generated}")

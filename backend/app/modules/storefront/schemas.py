@@ -88,6 +88,24 @@ class CreateRetailOrderRequest(BaseModel):
     payment_label: str | None = Field(default=None, max_length=120)
 
 
+class SellerStudioListingInput(BaseModel):
+    """Artisan Studio craft submission routed through all 10 ASIGS Guardrail layers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(..., min_length=3, max_length=220)
+    guild: str = Field(default="pashmina", min_length=2, max_length=64)
+    description: str | None = Field(default=None, max_length=5000)
+    selling_price: Decimal = Field(..., gt=Decimal("0"))
+    compare_at_mrp: Decimal | None = Field(default=None, gt=Decimal("0"))
+    currency_code: str = Field(default="INR", min_length=3, max_length=3)
+    stock_quantity: int = Field(default=1, ge=0)
+    min_order_qty: int = Field(default=1, ge=1)
+    seller_sku: str | None = Field(default=None, max_length=100)
+    requested_gi_status: str | None = Field(default=None, max_length=40)
+    requested_listing_status: str | None = Field(default=None, max_length=40)
+
+
 class RetailOrderItemSummary(BaseModel):
     product_id: str
     seller_listing_id: str

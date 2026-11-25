@@ -1,12 +1,12 @@
-# HunarLink MySQL 8.4 LTS — Table Inventory (95 Baseline Business Tables)
+# HunarLink MySQL 8.4 LTS — Table Inventory (96 Baseline Business Tables)
 
-Reconciled automatically by `tools/validate_sql_static.py`: **95 / 95 base tables**, **255 foreign keys**, **134 CHECK constraints**, **9 generated partial-uniqueness columns**.
+Reconciled automatically by `tools/validate_sql_static.py`: **96 / 96 base tables**, **256 foreign keys**, **135 CHECK constraints**, **9 generated partial-uniqueness columns**.
 
 > Note on modular file placement: `product_gi_claims`, `gi_claim_documents`, and `gi_verification_runs` are placed in `sql/03_catalog_and_gi_products.sql` right after `products`, and `dealer_wholesale_listings` is placed in `sql/06_wholesale_marketplace.sql` right after `dealer_profiles`, `warehouses`, and `warehouse_stock`. This guarantees zero forward-reference foreign-key errors under strict `FOREIGN_KEY_CHECKS = 1`.
 
 | # | Business Module | SQL Script | Table Name | Key Integrity Rules |
 |---:|---|---|---|---|
-| 1 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `users` | Unique `clerk_user_id` & `email`; no passwords |
+| 1 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `users` | Unique `clerk_user_id` & `email`; no Clerk passwords |
 | 2 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `platform_roles` | Seeded 6 platform roles |
 | 3 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `user_role_assignments` | Multi-role per user; generated `active_role_guard` prevents duplicate ACTIVE roles |
 | 4 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `user_addresses` | Generated `default_address_guard` enforces max 1 active default per user |
@@ -15,6 +15,7 @@ Reconciled automatically by `tools/validate_sql_static.py`: **95 / 95 base table
 | 7 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `admin_permissions` | Seeded 16 fine-grained permissions |
 | 8 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `admin_user_roles` | Generated `active_assignment_guard` prevents duplicate active role assignments |
 | 9 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `admin_role_permissions` | Unique `(admin_role_id, admin_permission_id)` |
+| 10 | A. Identity & Admin | `01_identity_and_admin_access.sql` | `admin_credentials` | Dedicated allowlisted admin email + PBKDF2-SHA256 password hash vault (`is_active` instant revocation) |
 | 10 | B. Seller & GI | `02_sellers_and_verification.sql` | `seller_profiles` | Separate `verification_path`, `profile_status`, `verification_status` |
 | 11 | B. Seller & GI | `02_sellers_and_verification.sql` | `seller_verification_applications` | `ENUM('GI','NON_GI')` path isolation |
 | 12 | B. Seller & GI | `02_sellers_and_verification.sql` | `seller_documents` | Private `storage_key`, SHA-256 hash, `scan_status` |

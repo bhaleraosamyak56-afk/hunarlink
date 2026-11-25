@@ -12,10 +12,8 @@
     if (scriptEl && scriptEl.getAttribute("data-api-base")) {
       return String(scriptEl.getAttribute("data-api-base")).trim().replace(/\/+$/, "");
     }
-    const host = typeof location !== "undefined" ? location.hostname : "";
-    if (host === "localhost" || host === "127.0.0.1") {
-      return "http://127.0.0.1:5050";
-    }
+    /* Always use relative paths so Vite dev/preview proxy forwards /api/chat* -> :5050
+       without calling 127.0.0.1 directly from the user's browser. */
     return "";
   }
   const API_BASE = resolveApiBase();

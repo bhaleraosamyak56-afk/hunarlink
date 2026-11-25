@@ -19,8 +19,12 @@ from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:  # pragma: no cover - optional when running local-knowledge mode
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
 
 from knowledge_base import SYSTEM_INSTRUCTION
 
@@ -69,7 +73,7 @@ OFF_TOPIC_REFUSAL = (
 
 # Thread-safe state
 _LOCK = threading.Lock()
-_CLIENT: Optional[genai.Client] = None
+_CLIENT: Optional[object] = None
 _CLIENT_API_KEY: Optional[str] = None
 _SESSION_HISTORY: "OrderedDict[str, List[Dict[str, str]]]" = OrderedDict()
 _RESPONSE_CACHE: "OrderedDict[str, Tuple[float, str, str]]" = OrderedDict()
@@ -132,9 +136,13 @@ def get_candidate_models() -> List[str]:
     return healthy if healthy else deduped[:2]
 
 
-def get_client() -> genai.Client:
+def get_client():
     """Return a reusable persistent google-genai Client (keeps HTTP/2 + TLS warm)."""
     global _CLIENT, _CLIENT_API_KEY
+    if genai is None or types is None:
+        raise RuntimeError(
+            "google-genai package is not installed; install hunarsathi-chatbot/requirements.txt for live Gemini streaming."
+        )
     api_key, _ = get_gemini_config()
     if not api_key or api_key == "GEMINI_API_KEY":
         raise ValueError(
