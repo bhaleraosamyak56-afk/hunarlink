@@ -552,12 +552,20 @@ function ClerkBridgeInner({ children }) {
 
   const renderSsoCallback = useCallback(() => {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-    const dest =
-      readPendingClerkRole() === 'artisan'
-        ? '/auth?tab=verify'
-        : '/login';
+    const pendingRole = readPendingClerkRole();
+    const pendingMode = readPendingClerkAuthMode();
+    const isSignInAttempt = pendingMode !== 'signup';
+    const dest = pendingRole === 'artisan' ? '/auth?tab=verify' : '/login';
+    const registerDest =
+      pendingRole === 'artisan'
+        ? '/auth?mode=register&not_registered=1'
+        : '/login?mode=register&not_registered=1';
     return (
       <AuthenticateWithRedirectCallback
+        transferable={!isSignInAttempt}
+        signInUrl={`${base}${registerDest}`}
+        signUpUrl={`${base}${registerDest}`}
+        continueSignUpUrl={`${base}${registerDest}`}
         signInFallbackRedirectUrl={`${base}${dest}`}
         signUpFallbackRedirectUrl={`${base}${dest}`}
       />
@@ -906,6 +914,23 @@ function toRouterPath(to) {
   try {
     const u = new URL(to, window.location.origin);
     if (u.origin !== window.location.origin) {
+      // Never dump HunarLink users onto Clerk's hosted Account Portal
+      // (e.g. *.accounts.dev/sign-up/tasks/choose-organization). Keep them in-app!
+      if (
+        u.hostname.endsWith('.accounts.dev') &&
+        (u.pathname.includes('/tasks/') ||
+          u.pathname.startsWith('/sign-up') ||
+          u.pathname.startsWith('/sign-in'))
+      ) {
+        const pendingRole = readPendingClerkRole();
+        const pendingMode = readPendingClerkAuthMode();
+        if (pendingMode !== 'signup') {
+          return pendingRole === 'artisan'
+            ? '/auth?mode=register&not_registered=1'
+            : '/login?mode=register&not_registered=1';
+        }
+        return pendingRole === 'artisan' ? '/auth?tab=verify' : '/login';
+      }
       window.location.assign(to);
       return null;
     }
@@ -921,6 +946,7 @@ function toRouterPath(to) {
 export default function ClerkBoundary({ children }) {
   const navigate = useNavigate();
   const base = import.meta.env.BASE_URL || '/';
+  const cleanBase = base.replace(/\/$/, '');
 
   const routerPush = useCallback(
     (to) => {
@@ -941,6 +967,11 @@ export default function ClerkBoundary({ children }) {
   return (
     <ClerkProvider
       publishableKey={CLERK_PUBLISHABLE_KEY}
+      signInUrl={`${cleanBase}/login`}
+      signUpUrl={`${cleanBase}/login?mode=register`}
+      taskUrls={{
+        'choose-organization': `${cleanBase}/login`
+      }}
       afterSignOutUrl={base}
       routerPush={routerPush}
       routerReplace={routerReplace}
