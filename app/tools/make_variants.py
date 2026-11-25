@@ -1,80 +1,117 @@
 #!/usr/bin/env python3
-"""Generate the WebP variants the site's <picture> elements ask for.
+"""Generate crisp HD responsive WebP variants for every storefront & portal image.
 
-    python3 tools/make_variants.py            # generate
-    python3 tools/make_variants.py --check    # report only, write nothing
-    python3 tools/make_variants.py --prune    # also delete orphans
+    python3 tools/make_variants.py            # generate all HD WebP variants
+    python3 tools/make_variants.py --check    # report missing variants only
+    python3 tools/make_variants.py --prune    # also delete stale/orphaned variants
 
 Why
 ---
-Every catalogue image was shipped exactly as photographed: 106 JPEGs, most
-1400 px tall, rendered into cards about 311 px wide. The browser had no smaller
-file to ask for and no way to know which it needed, so a phone downloaded ~200 KB
-to paint a thumbnail. Lighthouse measured ~1.9 MB of avoidable image weight on a
-single home-page visit.
+Previously, variants were capped at [400, 800] / [520, 1040] / [420, 840] at
+quality=78 with a 1.05x minimum ratio, which dropped the high-res tier for 60+
+portrait product and hero images — forcing modern browsers into tiny 400px or
+520px q=78 WebPs even on Retina desktop displays and PDP zoom lenses.
 
 What it writes
 --------------
-For each source JPEG it writes <stem>-<width>.webp for every width the source is
-genuinely big enough to support. It also rewrites src/data/imageVariants.js, the
-manifest the components read. That manifest exists because the first version of
-this optimisation built srcSet strings by *assuming* every image had a 400 and
-an 800 variant; two narrow hero images only went up to 400, so their srcSet
-advertised files that did not exist and the cards rendered blank. The manifest
-means the components only ever ask for files that are on disk.
+For every source JPEG under public/, it writes:
+  1. A crisp Lanczos-downscaled responsive thumbnail tier (640w for cards/hero/
+     portraits, 960w for full-bleed portal banners) when the source is wider, AND
+  2. A full-resolution native HD WebP tier (up to 1920px wide, 1:1 native pixels
+     with zero resampling blur) encoded at quality=88, method=6, sharp-yuv=true
+     to preserve micro-detail in Kashmiri weaves, embroidery threads, and wood
+     carving without chroma bleeding.
 
-Widths are chosen per directory from what the layout actually renders, not from
-a single global rule, because a 420 px portrait variant is useless for a product
-card and a 1040 px product variant is waste for a thumbnail.
+It also regenerates src/data/imageVariants.js with srcSetFor() and hdSrcFor()
+so components never hardcode variant widths or request missing files.
 """
 import argparse
+import concurrent.futures
 import glob
 import json
 import os
+import shutil
+import subprocess
 import sys
 
+HAS_IMAGEMAGICK = bool(shutil.which("convert") and shutil.which("identify"))
 try:
     from PIL import Image
+    HAS_PIL = True
 except ImportError:
-    sys.exit("Pillow is required:  pip install pillow")
+    HAS_PIL = False
 
-PUBLIC = os.path.join(os.path.dirname(__file__), "..", "public")
-PUBLIC = os.path.normpath(PUBLIC)
-MANIFEST = os.path.join(os.path.dirname(__file__), "..", "src", "data", "imageVariants.js")
-MANIFEST = os.path.normpath(MANIFEST)
+if not HAS_IMAGEMAGICK and not HAS_PIL:
+    sys.exit("ImageMagick (convert/identify) or Pillow is required.")
 
-# (directory relative to public/, [widths in px])
+PUBLIC = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "public"))
+MANIFEST = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "src", "data", "imageVariants.js"))
+
+# (directory relative to public/, [downscaled thumbnail widths], skip filenames)
 TARGETS = [
-    ("assets/products", [520, 1040]),
-    ("assets", [400, 800]),
-    ("img/artisans", [420, 840]),
+    ("assets/products", [640], set()),
+    ("assets", [640], set()),
+    ("img/artisans", [640], set()),
+    ("img", [960], {"artisan-loom-source.jpg"}),
 ]
 
-# Quality 78 is the point where a shawl's weave still reads at card size.
-# Method 6 is the slowest and best encoder; these are build artefacts, so the
-# extra seconds are free.
-QUALITY = 78
+QUALITY_HD = 88
+QUALITY_THUMB = 86
 METHOD = 6
-
-# Skip generating a width when the source is within 5% of it — upscaling adds
-# bytes for no detail.
-MIN_RATIO = 1.05
+MAX_HD_WIDTH = 1920
+MIN_RATIO = 1.08
 
 
-def variants_for(path, widths):
-    """Widths this source can honestly serve."""
+def image_width(path):
+    if HAS_IMAGEMAGICK:
+        out = subprocess.check_output(["identify", "-format", "%w", path], text=True)
+        return int(out.strip())
     with Image.open(path) as im:
-        actual = im.width
-    return [w for w in widths if actual >= w * MIN_RATIO]
+        return im.width
 
 
-def make(src, width):
-    out = os.path.join(os.path.dirname(src), f"{os.path.splitext(os.path.basename(src))[0]}-{width}.webp")
-    if not CHECK_ONLY:
+def variants_for(path, thumb_widths):
+    """Return sorted responsive widths including the full native HD width."""
+    actual = image_width(path)
+    hd_width = min(actual, MAX_HD_WIDTH)
+    widths = [w for w in thumb_widths if actual >= w * MIN_RATIO and w < hd_width]
+    if hd_width not in widths:
+        widths.append(hd_width)
+    return sorted(set(widths)), actual
+
+
+def make(src, width, actual):
+    stem = os.path.splitext(os.path.basename(src))[0]
+    out = os.path.join(os.path.dirname(src), f"{stem}-{width}.webp")
+    if CHECK_ONLY:
+        return out
+
+    is_native = width >= actual
+    quality = QUALITY_HD if is_native else QUALITY_THUMB
+
+    if HAS_IMAGEMAGICK:
+        cmd = ["convert", src, "-colorspace", "sRGB"]
+        if not is_native:
+            cmd += [
+                "-filter", "Lanczos",
+                "-resize", f"{width}x",
+                "-unsharp", "0x0.5+0.4+0.02",
+            ]
+        cmd += [
+            "-strip",
+            "-quality", str(quality),
+            "-define", f"webp:method={METHOD}",
+            "-define", "webp:sharp-yuv=true",
+            out,
+        ]
+        subprocess.check_call(cmd)
+    else:
         with Image.open(src) as im:
             im = im.convert("RGB")
-            h = round(im.height * width / im.width)
-            im.resize((width, h), Image.LANCZOS).save(out, "WEBP", quality=QUALITY, method=METHOD)
+            if not is_native:
+                h = round(im.height * width / im.width)
+                im = im.resize((width, h), Image.LANCZOS)
+            im.save(out, "WEBP", quality=quality, method=METHOD)
     return out
 
 
@@ -88,48 +125,61 @@ def main():
     CHECK_ONLY = args.check
 
     manifest = {}
-    made = skipped = 0
+    jobs = []
+    skipped = 0
 
-    for reldir, widths in TARGETS:
+    for reldir, thumb_widths, skip_names in TARGETS:
         for src in sorted(glob.glob(os.path.join(PUBLIC, reldir, "*.jpg"))):
+            base = os.path.basename(src)
+            if base in skip_names:
+                continue
             reldir_key = reldir.replace(os.sep, "/")
-            key = f"{reldir_key}/{os.path.basename(src)}"
-            available = variants_for(src, widths)
+            key = f"{reldir_key}/{base}"
+            available, actual = variants_for(src, thumb_widths)
             if not available:
                 continue
-            for w in available:
-                out = make(src, w)
-                if args.check:
-                    if not os.path.exists(out):
-                        print(f"  MISSING  {os.path.relpath(out, PUBLIC)}")
-                        skipped += 1
-                else:
-                    made += 1
             manifest[key] = available
+            for w in available:
+                jobs.append((src, w, actual))
 
-    # Prune: any *-<digits>.webp with no manifest entry is stale.
+    if args.check:
+        for src, w, actual in jobs:
+            out = make(src, w, actual)
+            if not os.path.exists(out):
+                print(f"  MISSING  {os.path.relpath(out, PUBLIC)}")
+                skipped += 1
+        made = 0
+    else:
+        workers = min(8, os.cpu_count() or 4)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = [ex.submit(make, src, w, actual) for src, w, actual in jobs]
+            for fut in concurrent.futures.as_completed(futs):
+                fut.result()
+        made = len(jobs)
+
     if args.prune:
         valid = {f"{os.path.splitext(k)[0]}-{w}.webp" for k, ws in manifest.items() for w in ws}
         removed = 0
-        for reldir, _ in TARGETS:
+        for reldir, _, _ in TARGETS:
             for f in glob.glob(os.path.join(PUBLIC, reldir, "*-*.webp")):
                 name = f"{reldir.replace(os.sep, '/')}/{os.path.basename(f)}"
-                stem, _, tail = os.path.basename(f).rpartition("-")
+                _, _, tail = os.path.basename(f).rpartition("-")
                 if not tail.replace(".webp", "").isdigit():
                     continue
                 if name not in valid:
-                    print(f"  prune {name}")
                     if not args.check:
                         os.remove(f)
                     removed += 1
-        print(f"pruned {removed}")
+        print(f"pruned {removed} stale WebP variants")
 
     if not args.check:
         write_manifest(manifest)
 
-    print(f"{'would write' if args.check else 'wrote'} {made if not args.check else 0} variants "
-          f"for {len(manifest)} source images"
-          + (f", {skipped} missing" if args.check else ""))
+    print(
+        f"{'would write' if args.check else 'wrote'} {made} HD WebP variants "
+        f"for {len(manifest)} source images"
+        + (f", {skipped} missing" if args.check else "")
+    )
     return 1 if (args.check and skipped) else 0
 
 
@@ -140,11 +190,9 @@ def write_manifest(manifest):
         "   --------------------------------------------------------------------------",
         "   Generated by tools/make_variants.py — do not edit by hand.",
         "",
-        "   A manifest of which WebP widths actually exist on disk for each original",
-        "   image. Earlier the srcSet strings were built by guessing that every image",
-        "   had a 400 and an 800 variant; two narrow hero images only went up to 400,",
-        "   so their srcSet advertised files that did not exist and the card rendered",
-        "   blank. Reading the real inventory removes that whole class of bug.",
+        "   A manifest of every HD WebP width actually present on disk for each source",
+        "   image. Every entry includes a full-resolution native HD WebP tier (q=88,",
+        "   sharp-yuv) plus a responsive thumbnail tier when wider than the threshold.",
         "   ========================================================================== */",
         "",
         "const VARIANTS = {",
@@ -168,6 +216,17 @@ def write_manifest(manifest):
         "  if (!widths || !widths.length) return null;",
         "  const stem = path.replace(/\\.(jpe?g|png)$/i, '');",
         "  return widths.map((w) => `${BASE}/${stem}-${w}.webp ${w}w`).join(', ');",
+        "}",
+        "",
+        "/* Highest-resolution HD WebP URL for full-resolution views (zoom magnifier,",
+        "   hero backdrops, portal banners), falling back to the source file. */",
+        "export function hdSrcFor(path) {",
+        "  if (!path) return '';",
+        "  const widths = VARIANTS[path];",
+        "  if (!widths || !widths.length) return `${BASE}/${path}`;",
+        "  const maxW = widths[widths.length - 1];",
+        "  const stem = path.replace(/\\.(jpe?g|png)$/i, '');",
+        "  return `${BASE}/${stem}-${maxW}.webp`;",
         "}",
         "",
         "export default VARIANTS;",

@@ -30,9 +30,9 @@ function ProductCard({ product: p, onBuyNow }) {
 
   const open = () => navigate(`/product?id=${encodeURIComponent(p.id)}`);
 
-  /* Variants come from the generated manifest, so the card only ever asks for
-     files that exist. */
-  const imgSizes = '(max-width: 620px) 92vw, (max-width: 1024px) 46vw, 30vw';
+  /* Variants come from the generated HD manifest, so Retina displays pick the
+     full-resolution sharp-YUV WebP tier while compact mobile stays crisp. */
+  const imgSizes = '(max-width: 620px) 100vw, (max-width: 1024px) 50vw, 34vw';
 
   return (
     <article className="product-card" data-product-id={p.id}>
@@ -48,11 +48,8 @@ function ProductCard({ product: p, onBuyNow }) {
           }
         }}
       >
-        {/* <picture> lets the browser choose a 520 or 1040 px WebP by screen
-            size; the <img> is the original JPEG and is what a browser without
-            WebP support falls back to. `sizes` must match the CSS grid width
-            or the browser picks the wrong file. Intrinsic width/height are set
-            so the card reserves its box before the image decodes. */}
+        {/* <picture> serves full-HD sharp-YUV WebP variants matched to display
+            density; the <img> falls back to the high-quality JPEG source. */}
         <picture>
           {srcSetFor(p.image) && (
             <source type="image/webp" srcSet={srcSetFor(p.image)} sizes={imgSizes} />

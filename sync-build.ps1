@@ -38,17 +38,27 @@ Copy-Item 'dist/404.html'   '.' -Force -ErrorAction SilentlyContinue
 Copy-Item 'dist/assets/*.js'  'assets/' -Force
 Copy-Item 'dist/assets/*.css' 'assets/' -Force
 
-# WebP variants: products ship inside dist/assets/products, artisan and hero
-# art lives under img/. Copy both so picture sources resolve in production.
+# WebP variants & HD photography: sync products, hero art, and img/ folders
+# (pruning stale WebPs so no outdated low-res variants linger in production).
+Get-ChildItem 'assets' -Filter '*.webp' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem 'assets/products' -Filter '*.webp' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem 'img' -Filter '*.webp' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem 'img/artisans' -Filter '*.webp' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+
 if (Test-Path 'dist/assets/products') {
     New-Item -ItemType Directory -Force -Path 'assets/products' | Out-Null
-    Copy-Item 'dist/assets/products/*.webp' 'assets/products/' -Force -ErrorAction SilentlyContinue
+    Copy-Item 'dist/assets/products/*' 'assets/products/' -Force -ErrorAction SilentlyContinue
 }
 Copy-Item 'dist/assets/*.webp' 'assets/' -Force -ErrorAction SilentlyContinue
+Copy-Item 'dist/assets/*.jpg'  'assets/' -Force -ErrorAction SilentlyContinue
 
-if (Test-Path 'app/public/img/artisans') {
+if (Test-Path 'dist/img') {
+    Copy-Item 'dist/img/*.webp' 'img/' -Force -ErrorAction SilentlyContinue
+    Copy-Item 'dist/img/*.jpg'  'img/' -Force -ErrorAction SilentlyContinue
+}
+if (Test-Path 'dist/img/artisans') {
     New-Item -ItemType Directory -Force -Path 'img/artisans' | Out-Null
-    Copy-Item 'app/public/img/artisans/*' 'img/artisans/' -Force -Recurse -ErrorAction SilentlyContinue
+    Copy-Item 'dist/img/artisans/*' 'img/artisans/' -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 # category.html -----------------------------------------------------------

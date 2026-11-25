@@ -126,7 +126,7 @@ export default function ArtisansPage() {
                           <source
                             type="image/webp"
                             srcSet={srcSet}
-                            sizes="(max-width: 640px) 92vw, (max-width: 1000px) 45vw, 30vw"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 34vw"
                           />
                         )}
                         <img

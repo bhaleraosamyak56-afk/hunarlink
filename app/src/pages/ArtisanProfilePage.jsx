@@ -273,7 +273,7 @@ export default function ArtisanProfilePage() {
               <div className="ap-avatar-wrap">
                 <picture>
                   {avatarSrcSet && (
-                    <source type="image/webp" srcSet={avatarSrcSet} sizes="112px" />
+                    <source type="image/webp" srcSet={avatarSrcSet} sizes="224px" />
                   )}
                   <img
                     src={asset(artisan.image)}
