@@ -353,19 +353,18 @@ export default function SellerPage() {
      artisans must complete GI / Standard Artisan Verification before entering
      the Seller Workspace. */
   useEffect(() => {
-    if (
+    const isArtisanRole = Boolean(
       storeUser &&
       storeUser.isLoggedIn &&
-      storeUser.role === 'artisan' &&
-      storeUser.artisanVerified === false
-    ) {
+      (storeUser.role === 'artisan' || storeUser.role === 'seller')
+    );
+    if (isArtisanRole && storeUser.artisanVerified === false) {
       setSeller(null);
       toast('Complete your Artisan & GI Verification to unlock the Seller Workspace.');
-      navigate('/auth?mode=register&step=verify', { replace: true });
+      navigate('/auth?tab=verify', { replace: true });
       return;
     }
-    const artisan =
-      storeUser && storeUser.isLoggedIn && storeUser.role === 'artisan' ? storeUser : null;
+    const artisan = isArtisanRole && storeUser.artisanVerified ? storeUser : null;
     setSeller(artisan);
   }, [storeUser, navigate, toast]);
 

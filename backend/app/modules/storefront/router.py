@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import AuthenticatedPrincipal, get_current_principal
+from app.core.auth import AuthenticatedPrincipal, get_current_principal, require_admin_permission
 from app.core.database import get_db
 from app.models.base import new_uuid, utcnow
 from app.models.core_models import (
@@ -401,3 +401,77 @@ def list_my_retail_orders(
         )
         results.append(_serialize_order(order, items))
     return results
+
+
+@router.get("/admin/overview")
+def admin_live_overview(
+    admin: AuthenticatedPrincipal = Depends(require_admin_permission("payments.read")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Strictly admin-only real database snapshot for the Admin Console."""
+    users = list(db.scalars(select(User).order_by(User.created_at.desc()).limit(100)).all())
+    sellers = list(db.scalars(select(SellerProfile).order_by(SellerProfile.created_at.desc()).limit(100)).all())
+    listings = list(
+        db.scalars(select(SellerProductListing).order_by(SellerProductListing.created_at.desc()).limit(100)).all()
+    )
+    orders = list(db.scalars(select(RetailOrder).order_by(RetailOrder.created_at.desc()).limit(100)).all())
+
+    return {
+        "admin_user_id": admin.user_id,
+        "admin_permissions": sorted(admin.admin_permissions),
+        "counts": {
+            "users": len(users),
+            "sellers": len(sellers),
+            "listings": len(listings),
+            "orders": len(orders),
+        },
+        "users": [
+            {
+                "id": u.id,
+                "clerk_user_id": u.clerk_user_id,
+                "email": u.email,
+                "name": u.display_name or f"{u.first_name} {u.last_name or ''}".strip(),
+                "phone": u.phone,
+                "account_status": u.account_status,
+                "created_at": u.created_at.isoformat(),
+            }
+            for u in users
+        ],
+        "sellers": [
+            {
+                "id": s.id,
+                "store_name": s.store_name,
+                "store_slug": s.store_slug,
+                "craft_specialty": s.craft_specialty,
+                "workshop_district": s.workshop_district,
+                "verification_path": s.verification_path,
+                "verification_status": s.verification_status,
+                "profile_status": s.profile_status,
+                "claimed_gi_code": s.claimed_gi_authorized_user_no,
+            }
+            for s in sellers
+        ],
+        "listings": [
+            {
+                "id": l.id,
+                "sku": l.seller_sku,
+                "title": l.listing_title,
+                "price": str(l.selling_price),
+                "currency": l.currency_code,
+                "status": l.listing_status,
+            }
+            for l in listings
+        ],
+        "orders": [
+            {
+                "id": o.id,
+                "order_number": o.order_number,
+                "total_amount": str(o.total_amount),
+                "payment_method": o.payment_method,
+                "payment_status": o.payment_status,
+                "fulfilment_status": o.fulfilment_status,
+                "created_at": o.created_at.isoformat(),
+            }
+            for o in orders
+        ],
+    }

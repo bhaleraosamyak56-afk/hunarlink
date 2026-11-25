@@ -22,11 +22,19 @@ from app.core.auth import (
     AuthenticatedPrincipal,
     get_current_principal,
     get_verified_clerk_claims,
+    require_admin_permission,
 )
 from app.core.database import get_db
 from app.models.base import new_uuid, utcnow
 from app.models.core_models import (
+    AdminPermission,
+    AdminProfile,
+    AdminRole,
+    AdminRolePermission,
+    AdminUserRole,
     PlatformRole,
+    RetailOrder,
+    SellerProductListing,
     SellerProfile,
     SellerVerificationApplication,
     User,
@@ -89,6 +97,38 @@ def _slugify_store(name: str) -> str:
     return f"{base[:150]}-{uuid.uuid4().hex[:6]}"
 
 
+def _load_admin_access(db: Session, user_id: str, role_codes: list[str]) -> tuple[bool, list[str]]:
+    if "ADMIN" not in role_codes:
+        return False, []
+    admin_profile = db.scalar(
+        select(AdminProfile).where(
+            AdminProfile.user_id == user_id,
+            AdminProfile.admin_status == "ACTIVE",
+        )
+    )
+    if admin_profile is None:
+        return False, []
+    perms = sorted(
+        set(
+            db.scalars(
+                select(AdminPermission.code)
+                .join(
+                    AdminRolePermission,
+                    AdminRolePermission.admin_permission_id == AdminPermission.id,
+                )
+                .join(AdminRole, AdminRole.id == AdminRolePermission.admin_role_id)
+                .join(AdminUserRole, AdminUserRole.admin_role_id == AdminRole.id)
+                .where(
+                    AdminUserRole.admin_profile_id == admin_profile.id,
+                    AdminUserRole.is_active == True,  # noqa: E712
+                    AdminRole.is_active == True,  # noqa: E712
+                )
+            ).all()
+        )
+    )
+    return True, perms
+
+
 def _build_user_response(
     db: Session, user: User, *, is_new_user: bool = False
 ) -> AuthUserProfileResponse:
@@ -108,6 +148,7 @@ def _build_user_response(
             ).all()
         )
     )
+    is_admin, admin_permissions = _load_admin_access(db, user.id, role_codes)
     seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
     seller_brief = (
         SellerProfileBrief(
@@ -137,6 +178,8 @@ def _build_user_response(
         phone=user.phone,
         account_status=user.account_status,
         roles=role_codes,
+        is_admin=is_admin,
+        admin_permissions=admin_permissions,
         seller_profile=seller_brief,
         created_at=user.created_at,
         updated_at=user.updated_at,

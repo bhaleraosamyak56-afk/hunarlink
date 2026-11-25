@@ -227,7 +227,11 @@ export function fetchAdminGuardrailRules(token) {
   return apiRequest('/api/v1/admin/guardrail/rules', { token });
 }
 
-/* --- 1:1 Admin Razorpay Payments, Webhooks & Refunds Endpoints --- */
+/* --- 1:1 Admin Overview, Razorpay Payments, Webhooks & Refunds Endpoints --- */
+export function fetchAdminOverview(token) {
+  return apiRequest('/api/v1/admin/overview', { token });
+}
+
 export function fetchAdminPayments(token, { orderScope = null, paymentStatus = null } = {}) {
   const params = new URLSearchParams();
   if (orderScope) params.set('order_scope', orderScope);
