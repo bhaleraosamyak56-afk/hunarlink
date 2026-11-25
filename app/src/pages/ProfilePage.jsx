@@ -301,7 +301,12 @@ export default function ProfilePage() {
   <header className="up-header">
     <div className="up-header-inner">
       <a href={appHref('/')} className="up-brand">
-        <span className="up-emblem">H</span>
+        <img
+          src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+          alt=""
+          className="up-emblem-mark"
+          height="38"
+        />
         <div>
           <div className="up-brand-title">HunarLink</div>
           <div className="up-brand-sub">User Account &amp; Profile</div>

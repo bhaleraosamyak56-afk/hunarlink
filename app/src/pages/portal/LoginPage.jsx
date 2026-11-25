@@ -12,7 +12,7 @@ import {
   IconArrowRight
 } from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
-import { IS_CLERK_DEV_KEY, useClerkBridge } from '../../data/clerkConfig.js';
+import { clearPendingClerkRole, IS_CLERK_DEV_KEY, useClerkBridge } from '../../data/clerkConfig.js';
 import { srcSetFor, hdSrcFor } from '../../data/imageVariants.js';
 
 /* ==========================================================================
@@ -136,7 +136,21 @@ export default function LoginPage() {
   } = useStore();
 
   useEffect(() => {
+    const onPageShow = (event) => {
+      setOauthBusy(null);
+      if (event?.persisted) clearPendingClerkRole();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') setOauthBusy(null);
+    };
+    const onFocus = () => setOauthBusy(null);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
       if (navTimer.current) window.clearTimeout(navTimer.current);
     };
   }, []);
@@ -365,6 +379,7 @@ export default function LoginPage() {
 
   function switchRole(next) {
     setUseOtp(false);
+    setOauthBusy(null);
     setSignin({ identifier: '', password: '', otp: '' });
     const nextParams = new URLSearchParams(params);
     if (next === 'artisan') nextParams.set('role', 'artisan');
@@ -373,6 +388,7 @@ export default function LoginPage() {
   }
 
   function switchMode(next) {
+    setOauthBusy(null);
     if (next === 'signup' && role === 'artisan') {
       navigate('/auth?mode=register&role=artisan');
       return;

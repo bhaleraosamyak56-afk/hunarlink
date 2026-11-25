@@ -89,7 +89,13 @@
       color: #FFFFFF;
       letter-spacing: -0.01em;
       text-decoration: none;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero-brand-logo .up-emblem-mark {
+      height: 42px;
     }
 
     .hero-badge-pill {

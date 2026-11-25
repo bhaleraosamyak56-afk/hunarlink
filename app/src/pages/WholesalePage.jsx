@@ -279,7 +279,12 @@ export default function WholesalePage() {
   <header className="wp-header">
     <div className="wp-header-inner">
       <a href={appHref('/')} className="wp-brand">
-        <span className="wp-emblem">H</span>
+        <img
+          src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+          alt=""
+          className="up-emblem-mark"
+          height="40"
+        />
         <div>
           <div className="wp-brand-name">HunarLink Wholesale</div>
           <div className="wp-brand-sub">Direct Artisan Bulk Desk &amp; Local Seller Trade Hub</div>
