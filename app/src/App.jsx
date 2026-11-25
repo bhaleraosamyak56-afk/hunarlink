@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useCallback, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './state/StoreContext.jsx';
+import { useClerkBridge } from './data/clerkConfig.js';
 import UtilityBar from './components/UtilityBar.jsx';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
@@ -78,7 +79,8 @@ function PageFallback() {
 }
 
 export default function App() {
-  const { ui } = useStore();
+  const { ui, user } = useStore();
+  const clerkAuth = useClerkBridge();
   const [activeSection, setActiveSection] = useState('home');
   const location = useLocation();
   usePageTitle();
@@ -97,6 +99,53 @@ export default function App() {
      otherwise the page starts ~77px low and every element below shifts. */
   const isPortal =
     /^\/(profile|orders|login|wholesale|admin|seller)(\.html)?$/.test(location.pathname);
+
+  /* Public routes accessible without an authenticated Clerk session.
+     Every other route (storefront, products, artisans, profile, orders,
+     wholesale, seller) is strictly gated behind Clerk authentication. */
+  const isPublicRoute = /^\/(login|auth|sso-callback|admin)(\.html)?$/.test(location.pathname);
+  const isRealAuthenticated = clerkAuth.enabled
+    ? Boolean(clerkAuth.isSignedIn)
+    : Boolean(user && user.authProvider === 'clerk' && user.isLoggedIn);
+
+  if (!isPublicRoute) {
+    if (clerkAuth.enabled && !clerkAuth.isLoaded) {
+      return (
+        <main
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '14px',
+            background: '#faf7f1',
+            color: '#1f2b22',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+          }}
+          aria-busy="true"
+        >
+          <img
+            src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+            alt="HunarLink"
+            height="46"
+          />
+          <p style={{ fontSize: '0.95rem', opacity: 0.78 }}>
+            Verifying your HunarLink session&hellip;
+          </p>
+        </main>
+      );
+    }
+
+    if (!isRealAuthenticated) {
+      const target = `${location.pathname}${location.search}`;
+      const qs =
+        target && target !== '/' && target !== '/index.html'
+          ? `?next=${encodeURIComponent(target)}`
+          : '';
+      return <Navigate to={`/login${qs}`} replace />;
+    }
+  }
 
   return (
     <>

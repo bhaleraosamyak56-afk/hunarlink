@@ -67,6 +67,28 @@ class UserRoleAssignment(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
+class UserAddress(Base):
+    __tablename__ = "user_addresses"
+
+    id: Mapped[str] = mapped_column(UUIDChar(), primary_key=True, default=new_uuid)
+    user_id: Mapped[str] = mapped_column(UUIDChar(), ForeignKey("users.id"), nullable=False)
+    address_label: Mapped[str] = mapped_column(String(50), default="HOME", nullable=False)
+    recipient_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    recipient_phone: Mapped[str] = mapped_column(String(32), nullable=False)
+    line1: Mapped[str] = mapped_column(String(255), nullable=False)
+    line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    landmark: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    state_province: Mapped[str] = mapped_column(String(100), default="Jammu and Kashmir", nullable=False)
+    postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    country_code: Mapped[str] = mapped_column(String(2), default="IN", nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
 class AdminProfile(Base):
     __tablename__ = "admin_profiles"
 

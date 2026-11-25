@@ -7,11 +7,17 @@ from app.integrations.razorpay.signatures import compute_checkout_signature
 from tests.conftest import seed_marketplace_entities, set_authenticated_principal
 
 
-def test_01_public_catalog_returns_active_approved_listings_only(app_and_client, db_session):
+def test_01_catalog_and_artisans_require_auth_and_return_active_db_records(app_and_client, db_session):
     app, client = app_and_client
     entities = seed_marketplace_entities(db_session)
     set_authenticated_principal(app, None)
 
+    # Unauthenticated callers are blocked (401) from both catalog & artisans APIs
+    assert client.get("/api/v1/catalog/products").status_code == 401
+    assert client.get("/api/v1/artisans").status_code == 401
+
+    # Authenticated user gets active, approved DB listings & verified DB artisans
+    set_authenticated_principal(app, entities["buyer_principal"])
     resp = client.get("/api/v1/catalog/products")
     assert resp.status_code == 200
     items = resp.json()
@@ -19,7 +25,18 @@ def test_01_public_catalog_returns_active_approved_listings_only(app_and_client,
     assert items[0]["listing_id"] == entities["active_listing"].id
     assert Decimal(items[0]["selling_price"]) == Decimal("14500.00")
 
-    # Pausing listing excludes it from public catalog immediately
+    artisans_resp = client.get("/api/v1/artisans")
+    assert artisans_resp.status_code == 200
+    artisans = artisans_resp.json()
+    assert len(artisans) == 1
+    assert artisans[0]["slug"] == entities["seller_profile"].store_slug
+    assert artisans[0]["listing_count"] == 1
+
+    detail_resp = client.get(f"/api/v1/artisans/{entities['seller_profile'].store_slug}")
+    assert detail_resp.status_code == 200
+    assert len(detail_resp.json()["listings"]) == 1
+
+    # Pausing listing excludes it from catalog immediately
     entities["active_listing"].listing_status = "PAUSED"
     db_session.commit()
     assert client.get("/api/v1/catalog/products").json() == []

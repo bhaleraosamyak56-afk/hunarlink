@@ -10,7 +10,7 @@
    static build and there is no reason to re-derive them.
    ========================================================================== */
 
-import { SEED_PRODUCTS } from '../data/products.js';
+/* Real-DB-only catalogue helpers — zero static SEED_PRODUCTS fallback. */
 
 /* ---------------------------------------------------------------- storage */
 
@@ -43,7 +43,7 @@ export function formatINR(num) {
 export function buildCatalogue(customProducts = [], productOverrides = null) {
   const overrides =
     productOverrides !== null ? productOverrides : loadStorage('hunarlink_product_overrides', {});
-  const merged = [...customProducts, ...SEED_PRODUCTS].map((p) => {
+  const merged = [...customProducts].map((p) => {
     const ov = overrides && overrides[p.id];
     return ov ? { ...p, ...ov } : p;
   });

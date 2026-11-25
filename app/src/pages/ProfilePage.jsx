@@ -3,6 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../styles/portal.css';
 import { useStore } from '../state/StoreContext';
 import { useClerkBridge } from '../data/clerkConfig.js';
+import {
+  canAttemptBackend,
+  createMyAddress,
+  deleteMyAddress
+} from '../services/apiClient.js';
 import PortalScope from '../components/PortalScope.jsx';
 import { appHref } from '../utils/href.js';
 import { IconHome, IconUser, IconPackage, IconLogout, IconLogin } from '../components/LineIcons.jsx';
@@ -10,57 +15,54 @@ import { IconHome, IconUser, IconPackage, IconLogout, IconLogin } from '../compo
 /* Same palette the static profile page offered in its swatch row. */
 const AVATAR_SWATCHES = ['#E05A17', '#9A3412', '#0D2B1D', '#B88528', '#6B2D5C', '#1E4E79'];
 
-/* Shape the collector profile lives in on disk — mirrors
-   DEFAULT_USER_PROFILE in user-portal.js, including isLoggedIn, so the
-   storefront header and this page agree about who is signed in. */
-const DEFAULT_PROFILE = {
-  firstName: 'Priya',
-  lastName: 'Sharma',
-  fullName: 'Priya Sharma',
-  email: 'priya.sharma@valleycollector.in',
-  phone: '+91 98112 77420',
-  gender: 'Female',
-  dob: '1996-05-14',
-  bio: 'Buyer of GI-certified Kashmiri Pashmina, Kani shawls, and hand-carved walnut woodcraft.',
-  preferredUpi: 'priya.sharma@okaxis',
+const EMPTY_PROFILE = {
+  firstName: '',
+  lastName: '',
+  fullName: '',
+  email: '',
+  phone: '',
+  gender: '',
+  dob: '',
+  bio: '',
+  preferredUpi: '',
   preferredPayment: 'UPI Verified Escrow',
   avatarColor: '#E05A17',
   avatarPhoto: '',
-  badge: 'PS',
+  badge: 'U',
   role: 'buyer',
-  isLoggedIn: false,
-  memberSince: 'Nov 2026'
+  isLoggedIn: true,
+  memberSince: ''
 };
 
-const FALLBACK_ADDRESS = {
-  id: 'addr-1',
-  name: 'Priya Sharma',
-  phone: '+91 98112 77420',
-  pincode: '110024',
-  locality: 'B-42 Defence Colony, Ring Road',
-  city: 'New Delhi',
-  type: 'Home'
-};
-
-/* Both readers take their value from the store, which already loaded these
-   keys at boot. Nothing here touches localStorage. */
 function readProfile(buyerProfile, storeUser) {
-  if (buyerProfile) return { ...DEFAULT_PROFILE, ...buyerProfile };
-  if (storeUser && storeUser.role !== 'artisan' && storeUser.isLoggedIn) {
-    return {
-      ...DEFAULT_PROFILE,
-      firstName: storeUser.name || DEFAULT_PROFILE.firstName,
-      fullName: storeUser.fullName || DEFAULT_PROFILE.fullName,
-      email: storeUser.email || DEFAULT_PROFILE.email,
-      badge: storeUser.badge || DEFAULT_PROFILE.badge,
-      isLoggedIn: true
-    };
-  }
-  return { ...DEFAULT_PROFILE };
+  const fullName =
+    buyerProfile?.fullName ||
+    storeUser?.fullName ||
+    storeUser?.name ||
+    '';
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const firstName = buyerProfile?.firstName || parts[0] || '';
+  const lastName = buyerProfile?.lastName || parts.slice(1).join(' ') || '';
+  const email = buyerProfile?.email || storeUser?.email || '';
+  const badge =
+    buyerProfile?.badge ||
+    storeUser?.badge ||
+    ((firstName[0] || email[0] || 'U') + (lastName[0] || firstName[1] || '')).toUpperCase();
+  return {
+    ...EMPTY_PROFILE,
+    ...(buyerProfile || {}),
+    firstName,
+    lastName,
+    fullName: fullName || email,
+    email,
+    phone: buyerProfile?.phone || storeUser?.phone || '',
+    badge,
+    isLoggedIn: Boolean(storeUser && storeUser.isLoggedIn)
+  };
 }
 
 function readAddresses(addresses) {
-  return Array.isArray(addresses) && addresses.length ? addresses : [FALLBACK_ADDRESS];
+  return Array.isArray(addresses) ? addresses : [];
 }
 
 
@@ -90,12 +92,26 @@ export default function ProfilePage() {
     addresses: storeAddresses,
     setBuyerProfile,
     setAddresses: saveAddresses,
+    hydrateFromBackend,
     toast
   } = useStore();
 
   const [profile, setProfile] = useState(() => readProfile(buyerProfile, user));
   const [savedSnapshot, setSavedSnapshot] = useState(null);
   const [addresses, setAddresses] = useState(() => readAddresses(storeAddresses));
+
+  useEffect(() => {
+    setAddresses(readAddresses(storeAddresses));
+  }, [storeAddresses]);
+
+  useEffect(() => {
+    if (user?.email) {
+      setProfile((prev) => ({
+        ...prev,
+        ...readProfile(buyerProfile, user)
+      }));
+    }
+  }, [user, buyerProfile]);
   const [tab, setTab] = useState(() => {
     const requested = params.get('tab');
     return ['personal', 'addresses', 'payments', 'wishlist'].includes(requested)
@@ -122,37 +138,28 @@ export default function ProfilePage() {
   const photoInput = useRef(null);
   const avatarInput = useRef(null);
 
-  /* Persist on every change and keep the storefront header in step. The
-     static page wrote hunarlink_buyer_profile and mirrored the person onto
-     hunarlink_auth_user so the nav greeting follows. */
   useEffect(() => {
-    /* One write path: the store owns hunarlink_buyer_profile and mirrors the
-       person onto hunarlink_auth_user so the header greeting follows. */
     setBuyerProfile(profile);
-    if (!user || user.role !== 'artisan') {
-      setUser({
-        name: profile.firstName,
-        fullName: profile.fullName,
-        email: profile.email,
-        role: 'buyer',
-        title: 'Verified Valley Buyer \u2022 J&K',
-        badge: profile.badge,
-        isLoggedIn: profile.isLoggedIn
-      }, { silent: true });
+    if (user && user.role !== 'artisan' && user.role !== 'seller' && profile.email) {
+      setUser(
+        {
+          ...user,
+          name: profile.firstName || user.name,
+          fullName: profile.fullName || user.fullName,
+          email: profile.email || user.email,
+          badge: profile.badge || user.badge,
+          authProvider: 'clerk',
+          isLoggedIn: true
+        },
+        { silent: true }
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
-  useEffect(() => {
-    saveAddresses(addresses);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addresses]);
-
-  /* upSaveProfile recomputes the greeting name and the two-letter badge from
-     the name fields, so edits to the name show up in the sidebar at once. */
   function saveProfile(patch) {
     setProfile((p) => {
-      const first = String(patch.firstName ?? p.firstName ?? 'Priya').trim();
+      const first = String(patch.firstName ?? p.firstName ?? '').trim();
       const last = String(patch.lastName ?? p.lastName ?? '').trim();
       return {
         ...p,
@@ -160,7 +167,7 @@ export default function ProfilePage() {
         firstName: first,
         lastName: last,
         fullName: (first + (last ? ' ' + last : '')).trim(),
-        badge: ((first[0] || 'P') + (last[0] || first[1] || 'S')).toUpperCase()
+        badge: ((first[0] || p.email?.[0] || 'U') + (last[0] || first[1] || '')).toUpperCase()
       };
     });
   }
@@ -241,58 +248,67 @@ export default function ProfilePage() {
     toast('Payment & UPI preferences saved!', 'success');
   }
 
-  function submitAddress(e) {
+  async function submitAddress(e) {
     e.preventDefault();
-    const entry = {
-      id: 'addr-' + Date.now(),
-      name: addrDraft.name.trim(),
-      phone: addrDraft.phone.trim(),
-      pincode: addrDraft.pincode.trim(),
+    const payload = {
+      address_label: (addrDraft.type || 'HOME').toUpperCase(),
+      recipient_name: addrDraft.name.trim(),
+      recipient_phone: addrDraft.phone.trim(),
+      line1: addrDraft.locality.trim(),
       city: addrDraft.city.trim(),
-      locality: addrDraft.locality.trim(),
-      type: addrDraft.type || 'Home'
+      state_province: 'Jammu and Kashmir',
+      postal_code: addrDraft.pincode.trim(),
+      is_default: addresses.length === 0
     };
-    setAddresses((list) => [entry, ...list]);
-    setAddrDraft({ name: '', phone: '', pincode: '', city: '', locality: '', type: 'Home' });
-    setAddrOpen(false);
-    toast('New delivery address saved & synced with HunarLink Checkout!', 'success');
+    try {
+      const token = await clerk.getToken();
+      if (canAttemptBackend() && token) {
+        const saved = await createMyAddress(payload, token);
+        await hydrateFromBackend(token);
+        setAddrDraft({ name: '', phone: '', pincode: '', city: '', locality: '', type: 'Home' });
+        setAddrOpen(false);
+        toast(`Saved address "${saved.address_label}" to database!`, 'success');
+        return;
+      }
+      toast('Backend database is unreachable. Could not save address.', 'error');
+    } catch (err) {
+      toast(err?.message || 'Could not save address to database.', 'error');
+    }
   }
 
   function setDefaultAddress(id) {
-    setAddresses((list) => {
-      const idx = list.findIndex((a) => a.id === id);
-      if (idx <= 0) return list;
-      const copy = [...list];
-      const [item] = copy.splice(idx, 1);
-      return [item, ...copy];
-    });
+    const idx = addresses.findIndex((a) => a.id === id);
+    if (idx <= 0) return;
+    const copy = [...addresses];
+    const [item] = copy.splice(idx, 1);
+    setAddresses([item, ...copy]);
+    saveAddresses([item, ...copy]);
     toast('Default delivery address updated!', 'success');
   }
 
-  function deleteAddress(id) {
-    setAddresses((list) => list.filter((a) => a.id !== id));
-    toast('Address removed.');
+  async function deleteAddress(id) {
+    try {
+      const token = await clerk.getToken();
+      if (canAttemptBackend() && token) {
+        await deleteMyAddress(id, token);
+        await hydrateFromBackend(token);
+        toast('Address removed from database.');
+        return;
+      }
+    } catch (err) {
+      toast(err?.message || 'Could not delete address.', 'error');
+    }
   }
 
-  /* Signing out closes the collector session (and Clerk session if active)
-     while keeping saved details, then hands over to the buyer login page. */
   async function signOut() {
-    if (clerk.enabled && clerk.signOutClerk) {
-      try {
-        await clerk.signOutClerk();
-      } catch {
-        /* ignore */
-      }
-    }
-    setUser(null, { silent: true });
-    setProfile((p) => ({ ...p, isLoggedIn: false }));
-    toast('Signed out of your collector account.');
-    navigate('/login');
+    if (clerk.signOutClerk) await clerk.signOutClerk();
+    toast('Signed out cleanly.');
+    navigate('/login', { replace: true });
   }
 
   const personalLocked = !editing.personal;
-  const firstInitial = (profile.firstName || 'P')[0];
-  const lastInitial = (profile.lastName || 'S')[0];
+  const firstInitial = (profile.firstName || profile.email || 'U')[0].toUpperCase();
+  const lastInitial = (profile.lastName || profile.firstName?.[1] || '')[0]?.toUpperCase() || '';
 
   return (
     <>
@@ -579,7 +595,7 @@ export default function ProfilePage() {
               <div>
                 <label className="up-label" htmlFor="addr-name">Receiver Full Name *</label>
                 <input type="text" id="addr-name" className="up-input" required
-                  placeholder="e.g. Priya Sharma" value={addrDraft.name}
+                  placeholder="Full recipient name" value={addrDraft.name}
                   onChange={(e) => setAddrDraft({ ...addrDraft, name: e.target.value })} />
               </div>
               <div>
