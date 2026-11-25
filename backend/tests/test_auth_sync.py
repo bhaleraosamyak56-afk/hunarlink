@@ -420,3 +420,122 @@ def test_07_admin_password_login_allows_only_db_provisioned_admins_and_revocatio
         headers={"Authorization": f"Bearer {token}"},
     )
     assert ov_revoked.status_code == 403
+
+
+def test_08_existing_user_cannot_reregister_and_unverified_artisan_flagged_until_admin_approves(app_and_client, db_session):
+    from sqlalchemy import select
+    from app.models.core_models import SellerProfile
+    from tests.conftest import seed_marketplace_entities, set_authenticated_principal
+
+    app, client = app_and_client
+    app.dependency_overrides.pop(get_current_principal, None)
+
+    # 1. Brand-new email does not exist yet
+    chk0 = client.post("/api/v1/auth/check-account", json={"email": "new.artisan@kashmir.example"})
+    assert chk0.status_code == 200
+    assert chk0.json()["exists"] is False
+
+    # 2. First-time signup succeeds and marks artisan as NOT YET VERIFIED
+    _set_clerk_claims(app, {"sub": "user_artisan_new_001", "email": "new.artisan@kashmir.example"})
+    reg = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "new.artisan@kashmir.example",
+            "email_verified": True,
+            "first_name": "Bilal",
+            "last_name": "Dar",
+            "requested_role": "artisan",
+            "auth_mode": "signup",
+        },
+    )
+    assert reg.status_code == 200
+    rbody = reg.json()
+    assert rbody["is_new_user"] is True
+    assert rbody["is_artisan"] is True
+    assert rbody["artisan_verified"] is False
+    assert rbody["seller_profile"] is None
+
+    # 3. Account check now reports exists=True & artisan_verified=False
+    chk1 = client.post("/api/v1/auth/check-account", json={"email": "new.artisan@kashmir.example"})
+    assert chk1.status_code == 200
+    assert chk1.json()["exists"] is True
+    assert chk1.json()["is_artisan"] is True
+    assert chk1.json()["artisan_verified"] is False
+
+    # 4. Trying to REGISTER AGAIN (auth_mode="signup") is BLOCKED with 409 Conflict!
+    rereg = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "new.artisan@kashmir.example",
+            "email_verified": True,
+            "first_name": "Bilal",
+            "requested_role": "artisan",
+            "auth_mode": "signup",
+        },
+    )
+    assert rereg.status_code == 409
+    assert "already exists" in rereg.json()["detail"].lower()
+
+    # 5. Logging in (auth_mode="signin") succeeds, still artisan_verified=False -> must land on Verify page first!
+    login = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "new.artisan@kashmir.example",
+            "email_verified": True,
+            "first_name": "Bilal",
+            "requested_role": "artisan",
+            "auth_mode": "signin",
+        },
+    )
+    assert login.status_code == 200
+    assert login.json()["artisan_verified"] is False
+
+    # 6. Artisan submits verification -> status=SUBMITTED (still not APPROVED until Admin verifies)
+    from app.core.auth import AuthenticatedPrincipal
+
+    artisan_user_id = rbody["user_id"]
+    set_authenticated_principal(
+        app,
+        AuthenticatedPrincipal(
+            user_id=artisan_user_id,
+            clerk_user_id="user_artisan_new_001",
+            email="new.artisan@kashmir.example",
+            account_status="ACTIVE",
+            roles=frozenset({"DIRECT_SELLER", "CUSTOMER"}),
+        ),
+    )
+    sub = client.post(
+        "/api/v1/auth/artisan-verification",
+        json={
+            "store_name": "Dar Heritage Looms",
+            "craft_specialty": "Pashmina Textiles",
+            "workshop_district": "Srinagar",
+            "verification_path": "GI",
+            "claimed_gi_code": "GI-JK-PASH-9910",
+        },
+    )
+    assert sub.status_code == 201
+    seller_id = sub.json()["seller_profile"]["seller_profile_id"]
+    assert sub.json()["seller_profile"]["verification_status"] == "SUBMITTED"
+
+    chk2 = client.post("/api/v1/auth/check-account", json={"email": "new.artisan@kashmir.example"})
+    assert chk2.json()["artisan_verified"] is False
+    assert chk2.json()["artisan_verification_status"] == "SUBMITTED"
+
+    # 7. Admin approves the artisan -> DB sets APPROVED + ACTIVE -> artisan_verified becomes True!
+    entities = seed_marketplace_entities(db_session)
+    set_authenticated_principal(app, entities["admin_principal"])
+    approve = client.post(
+        f"/api/v1/admin/sellers/{seller_id}/verify",
+        json={"decision": "APPROVED"},
+    )
+    assert approve.status_code == 200
+    assert approve.json()["verification_status"] == "APPROVED"
+    assert approve.json()["profile_status"] == "ACTIVE"
+
+    chk3 = client.post("/api/v1/auth/check-account", json={"email": "new.artisan@kashmir.example"})
+    assert chk3.json()["artisan_verified"] is True
+    assert chk3.json()["artisan_verification_status"] == "APPROVED"
+
+    _set_clerk_claims(app, None)
+    app.dependency_overrides.pop(get_current_principal, None)

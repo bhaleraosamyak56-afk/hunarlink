@@ -29,8 +29,50 @@ export const HAS_CLERK = Boolean(
 );
 
 export const CLERK_PENDING_ROLE_KEY = 'hunarlink_clerk_pending_role';
+export const CLERK_PENDING_AUTH_MODE_KEY = 'hunarlink_clerk_pending_auth_mode';
 export const CLERK_ROLE_MAP_KEY = 'hunarlink_clerk_role_map';
 export const CLERK_ARTISAN_PROFILES_KEY = 'hunarlink_clerk_artisan_profiles';
+
+export function setPendingClerkAuthMode(mode) {
+  if (!mode) return;
+  try {
+    window.sessionStorage.setItem(CLERK_PENDING_AUTH_MODE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.localStorage.setItem(CLERK_PENDING_AUTH_MODE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPendingClerkAuthMode() {
+  try {
+    const s = window.sessionStorage.getItem(CLERK_PENDING_AUTH_MODE_KEY);
+    if (s) return s;
+  } catch {
+    /* ignore */
+  }
+  try {
+    return window.localStorage.getItem(CLERK_PENDING_AUTH_MODE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingClerkAuthMode() {
+  try {
+    window.sessionStorage.removeItem(CLERK_PENDING_AUTH_MODE_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.localStorage.removeItem(CLERK_PENDING_AUTH_MODE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function setPendingClerkRole(role) {
   if (!role) return;

@@ -9,14 +9,18 @@ import {
 } from '@clerk/react';
 import { useSignIn, useSignUp } from '@clerk/react/legacy';
 import { useStore } from '../state/StoreContext.jsx';
-import { canAttemptBackend, syncAuthenticatedUser } from '../services/apiClient.js';
+import { canAttemptBackend, checkAuthAccount, syncAuthenticatedUser } from '../services/apiClient.js';
 import {
   CLERK_PUBLISHABLE_KEY,
   CLERK_ROLE_MAP_KEY,
   ClerkBridgeContext,
+  clearPendingClerkAuthMode,
   clearPendingClerkRole,
   readClerkArtisanProfile,
+  readPendingClerkAuthMode,
   readPendingClerkRole,
+  saveClerkArtisanProfile,
+  setPendingClerkAuthMode,
   setPendingClerkRole
 } from '../data/clerkConfig.js';
 
@@ -160,22 +164,31 @@ function ClerkBridgeInner({ children }) {
 
   const isLoaded = Boolean(userLoaded && authLoaded);
   const lastDbSyncKeyRef = useRef('');
+  const conflictSigningOutRef = useRef(false);
+
+  const getCurrentAppPath = () => {
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    return (window.location.pathname || '/').replace(new RegExp(`^${base}`), '') || '/';
+  };
 
   /* Sync the Clerk-authenticated user into HunarLink's FastAPI database
      (`users` + `user_role_assignments`) using a cryptographically verified
-     Clerk RS256 session JWT, then hydrate catalog, artisans, orders &
-     addresses strictly from the live database. */
+     Clerk RS256 session JWT, enforcing:
+       1) Existing DB users/artisans attempting Register (`auth_mode='signup'`)
+          get HTTP 409 Conflict -> immediately sign out & send to Sign In.
+       2) Any artisan whose DB `verification_status !== 'APPROVED'` ALWAYS
+          lands on `/auth?tab=verify` first (on signup, login, or /seller). */
   const syncUserToBackend = useCallback(
-    async (clerkAccount, syncedMeta, requestedRole) => {
-      if (!canAttemptBackend() || !clerkAccount?.id || !clerkGetToken) return;
-      const syncKey = `${clerkAccount.id}:${requestedRole}`;
-      if (lastDbSyncKeyRef.current === syncKey) return;
+    async (clerkAccount, syncedMeta, requestedRole, authMode = 'sync') => {
+      if (!canAttemptBackend() || !clerkAccount?.id || !clerkGetToken) return null;
+      const syncKey = `${clerkAccount.id}:${requestedRole}:${authMode}`;
+      if (lastDbSyncKeyRef.current === syncKey) return null;
       const email = syncedMeta.email || '';
-      if (!email) return;
+      if (!email) return null;
 
       try {
         const token = await clerkGetToken();
-        if (!token) return;
+        if (!token) return null;
         const emailVerified = Boolean(
           clerkAccount.primaryEmailAddress?.verification?.status === 'verified'
         );
@@ -187,26 +200,114 @@ function ClerkBridgeInner({ children }) {
             last_name: syncedMeta.last || null,
             display_name: syncedMeta.fullName || syncedMeta.first || null,
             phone: syncedMeta.phone || null,
-            requested_role: requestedRole === 'artisan' ? 'artisan' : 'buyer'
+            requested_role: requestedRole === 'artisan' ? 'artisan' : 'buyer',
+            auth_mode: authMode === 'signup' || authMode === 'signin' ? authMode : 'sync'
           },
           token
         );
         lastDbSyncKeyRef.current = syncKey;
+
+        const dbIsArtisan = Boolean(res?.is_artisan) || requestedRole === 'artisan';
+        const dbArtisanVerified = Boolean(res?.artisan_verified);
+        const dbVerificationStatus =
+          res?.seller_profile?.verification_status || 'UNVERIFIED';
+        const effectiveRole = dbIsArtisan ? 'artisan' : 'buyer';
+        saveUserRole(clerkAccount.id, effectiveRole);
+
+        if (dbIsArtisan) {
+          const existingLocal = readClerkArtisanProfile(clerkAccount.id) || {};
+          const mergedArtisan = {
+            ...existingLocal,
+            name: res?.display_name || syncedMeta.fullName || existingLocal.name || '',
+            email: res?.email || syncedMeta.email || '',
+            phone: res?.phone || syncedMeta.phone || existingLocal.phone || '',
+            business: res?.seller_profile?.store_name || existingLocal.business || '',
+            craft: res?.seller_profile?.craft_specialty || existingLocal.craft || '',
+            district: res?.seller_profile?.workshop_district || existingLocal.district || '',
+            giCertified: res?.seller_profile?.verification_path === 'GI',
+            giId: res?.seller_profile?.claimed_gi_authorized_user_no || existingLocal.giId || null,
+            verificationStatus: dbVerificationStatus,
+            artisanVerified: dbArtisanVerified,
+            title: dbArtisanVerified
+              ? 'Verified Artisan \u2022 HunarLink DB'
+              : dbVerificationStatus === 'SUBMITTED'
+                ? 'Artisan Verification Pending Review'
+                : 'Artisan Verification Required'
+          };
+          saveClerkArtisanProfile(clerkAccount.id, mergedArtisan);
+        }
+
+        const refreshed = buildSyncedUser(clerkAccount, effectiveRole);
+        setUser(
+          {
+            ...refreshed.payload,
+            role: effectiveRole,
+            artisanVerified: dbIsArtisan ? dbArtisanVerified : false,
+            verificationStatus: dbVerificationStatus,
+            sellerProfile: res?.seller_profile || null,
+            dbUserId: res?.user_id || null,
+            dbRoles: res?.roles || [],
+            isAdmin: Boolean(res?.is_admin)
+          },
+          { silent: true }
+        );
+
+        const currentPath = getCurrentAppPath();
+        const isEntryOrAuth =
+          currentPath === '/' ||
+          currentPath === '/index.html' ||
+          currentPath === '/login' ||
+          currentPath === '/sso-callback';
+        const isSellerPath = currentPath === '/seller';
+
+        if (dbIsArtisan && !dbArtisanVerified) {
+          if (isEntryOrAuth || isSellerPath) {
+            navigate('/auth?tab=verify', { replace: true });
+          }
+        } else if (dbIsArtisan && dbArtisanVerified) {
+          if (currentPath === '/login' || currentPath === '/sso-callback') {
+            navigate('/seller', { replace: true });
+          }
+        } else if (!dbIsArtisan && (currentPath === '/login' || currentPath === '/sso-callback')) {
+          navigate('/dashboard', { replace: true });
+        }
+
         if (import.meta.env.DEV) {
           console.info(
-            `[HunarLink DB] ${res.is_new_user ? 'Created new' : 'Synced'} user ${res.email} (id=${res.user_id}, roles=${res.roles.join(',')})`
+            `[HunarLink DB] ${res.is_new_user ? 'Created new' : 'Synced'} user ${res.email} (id=${res.user_id}, roles=${res.roles.join(',')}, artisan_verified=${dbArtisanVerified})`
           );
         }
         await hydrateFromBackend(token);
+        return res;
       } catch (err) {
+        if (err?.status === 409 && authMode === 'signup') {
+          conflictSigningOutRef.current = true;
+          clearPendingClerkRole();
+          clearPendingClerkAuthMode();
+          lastDbSyncKeyRef.current = '';
+          clearSessionState();
+          setUser(null, { silent: true });
+          try {
+            if (clerk?.signOut) {
+              await clerk.signOut(() => {});
+            }
+          } catch {
+            /* ignore */
+          }
+          conflictSigningOutRef.current = false;
+          const roleQuery = requestedRole === 'artisan' ? '&role=artisan' : '';
+          navigate(`/login?mode=signin&already_registered=1${roleQuery}`, { replace: true });
+          return null;
+        }
         if (import.meta.env.DEV) {
           console.warn(
             `[HunarLink DB] Could not sync Clerk user to FastAPI (${err?.status || 'offline'}): ${err?.message || 'unknown error'}`
           );
         }
+        return null;
       }
     },
-    [clerkGetToken, hydrateFromBackend]
+    [clerk, clerkGetToken, clearSessionState, hydrateFromBackend, navigate, setUser]
   );
 
   /* Mirror the live Clerk user into StoreContext so Header, ProfilePage,
@@ -223,8 +324,12 @@ function ClerkBridgeInner({ children }) {
       return;
     }
 
+    if (conflictSigningOutRef.current) return;
+
     const pendingRole = readPendingClerkRole();
+    const pendingAuthMode = readPendingClerkAuthMode();
     if (pendingRole) clearPendingClerkRole();
+    if (pendingAuthMode) clearPendingClerkAuthMode();
 
     const roleMap = readRoleMap();
     const metaRole = clerkUser.publicMetadata?.role;
@@ -238,7 +343,12 @@ function ClerkBridgeInner({ children }) {
 
     const synced = buildSyncedUser(clerkUser, resolvedRole);
     setUser(synced.payload, { silent: true });
-    syncUserToBackend(clerkUser, synced, resolvedRole);
+    syncUserToBackend(
+      clerkUser,
+      synced,
+      resolvedRole,
+      pendingAuthMode === 'signup' || pendingAuthMode === 'signin' ? pendingAuthMode : 'sync'
+    );
 
     if (resolvedRole === 'buyer') {
       setBuyerProfile({
@@ -253,15 +363,18 @@ function ClerkBridgeInner({ children }) {
         role: 'buyer',
         isLoggedIn: true
       });
-    } else if (pendingRole === 'artisan') {
-      /* Guarantee an artisan returning from Google/Apple OAuth NEVER lands on
-         the buyer storefront homepage: unverified artisans go to GI/Standard
-         verification, while already-verified artisans go straight to /seller. */
-      const target = synced.artisanVerified ? '/seller' : '/auth?mode=register&step=verify';
-      const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-      const currentPath = (window.location.pathname || '/').replace(new RegExp(`^${base}`), '') || '/';
-      if (currentPath === '/' || currentPath === '/index.html' || currentPath === '/login' || currentPath === '/sso-callback') {
-        navigate(target, { replace: true });
+    } else if (resolvedRole === 'artisan' && !synced.artisanVerified) {
+      /* Even before backend hydration finishes, route unverified artisans
+         from auth/home/seller straight to the verification page first. */
+      const currentPath = getCurrentAppPath();
+      if (
+        currentPath === '/' ||
+        currentPath === '/index.html' ||
+        currentPath === '/login' ||
+        currentPath === '/sso-callback' ||
+        currentPath === '/seller'
+      ) {
+        navigate('/auth?tab=verify', { replace: true });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -308,16 +421,18 @@ function ClerkBridgeInner({ children }) {
       }
 
       const useSignUpFlow = mode === 'signup' || mode === 'register';
+      const normalizedAuthMode = useSignUpFlow ? 'signup' : 'signin';
       const ready = useSignUpFlow ? signUpLoaded && signUp : signInLoaded && signIn;
       if (!ready) {
         throw new Error('Clerk is still initialising. Please try again in a moment.');
       }
 
-      const strategy = provider === 'Apple' ? 'oauth_apple' : 'oauth_google';
+      const strategy =
+        String(provider || '').toLowerCase() === 'apple' ? 'oauth_apple' : 'oauth_google';
       const origin = window.location.origin;
       const destPath =
         normalizedRole === 'artisan'
-          ? '/auth?mode=register&step=verify'
+          ? '/auth?tab=verify'
           : (redirectTo || '/').startsWith('/')
             ? redirectTo || '/'
             : `/${redirectTo}`;
@@ -325,6 +440,7 @@ function ClerkBridgeInner({ children }) {
       const redirectUrlComplete = `${origin}${base}${destPath}`;
 
       setPendingClerkRole(normalizedRole);
+      setPendingClerkAuthMode(normalizedAuthMode);
 
       const resource = useSignUpFlow ? signUp : signIn;
       const timeoutPromise = new Promise((_, reject) => {
@@ -349,6 +465,7 @@ function ClerkBridgeInner({ children }) {
         return { redirected: true };
       } catch (err) {
         clearPendingClerkRole();
+        clearPendingClerkAuthMode();
         throw new Error(formatClerkError(err, provider));
       }
     },
@@ -357,6 +474,7 @@ function ClerkBridgeInner({ children }) {
 
   const signOutClerk = useCallback(async () => {
     clearPendingClerkRole();
+    clearPendingClerkAuthMode();
     lastDbSyncKeyRef.current = '';
     clearSessionState();
     setUser(null, { silent: true });
@@ -369,7 +487,7 @@ function ClerkBridgeInner({ children }) {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
     const dest =
       readPendingClerkRole() === 'artisan'
-        ? '/auth?mode=register&step=verify'
+        ? '/auth?tab=verify'
         : '/';
     return (
       <AuthenticateWithRedirectCallback
@@ -389,18 +507,77 @@ function ClerkBridgeInner({ children }) {
   }, [isSignedIn, clerkGetToken]);
 
   const sendEmailCode = useCallback(
-    async (emailAddress, role = 'buyer') => {
+    async (emailAddress, role = 'buyer', authMode = 'signin') => {
       const cleaned = String(emailAddress || '').trim().toLowerCase();
+      if (!cleaned || !cleaned.includes('@')) {
+        throw new Error('Please enter a valid email address.');
+      }
       const normalizedRole = role === 'artisan' ? 'artisan' : 'buyer';
+      const normalizedMode = authMode === 'register' || authMode === 'signup' ? 'signup' : 'signin';
       setPendingClerkRole(normalizedRole);
+      setPendingClerkAuthMode(normalizedMode);
+
       if (!signInLoaded || !signUpLoaded || !signIn || !signUp) {
         throw new Error('Authentication service is initializing. Please retry.');
       }
+
+      // 1. Live HunarLink DB check BEFORE calling Clerk:
+      //    - Existing DB user/artisan CANNOT register (must log in).
+      //    - Non-existent user on Sign In is directed cleanly to Register.
+      if (canAttemptBackend()) {
+        try {
+          const acct = await checkAuthAccount(cleaned);
+          if (normalizedMode === 'signup' && acct?.exists) {
+            const dupErr = new Error(
+              'This email already exists in HunarLink. You cannot register again — please Sign In instead.'
+            );
+            dupErr.code = 'ALREADY_REGISTERED';
+            throw dupErr;
+          }
+          if (normalizedMode === 'signin' && acct && acct.exists === false) {
+            const missErr = new Error(
+              'No HunarLink account exists for this email yet. Please switch to Register to create one.'
+            );
+            missErr.code = 'NOT_REGISTERED';
+            throw missErr;
+          }
+        } catch (checkErr) {
+          if (checkErr?.code === 'ALREADY_REGISTERED' || checkErr?.code === 'NOT_REGISTERED') {
+            clearPendingClerkRole();
+            clearPendingClerkAuthMode();
+            throw checkErr;
+          }
+          // Backend unreachable (static preview): proceed to Clerk
+        }
+      }
+
+      if (normalizedMode === 'signup') {
+        try {
+          await signUp.create({ emailAddress: cleaned });
+          await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+          return { flow: 'signUp' };
+        } catch (err) {
+          clearPendingClerkRole();
+          clearPendingClerkAuthMode();
+          const errCode = err?.errors?.[0]?.code || '';
+          const msg = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || '';
+          if (errCode === 'form_identifier_exists' || msg.toLowerCase().includes('already')) {
+            const dupErr = new Error(
+              'This email already exists. You cannot register again — please Sign In instead.'
+            );
+            dupErr.code = 'ALREADY_REGISTERED';
+            throw dupErr;
+          }
+          throw new Error(msg || 'Could not send registration verification code.');
+        }
+      }
+
+      // Sign-In mode: NEVER silently fall back to signUp.create
       try {
         const si = await signIn.create({ identifier: cleaned });
         const emailFactor = si.supportedFirstFactors?.find((f) => f.strategy === 'email_code');
         if (!emailFactor) {
-          throw new Error('Use "Continue with Google" or "Continue with Apple" for this account.');
+          throw new Error('Use "Sign in with Google" or "Sign in with Apple" for this account.');
         }
         await signIn.prepareFirstFactor({
           strategy: 'email_code',
@@ -408,18 +585,18 @@ function ClerkBridgeInner({ children }) {
         });
         return { flow: 'signIn' };
       } catch (err) {
-        const errCode = err?.errors?.[0]?.code;
-        if (errCode === 'form_identifier_not_found') {
-          await signUp.create({ emailAddress: cleaned });
-          await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-          return { flow: 'signUp' };
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+        const errCode = err?.errors?.[0]?.code || '';
+        const msg = err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message || '';
+        if (errCode === 'form_identifier_not_found' || msg.toLowerCase().includes("couldn't find")) {
+          const missErr = new Error(
+            'No account found for this email yet. Please switch to Register to create one.'
+          );
+          missErr.code = 'NOT_REGISTERED';
+          throw missErr;
         }
-        throw new Error(
-          err?.errors?.[0]?.longMessage ||
-            err?.errors?.[0]?.message ||
-            err?.message ||
-            'Could not send email verification code.'
-        );
+        throw new Error(msg || 'Could not send sign-in verification code.');
       }
     },
     [signIn, signInLoaded, signUp, signUpLoaded]

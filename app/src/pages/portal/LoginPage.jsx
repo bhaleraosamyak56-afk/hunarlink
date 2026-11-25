@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import {
+  clearPendingClerkAuthMode,
   clearPendingClerkRole,
   useClerkBridge
 } from '../../data/clerkConfig.js';
@@ -44,10 +45,20 @@ export default function LoginPage() {
   const clerk = useClerkBridge();
 
   const initialRole = params.get('role') === 'artisan' ? 'artisan' : 'user';
+  const initialMode =
+    params.get('mode') === 'register' || params.get('mode') === 'signup'
+      ? 'register'
+      : 'signin';
+  const alreadyRegisteredNotice = params.get('already_registered') === '1';
   const nextUrl = params.get('next') || '/';
 
+  const [authMode, setAuthMode] = useState(initialMode); // 'signin' | 'register'
   const [role, setRole] = useState(initialRole);
-  const [errMsg, setErrMsg] = useState('');
+  const [errMsg, setErrMsg] = useState(
+    alreadyRegisteredNotice
+      ? 'This account already exists in HunarLink. You cannot register again — please Sign In below.'
+      : ''
+  );
   const [busyProvider, setBusyProvider] = useState(null);
 
   const [email, setEmail] = useState('');
@@ -62,11 +73,30 @@ export default function LoginPage() {
   const isArtisanSession = Boolean(
     user && (user.role === 'seller' || user.role === 'artisan')
   );
+  const isVerifiedArtisan = Boolean(isArtisanSession && user?.artisanVerified);
+
+  useEffect(() => {
+    if (params.get('already_registered') === '1') {
+      setAuthMode('signin');
+      setErrMsg(
+        'This account already exists in HunarLink. You cannot register again — please Sign In below.'
+      );
+    }
+  }, [params]);
+
+  useEffect(() => {
+    if (signedIn && isArtisanSession && !isVerifiedArtisan) {
+      navigate('/auth?tab=verify', { replace: true });
+    }
+  }, [signedIn, isArtisanSession, isVerifiedArtisan, navigate]);
 
   useEffect(() => {
     const resetBusy = (event) => {
       setBusyProvider(null);
-      if (event?.persisted) clearPendingClerkRole();
+      if (event?.persisted) {
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+      }
     };
     const onVisChange = () => {
       if (document.visibilityState === 'visible') setBusyProvider(null);
@@ -91,7 +121,7 @@ export default function LoginPage() {
     try {
       const res = await clerk.authenticateWithOAuth(provider, {
         role: role === 'artisan' ? 'artisan' : 'user',
-        mode: 'signin',
+        mode: authMode === 'register' ? 'signup' : 'signin',
         redirectTo: role === 'artisan' ? '/auth?tab=verify' : nextUrl || '/'
       });
       if (res?.alreadySignedIn && res?.destination) {
@@ -112,11 +142,24 @@ export default function LoginPage() {
     setErrMsg('');
     setEmailBusy(true);
     try {
-      const res = await clerk.sendEmailCode(email, role === 'artisan' ? 'artisan' : 'buyer');
-      setPendingFlow(res.flow || 'signIn');
+      const res = await clerk.sendEmailCode(
+        email,
+        role === 'artisan' ? 'artisan' : 'buyer',
+        authMode === 'register' ? 'signup' : 'signin'
+      );
+      setPendingFlow(res.flow || (authMode === 'register' ? 'signUp' : 'signIn'));
       setEmailStep('verify');
     } catch (err) {
-      setErrMsg(err?.message || 'Could not send email code. Use Continue with Google.');
+      if (err?.code === 'ALREADY_REGISTERED') {
+        setAuthMode('signin');
+        setEmailStep('input');
+        setErrMsg(
+          err.message ||
+            'This email already exists in HunarLink. Switched to Sign In — please sign in below.'
+        );
+      } else {
+        setErrMsg(err?.message || 'Could not send email code. Try Sign in with Google.');
+      }
     } finally {
       setEmailBusy(false);
     }
@@ -169,8 +212,21 @@ export default function LoginPage() {
               <IconArrowRight size={13} className="login-back-arrow" /> Storefront
             </Link>
             {signedIn && (
-              <Link to={isArtisanSession ? '/seller' : '/profile'} className="up-nav-pill">
-                {isArtisanSession ? 'Workspace' : 'My Profile'}
+              <Link
+                to={
+                  isArtisanSession
+                    ? isVerifiedArtisan
+                      ? '/seller'
+                      : '/auth?tab=verify'
+                    : '/profile'
+                }
+                className="up-nav-pill"
+              >
+                {isArtisanSession
+                  ? isVerifiedArtisan
+                    ? 'Workspace'
+                    : 'Verify Artisan'
+                  : 'My Profile'}
               </Link>
             )}
             {signedIn ? (
@@ -263,10 +319,22 @@ export default function LoginPage() {
                     type="button"
                     className="btn-orange"
                     style={{ width: '100%', justifyContent: 'center' }}
-                    onClick={() => navigate(isArtisanSession ? '/seller' : nextUrl || '/')}
+                    onClick={() =>
+                      navigate(
+                        isArtisanSession
+                          ? isVerifiedArtisan
+                            ? '/seller'
+                            : '/auth?tab=verify'
+                          : nextUrl || '/'
+                      )
+                    }
                   >
                     <IconArrowRight size={15} />
-                    {isArtisanSession ? 'Open Artisan Workspace' : 'Enter HunarLink Marketplace'}
+                    {isArtisanSession
+                      ? isVerifiedArtisan
+                        ? 'Open Artisan Workspace'
+                        : 'Complete Artisan Verification First'
+                      : 'Enter HunarLink Marketplace'}
                   </button>
                   <button
                     type="button"
@@ -282,13 +350,53 @@ export default function LoginPage() {
               <>
                 <div className="login-head">
                   <h2 className="login-title" id="login-title">
-                    {role === 'artisan' ? 'Artisan Sign In' : 'Sign in to HunarLink'}
+                    {authMode === 'register'
+                      ? role === 'artisan'
+                        ? 'Register New Artisan'
+                        : 'Create HunarLink Account'
+                      : role === 'artisan'
+                        ? 'Artisan Sign In'
+                        : 'Sign in to HunarLink'}
                   </h2>
                   <p className="login-sub" id="login-sub">
-                    {role === 'artisan'
-                      ? 'Verify your identity to access GI onboarding & workshop listings.'
-                      : 'Sign in with Google, Apple, or a verified email code to access the marketplace.'}
+                    {authMode === 'register'
+                      ? 'New to HunarLink? Existing database accounts cannot re-register — use Sign In instead.'
+                      : role === 'artisan'
+                        ? 'Existing artisans sign in below. Unverified artisans will land on the Verification page first.'
+                        : 'Sign in with Google, Apple, or a verified email code to access your account.'}
                   </p>
+                </div>
+
+                <div className="seg" role="group" aria-labelledby="mode-label" style={{ marginBottom: '0.75rem' }}>
+                  <span className="seg-label" id="mode-label">Action</span>
+                  <div className="seg-track">
+                    <button
+                      type="button"
+                      className={`seg-btn${authMode === 'signin' ? ' is-on' : ''}`}
+                      aria-pressed={authMode === 'signin'}
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setEmailStep('input');
+                        setCode('');
+                        setErrMsg('');
+                      }}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className={`seg-btn${authMode === 'register' ? ' is-on' : ''}`}
+                      aria-pressed={authMode === 'register'}
+                      onClick={() => {
+                        setAuthMode('register');
+                        setEmailStep('input');
+                        setCode('');
+                        setErrMsg('');
+                      }}
+                    >
+                      Register
+                    </button>
+                  </div>
                 </div>
 
                 <div className="seg" role="group" aria-labelledby="role-label">
@@ -339,7 +447,13 @@ export default function LoginPage() {
                         onClick={() => startOAuth('google')}
                       >
                         <GoogleGlyph />
-                        <span>{busyProvider === 'google' ? 'Redirecting…' : 'Continue with Google'}</span>
+                        <span>
+                          {busyProvider === 'google'
+                            ? 'Redirecting…'
+                            : authMode === 'register'
+                              ? 'Register with Google'
+                              : 'Sign in with Google'}
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -348,12 +462,22 @@ export default function LoginPage() {
                         onClick={() => startOAuth('apple')}
                       >
                         <AppleGlyph />
-                        <span>{busyProvider === 'apple' ? 'Redirecting…' : 'Continue with Apple'}</span>
+                        <span>
+                          {busyProvider === 'apple'
+                            ? 'Redirecting…'
+                            : authMode === 'register'
+                              ? 'Register with Apple'
+                              : 'Sign in with Apple'}
+                        </span>
                       </button>
                     </div>
 
                     <div className="login-social-divider" aria-hidden="true">
-                      <span>or continue with email verification code</span>
+                      <span>
+                        {authMode === 'register'
+                          ? 'or register with email verification code'
+                          : 'or sign in with email verification code'}
+                      </span>
                     </div>
 
                     {emailStep === 'input' ? (
@@ -380,7 +504,11 @@ export default function LoginPage() {
                           disabled={emailBusy}
                         >
                           <IconShield size={15} />
-                          {emailBusy ? 'Sending email code…' : 'Send Email Verification Code'}
+                          {emailBusy
+                            ? 'Checking database & sending code…'
+                            : authMode === 'register'
+                              ? 'Send Registration Code'
+                              : 'Send Sign-In Code'}
                         </button>
                       </form>
                     ) : (
@@ -408,7 +536,11 @@ export default function LoginPage() {
                           disabled={emailBusy}
                         >
                           <IconCheck size={15} />
-                          {emailBusy ? 'Verifying code…' : 'Verify & Enter HunarLink'}
+                          {emailBusy
+                            ? 'Verifying code…'
+                            : authMode === 'register'
+                              ? 'Verify & Complete Registration'
+                              : 'Verify & Sign In'}
                         </button>
                         <button
                           type="button"
@@ -434,8 +566,9 @@ export default function LoginPage() {
 
                 {role === 'artisan' && (
                   <p className="login-footer-note" style={{ marginTop: '1rem' }}>
-                    New Kashmiri artisan? Sign in above, then complete GI / Standard verification on{' '}
-                    <Link to="/auth">Artisan Onboarding</Link>.
+                    {authMode === 'register'
+                      ? 'Already registered as an artisan? Switch to Sign In above — existing accounts cannot re-register.'
+                      : 'Artisans who have not yet been verified will automatically land on the Verification page first.'}
                   </p>
                 )}
               </>

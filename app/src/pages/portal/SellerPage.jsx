@@ -377,7 +377,7 @@ export default function SellerPage() {
       storeUser.isLoggedIn &&
       (storeUser.role === 'artisan' || storeUser.role === 'seller')
     );
-    if (isArtisanRole && storeUser.artisanVerified === false) {
+    if (isArtisanRole && !storeUser.artisanVerified) {
       setSeller(null);
       toast('Complete your Artisan & GI Verification to unlock the Seller Workspace.');
       navigate('/auth?tab=verify', { replace: true });

@@ -1140,3 +1140,34 @@ def admin_moderate_listing(
         "listing_status": listing.listing_status,
         "moderated_by": admin.user_id,
     }
+
+
+@router.post("/admin/sellers/{seller_id}/verify")
+def admin_verify_seller(
+    seller_id: str,
+    payload: dict,
+    admin: AuthenticatedPrincipal = Depends(require_admin_permission("guardrails.decide")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Allow an authorized Admin to APPROVE or REJECT an artisan's verification status in DB."""
+    decision = str(payload.get("decision") or "").strip().upper()
+    if decision not in {"APPROVED", "REJECTED"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="decision must be APPROVED or REJECTED.",
+        )
+    seller = db.scalar(select(SellerProfile).where(SellerProfile.id == seller_id))
+    if seller is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artisan profile not found.")
+
+    prev_verify = seller.verification_status
+    seller.verification_status = decision
+    seller.profile_status = "ACTIVE" if decision == "APPROVED" else "DRAFT"
+    db.commit()
+    return {
+        "seller_id": seller.id,
+        "previous_verification_status": prev_verify,
+        "verification_status": seller.verification_status,
+        "profile_status": seller.profile_status,
+        "verified_by": admin.user_id,
+    }
