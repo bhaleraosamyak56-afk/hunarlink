@@ -42,6 +42,7 @@ const LoginPage = lazy(() => import('./pages/portal/LoginPage.jsx'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const ArtisansPage = lazy(() => import('./pages/ArtisansPage.jsx'));
+const SsoCallbackPage = lazy(() => import('./pages/SsoCallbackPage.jsx'));
 import NotFound from './pages/NotFound.jsx';
 import SpaRedirect from './pages/SpaRedirect.jsx';
 import usePageTitle from './utils/usePageTitle.js';
@@ -88,7 +89,7 @@ export default function App() {
      full-height panes with no header, footer or utility strip, and the pane
      heights are measured against 100dvh. Any chrome here shifts both panes and
      stops the layout matching. */
-  const isAuth = /^\/auth(\.html)?$/.test(location.pathname);
+  const isAuth = /^\/(auth(\.html)?|sso-callback)$/.test(location.pathname);
 
   /* The six portal pages ship their own header (and none of them has a footer
      or utility strip), so the storefront chrome must not render there either —
@@ -167,6 +168,7 @@ export default function App() {
         <Route path="/product.html" element={<ProductPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/auth.html" element={<AuthPage />} />
+        <Route path="/sso-callback" element={<SsoCallbackPage />} />
         <Route path="/wholesale" element={<WholesalePage />} />
         <Route path="/wholesale.html" element={<WholesalePage />} />
         <Route path="/admin" element={<AdminPage />} />

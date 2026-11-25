@@ -5437,6 +5437,20 @@ html.portal-wholesale body {
   flex: 0 0 auto;
 }
 
+.login-card .login-social-btn:disabled {
+  opacity: 0.68;
+  cursor: wait;
+  transform: none;
+}
+
+.login-card .login-social-note {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-500);
+  text-align: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-card .login-social-btn {
     transition-duration: 0.01ms;

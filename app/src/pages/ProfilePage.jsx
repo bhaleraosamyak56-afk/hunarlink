@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../styles/portal.css';
 import { useStore } from '../state/StoreContext';
+import { useClerkBridge } from '../data/clerkConfig.js';
 import PortalScope from '../components/PortalScope.jsx';
 import { appHref } from '../utils/href.js';
 import { IconHome, IconUser, IconPackage, IconLogout, IconLogin } from '../components/LineIcons.jsx';
@@ -78,6 +79,7 @@ function readAddresses(addresses) {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const clerk = useClerkBridge();
   const {
     wishlist,
     wishlistItems,
@@ -272,9 +274,17 @@ export default function ProfilePage() {
     toast('Address removed.');
   }
 
-  /* Signing out closes the collector session but keeps the saved details, then
-     hands over to the buyer login page — the static behaviour. */
-  function signOut() {
+  /* Signing out closes the collector session (and Clerk session if active)
+     while keeping saved details, then hands over to the buyer login page. */
+  async function signOut() {
+    if (clerk.enabled && clerk.signOutClerk) {
+      try {
+        await clerk.signOutClerk();
+      } catch {
+        /* ignore */
+      }
+    }
+    setUser(null, { silent: true });
     setProfile((p) => ({ ...p, isLoggedIn: false }));
     toast('Signed out of your collector account.');
     navigate('/login');

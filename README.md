@@ -33,8 +33,30 @@ For development with hot reload:
 ```bash
 cd app
 npm install
-npm run dev          # vite dev server
+npm run dev          # vite dev server at http://localhost:5173/
 ```
+
+### Real Google & Apple OAuth on localhost (Clerk)
+
+The storefront works out-of-the-box without any API keys (using built-in demo login
+on GitHub Pages). To enable real Google / Apple OAuth locally with Clerk:
+
+1. Copy `app/.env.example` to `app/.env.local` (gitignored):
+   ```bash
+   cp app/.env.example app/.env.local
+   ```
+2. Paste your Clerk **Development** Publishable Key (`pk_test_...`) from
+   [dashboard.clerk.com](https://dashboard.clerk.com) into `app/.env.local`:
+   ```env
+   VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+   ```
+3. In your Clerk Dashboard, enable **Google** (and/or **Apple**) under
+   **User & Authentication -> SSO Connections**.
+4. Run `cd app && npm run dev` and open **`http://localhost:5173/login`** (or `/auth`)
+   in the **same browser** where you are signed into `dashboard.clerk.com`.
+
+> Production builds for GitHub Pages omit `app/.env.local`, so `@clerk/react` is
+> never loaded on the static public site and demo login continues to work seamlessly.
 
 > The site is deployed under the `/hunarlink/` prefix (a GitHub project page), so the
 > built `index.html` references `/hunarlink/assets/…`. Serving the repo root directly
