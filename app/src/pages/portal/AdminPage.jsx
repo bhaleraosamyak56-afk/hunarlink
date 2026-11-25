@@ -58,6 +58,25 @@ const inr = (n, decimals = false) =>
    every render, i.e. an infinite refetch loop). */
 const arr = (v) => (Array.isArray(v) ? v : []);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+const WHOLESALE_ADMIN_KEY = 'hunarlink_wholesale_admin_requests';
+
+function loadWholesaleAdminRequests() {
+  try {
+    const raw = window.localStorage.getItem(WHOLESALE_ADMIN_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveWholesaleAdminRequests(list) {
+  try {
+    window.localStorage.setItem(WHOLESALE_ADMIN_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore storage quota errors */
+  }
+}
 
 const EMPTY = {
   metrics: null,
@@ -83,6 +102,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   const [data, setData] = useState(EMPTY);
+  const [wholesaleApps, setWholesaleApps] = useState(() => loadWholesaleAdminRequests());
   const [customerQuery, setCustomerQuery] = useState('');
   const [sellerFilter, setSellerFilter] = useState('');
 
@@ -123,6 +143,7 @@ export default function AdminPage() {
         logs: arr(logs),
         roles: arr(roles)
       });
+      setWholesaleApps(loadWholesaleAdminRequests());
     } catch (err) {
       if (import.meta.env.DEV) console.error('admin load failed', err);
     } finally {
@@ -134,6 +155,25 @@ export default function AdminPage() {
     if (adminToken) load();
     else setLoading(false);
   }, [adminToken, load]);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === WHOLESALE_ADMIN_KEY) {
+        setWholesaleApps(loadWholesaleAdminRequests());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  function updateWholesaleAppStatus(reqId, newStatus) {
+    setWholesaleApps((list) => {
+      const next = list.map((r) => (r.id === reqId ? { ...r, status: newStatus } : r));
+      saveWholesaleAdminRequests(next);
+      return next;
+    });
+    toast(`Wholesale application ${reqId} updated -> ${newStatus}`, 'success');
+  }
 
   /* Escape closes the drawer / prompt, mirroring the controller's keydown */
   useEffect(() => {
@@ -899,6 +939,86 @@ export default function AdminPage() {
             {/* TAB 9: WHOLESALE */}
             {tab === 'wholesale' && (
               <section id="tab-wholesale" className="tab-pane active">
+                <div className="panel-card" style={{ marginBottom: '1.5rem' }}>
+                  <div className="panel-header">
+                    <h3>Incoming Local Seller Wholesale Applications ({wholesaleApps.length})</h3>
+                    <span className="badge badge-gold">Synced with /wholesale</span>
+                  </div>
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Ref ID</th><th>Seller / Workshop</th><th>Guild &amp; Craft</th>
+                          <th>Capacity &amp; Rate</th><th>GI Status</th><th>Status</th><th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="wholesale-apps-tbody">
+                        {wholesaleApps.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="loading-cell">
+                              No local seller applications submitted yet from the Wholesale Desk.
+                            </td>
+                          </tr>
+                        ) : (
+                          wholesaleApps.map((app) => (
+                            <tr key={app.id}>
+                              <td><strong>{app.id}</strong></td>
+                              <td>
+                                <strong>{app.sellerName}</strong>
+                                <div style={{ fontSize: '0.78rem', color: '#555' }}>
+                                  {app.workshop} &bull; {app.phone}
+                                </div>
+                              </td>
+                              <td>
+                                <strong>{app.guild}</strong>
+                                <div style={{ fontSize: '0.78rem', color: '#555' }}>{app.productOffered}</div>
+                              </td>
+                              <td>
+                                {app.supplyCapacity} units @ {inr(app.wholesaleRate)}/unit
+                              </td>
+                              <td><span className="badge badge-neutral">{app.giStatus}</span></td>
+                              <td>
+                                <span
+                                  className={`badge ${
+                                    /Approved/i.test(app.status || '') ? 'badge-success' : 'badge-warning'
+                                  }`}
+                                >
+                                  {app.status || 'Submitted'}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => updateWholesaleAppStatus(app.id, 'Approved by Admin — Onboarding')}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-sm btn-sm"
+                                    onClick={() => updateWholesaleAppStatus(app.id, 'Cluster Inspection Scheduled')}
+                                  >
+                                    Schedule Visit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-sm btn-sm"
+                                    onClick={() => updateWholesaleAppStatus(app.id, 'Sample Requested by Admin')}
+                                  >
+                                    Request Sample
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
                 <div className="panel-card">
                   <div className="panel-header"><h3>Wholesale Catalog &amp; B2B RFQs</h3></div>
                   <div className="table-responsive">
