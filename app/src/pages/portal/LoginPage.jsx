@@ -78,8 +78,11 @@ export default function LoginPage() {
   useEffect(() => {
     if (params.get('already_registered') === '1') {
       setAuthMode('signin');
+      setPendingFlow('signIn');
+      setEmailStep('input');
+      setCode('');
       setErrMsg(
-        'This account already exists in HunarLink. You cannot register again — please Sign In below.'
+        'This account already exists in HunarLink. Switched to Sign In — enter your email or use Google below to continue.'
       );
     }
   }, [params]);
@@ -174,7 +177,15 @@ export default function LoginPage() {
       await clerk.verifyEmailCode(code, pendingFlow);
       navigate(role === 'artisan' ? '/auth?tab=verify' : nextUrl || '/', { replace: true });
     } catch (err) {
-      setErrMsg(err?.message || 'Invalid or expired verification code.');
+      if (err?.code === 'SWITCH_TO_SIGNIN') {
+        setAuthMode('signin');
+        setPendingFlow('signIn');
+        setEmailStep('input');
+        setCode('');
+        setErrMsg(err.message);
+      } else {
+        setErrMsg(err?.message || 'Invalid or expired verification code.');
+      }
     } finally {
       setEmailBusy(false);
     }
