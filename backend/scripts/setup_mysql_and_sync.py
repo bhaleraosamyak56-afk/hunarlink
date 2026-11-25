@@ -125,8 +125,9 @@ def install_mysql_schema(mysql_url: str) -> None:
                     try:
                         cur.execute(stmt)
                         applied += 1
-                    except pymysql.err.OperationalError as exc:
-                        # 1359 = Trigger already exists, 1304 = Procedure already exists, 1050 = Table exists
+                    except pymysql.MySQLError as exc:
+                        # 1359 = Trigger already exists, 1304 = Procedure already exists,
+                        # 1050 = Table already exists, 1061 = Duplicate key/index name
                         if exc.args and exc.args[0] in (1050, 1061, 1304, 1359):
                             skipped_existing += 1
                         else:
