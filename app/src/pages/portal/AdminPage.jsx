@@ -13,7 +13,8 @@ import {
   fetchAdminPaymentWebhooks,
   fetchAdminRefunds,
   fetchMyAuthProfile,
-  initiateAdminRefund
+  initiateAdminRefund,
+  moderateAdminListing
 } from '../../services/apiClient.js';
 import { generateIdempotencyKey } from '../../services/razorpayCheckout.js';
 import AdminLoginPage from './AdminLoginPage.jsx';
@@ -187,15 +188,24 @@ export default function AdminPage() {
   }
 
   async function handleRefund(payment) {
-    const reason = window.prompt(`Refund reason for payment ${payment.id}:`);
-    if (!reason || !reason.trim()) return;
+    const reason = window.prompt(
+      `Refund reason for ${payment.payment_reference || payment.id} (min 5 chars):`
+    );
+    if (!reason || reason.trim().length < 5) {
+      if (reason !== null) toast('Refund reason must be at least 5 characters.', 'error');
+      return;
+    }
     try {
       await initiateAdminRefund(
         payment.id,
-        { reason_text: reason.trim(), idempotency_key: generateIdempotencyKey('refund') },
+        {
+          refund_type: 'FULL',
+          reason: reason.trim(),
+          idempotency_key: generateIdempotencyKey('refund')
+        },
         adminToken
       );
-      toast('Refund submitted to Razorpay & recorded in database.', 'success');
+      toast('Full refund submitted to Razorpay & recorded in database.', 'success');
       loadLiveAdminData(adminToken);
     } catch (err) {
       toast(err?.message || 'Refund failed.', 'error');
@@ -203,13 +213,31 @@ export default function AdminPage() {
   }
 
   async function handleCaseDecision(caseId, decision) {
-    const notes = window.prompt(`Review notes for ${decision}:`) || `${decision} by admin`;
+    const reason = window.prompt(`Audit reason for ${decision} (min 5 chars):`);
+    if (!reason || reason.trim().length < 5) {
+      if (reason !== null) toast('Decision reason must be at least 5 characters.', 'error');
+      return;
+    }
     try {
-      await decideAdminGuardrailCase(caseId, { decision, notes }, adminToken);
+      await decideAdminGuardrailCase(
+        caseId,
+        { decision, reason: reason.trim() },
+        adminToken
+      );
       toast(`Guardrail case marked ${decision}.`, 'success');
       loadLiveAdminData(adminToken);
     } catch (err) {
       toast(err?.message || 'Could not record decision.', 'error');
+    }
+  }
+
+  async function handleModerateListing(listingId, nextStatus) {
+    try {
+      await moderateAdminListing(listingId, nextStatus, adminToken);
+      toast(`Craft listing status updated to ${nextStatus}.`, 'success');
+      loadLiveAdminData(adminToken);
+    } catch (err) {
+      toast(err?.message || 'Could not update listing status.', 'error');
     }
   }
 
@@ -443,7 +471,7 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
-            <h3 style={{ marginBottom: '0.65rem' }}>Active Craft Listings</h3>
+            <h3 style={{ marginBottom: '0.65rem' }}>Craft Listings (Approve / Moderate Live DB)</h3>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                 <thead>
@@ -452,6 +480,7 @@ export default function AdminPage() {
                     <th style={{ padding: '0.55rem' }}>Title</th>
                     <th style={{ padding: '0.55rem' }}>Price</th>
                     <th style={{ padding: '0.55rem' }}>Status</th>
+                    <th style={{ padding: '0.55rem' }}>Moderation</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -460,7 +489,41 @@ export default function AdminPage() {
                       <td style={{ padding: '0.55rem', fontFamily: 'monospace' }}>{l.sku}</td>
                       <td style={{ padding: '0.55rem' }}>{l.title}</td>
                       <td style={{ padding: '0.55rem' }}>{inr(l.price)}</td>
-                      <td style={{ padding: '0.55rem' }}>{l.status}</td>
+                      <td style={{ padding: '0.55rem', fontWeight: 600 }}>{l.status}</td>
+                      <td style={{ padding: '0.55rem' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {l.status !== 'ACTIVE' && (
+                            <button
+                              type="button"
+                              className="btn-orange"
+                              style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                              onClick={() => handleModerateListing(l.id, 'ACTIVE')}
+                            >
+                              Approve Live
+                            </button>
+                          )}
+                          {l.status === 'ACTIVE' && (
+                            <button
+                              type="button"
+                              className="btn-orange-outline"
+                              style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                              onClick={() => handleModerateListing(l.id, 'PAUSED')}
+                            >
+                              Pause
+                            </button>
+                          )}
+                          {l.status !== 'REJECTED' && (
+                            <button
+                              type="button"
+                              className="btn-orange-outline"
+                              style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                              onClick={() => handleModerateListing(l.id, 'REJECTED')}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -507,36 +570,115 @@ export default function AdminPage() {
           <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
             <h2 style={{ marginBottom: '0.9rem' }}>Razorpay Payments &amp; Refunds (Live DB)</h2>
             {data.payments.length === 0 ? (
-              <p style={{ opacity: 0.7 }}>No Razorpay payment records in the database yet.</p>
+              <p style={{ opacity: 0.7, marginBottom: '1.25rem' }}>
+                No Razorpay payment records in the database yet.
+              </p>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+              <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
                   <thead>
                     <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-                      <th style={{ padding: '0.55rem' }}>Payment ID</th>
-                      <th style={{ padding: '0.55rem' }}>Amount</th>
+                      <th style={{ padding: '0.55rem' }}>Reference</th>
+                      <th style={{ padding: '0.55rem' }}>Provider Payment</th>
+                      <th style={{ padding: '0.55rem' }}>Amount / Captured</th>
+                      <th style={{ padding: '0.55rem' }}>Refunded</th>
                       <th style={{ padding: '0.55rem' }}>Status</th>
                       <th style={{ padding: '0.55rem' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.payments.map((p) => (
-                      <tr key={p.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                        <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>{p.id}</td>
-                        <td style={{ padding: '0.55rem' }}>{inr(p.amount)}</td>
-                        <td style={{ padding: '0.55rem' }}>{p.status}</td>
-                        <td style={{ padding: '0.55rem' }}>
-                          {p.status === 'CAPTURED' && (
-                            <button
-                              type="button"
-                              className="btn-orange-outline"
-                              style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
-                              onClick={() => handleRefund(p)}
-                            >
-                              Refund
-                            </button>
-                          )}
+                    {data.payments.map((p) => {
+                      const pStatus = p.payment_status || p.status || '—';
+                      return (
+                        <tr key={p.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                          <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>
+                            {p.payment_reference || p.id}
+                          </td>
+                          <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.76rem' }}>
+                            {p.provider_payment_id || p.provider_order_id || '—'}
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>
+                            {inr(p.amount)} / {inr(p.captured_amount)}
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>{inr(p.refunded_amount)}</td>
+                          <td style={{ padding: '0.55rem', fontWeight: 600 }}>{pStatus}</td>
+                          <td style={{ padding: '0.55rem' }}>
+                            {pStatus === 'CAPTURED' && (
+                              <button
+                                type="button"
+                                className="btn-orange-outline"
+                                style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
+                                onClick={() => handleRefund(p)}
+                              >
+                                Full Refund
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 style={{ marginBottom: '0.65rem' }}>Refund Ledger ({data.refunds.length})</h3>
+            {data.refunds.length === 0 ? (
+              <p style={{ opacity: 0.7, marginBottom: '1.25rem', fontSize: '0.86rem' }}>
+                No refunds initiated yet.
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                      <th style={{ padding: '0.5rem' }}>Refund Ref</th>
+                      <th style={{ padding: '0.5rem' }}>Type</th>
+                      <th style={{ padding: '0.5rem' }}>Amount</th>
+                      <th style={{ padding: '0.5rem' }}>Status</th>
+                      <th style={{ padding: '0.5rem' }}>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.refunds.map((r) => (
+                      <tr key={r.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace', fontSize: '0.76rem' }}>
+                          {r.refund_reference}
                         </td>
+                        <td style={{ padding: '0.5rem' }}>{r.refund_type}</td>
+                        <td style={{ padding: '0.5rem' }}>{inr(r.amount)}</td>
+                        <td style={{ padding: '0.5rem', fontWeight: 600 }}>{r.refund_status}</td>
+                        <td style={{ padding: '0.5rem' }}>{r.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 style={{ marginBottom: '0.65rem' }}>Razorpay Webhook Events ({data.webhooks.length})</h3>
+            {data.webhooks.length === 0 ? (
+              <p style={{ opacity: 0.7, fontSize: '0.86rem' }}>No webhook deliveries recorded yet.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                      <th style={{ padding: '0.5rem' }}>Event ID</th>
+                      <th style={{ padding: '0.5rem' }}>Type</th>
+                      <th style={{ padding: '0.5rem' }}>HMAC Verified</th>
+                      <th style={{ padding: '0.5rem' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.webhooks.map((w) => (
+                      <tr key={w.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace', fontSize: '0.76rem' }}>
+                          {w.provider_event_id}
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>{w.event_type}</td>
+                        <td style={{ padding: '0.5rem' }}>{w.signature_verified ? 'YES' : 'NO'}</td>
+                        <td style={{ padding: '0.5rem' }}>{w.processing_status}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -550,9 +692,11 @@ export default function AdminPage() {
           <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
             <h2 style={{ marginBottom: '0.9rem' }}>ASIGS Guardrail Review Queue (Live DB)</h2>
             {data.cases.length === 0 ? (
-              <p style={{ opacity: 0.7 }}>No guardrail cases pending review.</p>
+              <p style={{ opacity: 0.7, marginBottom: '1.5rem' }}>
+                No guardrail cases pending review.
+              </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 {data.cases.map((c) => (
                   <div
                     key={c.id}
@@ -563,32 +707,79 @@ export default function AdminPage() {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      gap: '1rem'
+                      gap: '1rem',
+                      flexWrap: 'wrap'
                     }}
                   >
                     <div>
-                      <strong>{c.entity_type}</strong> &middot; {c.status} &middot; Risk: {c.risk_score}
+                      <div>
+                        <strong>{c.case_number}</strong> &middot; {c.workflow_name} ({c.target_type})
+                      </div>
+                      <div style={{ fontSize: '0.82rem', opacity: 0.78, marginTop: '0.2rem' }}>
+                        Outcome: <strong>{c.guardrail_outcome}</strong> &middot; Case:{' '}
+                        <strong>{c.case_status}</strong>
+                        {Array.isArray(c.reason_codes) && c.reason_codes.length > 0 && (
+                          <> &middot; Rules: <code>{c.reason_codes.join(', ')}</code></>
+                        )}
+                      </div>
+                      {c.decision_reason && (
+                        <div style={{ fontSize: '0.8rem', opacity: 0.72, marginTop: '0.2rem' }}>
+                          Decision note: {c.decision_reason}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        type="button"
-                        className="btn-orange"
-                        style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
-                        onClick={() => handleCaseDecision(c.id, 'APPROVED')}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-orange-outline"
-                        style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
-                        onClick={() => handleCaseDecision(c.id, 'REJECTED')}
-                      >
-                        Reject
-                      </button>
-                    </div>
+                    {c.case_status === 'OPEN' && (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="btn-orange"
+                          style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
+                          onClick={() => handleCaseDecision(c.id, 'APPROVE')}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-orange-outline"
+                          style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
+                          onClick={() => handleCaseDecision(c.id, 'REJECT')}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            <h3 style={{ marginBottom: '0.65rem' }}>Active ASIGS Guardrail Rules ({data.rules.length})</h3>
+            {data.rules.length === 0 ? (
+              <p style={{ opacity: 0.7, fontSize: '0.85rem' }}>No rules seeded yet.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                      <th style={{ padding: '0.5rem' }}>Rule Code</th>
+                      <th style={{ padding: '0.5rem' }}>Layer</th>
+                      <th style={{ padding: '0.5rem' }}>Description</th>
+                      <th style={{ padding: '0.5rem' }}>Default Outcome</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.rules.map((r) => (
+                      <tr key={r.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace', fontSize: '0.76rem' }}>
+                          {r.rule_code}
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>{r.layer}</td>
+                        <td style={{ padding: '0.5rem' }}>{r.name}</td>
+                        <td style={{ padding: '0.5rem', fontWeight: 600 }}>{r.default_outcome}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>

@@ -602,5 +602,10 @@ def seed_artisans_and_catalog(*, session_override: Session | None = None) -> dic
     return _run(db_ctx)
 
 
+def seed() -> dict[str, int]:
+    """Alias for `seed_artisans_and_catalog()` used by `setup_mysql_and_sync.py`."""
+    return seed_artisans_and_catalog()
+
+
 if __name__ == "__main__":
     seed_artisans_and_catalog()

@@ -40,7 +40,7 @@ SET SESSION time_zone = '+00:00';
 -- =============================================================================
 -- HunarLink MySQL 8.4 LTS Schema
 -- File: sql/01_identity_and_admin_access.sql
--- Module A: Identity and Admin Access (9 tables)
+-- Module A: Identity and Admin Access (10 tables)
 -- Tables:
 --   1. users
 --   2. platform_roles
@@ -51,6 +51,7 @@ SET SESSION time_zone = '+00:00';
 --   7. admin_permissions
 --   8. admin_user_roles
 --   9. admin_role_permissions
+--  10. admin_credentials
 -- Rules:
 --   - Clerk is identity only (`clerk_user_id` unique external key).
 --   - Never store Clerk passwords or secrets in MySQL.
@@ -248,6 +249,24 @@ CREATE TABLE IF NOT EXISTS `admin_role_permissions` (
   KEY `idx_arp_permission` (`admin_permission_id`),
   CONSTRAINT `fk_arp_role` FOREIGN KEY (`admin_role_id`) REFERENCES `admin_roles` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_arp_permission` FOREIGN KEY (`admin_permission_id`) REFERENCES `admin_permissions` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 10. admin_credentials (Dedicated allowlisted Email + PBKDF2-SHA256 Admin vault)
+CREATE TABLE IF NOT EXISTS `admin_credentials` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `user_id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_admin_credentials_user_id` (`user_id`),
+  UNIQUE KEY `uq_admin_credentials_email` (`email`),
+  KEY `idx_admin_credentials_active` (`is_active`),
+  CONSTRAINT `fk_admin_credentials_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `chk_admin_credentials_active` CHECK (`is_active` IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- >>> END 01_identity_and_admin_access.sql <<<

@@ -298,3 +298,198 @@ def test_10_full_96_products_and_53_artisans_seeder_hydrates_images_and_uuids(ap
     assert len(showcase) == 6
     assert all(a["portrait_url"].startswith("img/artisans/artisan-0") for a in showcase)
 
+
+def test_11_seller_studio_asigs_guardrails_to_admin_approval_and_live_catalog(app_and_client, db_session):
+    app, client = app_and_client
+    entities = seed_marketplace_entities(db_session)
+    set_authenticated_principal(app, entities["seller_principal"])
+
+    # 1. Spoofing GI_VERIFIED is blocked by ASIGS Layer 4
+    blocked_gi = client.post(
+        "/api/v1/seller/studio/validate",
+        json={
+            "title": "Handwoven Saffron Kani Shawl",
+            "guild": "pashmina",
+            "description": "Authentic handwoven Kani piece from Srinagar workshop.",
+            "selling_price": "24000",
+            "compare_at_mrp": "28000",
+            "requested_gi_status": "GI_VERIFIED",
+        },
+    )
+    assert blocked_gi.status_code == 200
+    assert blocked_gi.json()["outcome"] == "BLOCK"
+    assert "PROD_SELLER_CANNOT_SELF_VERIFY_GI" in blocked_gi.json()["triggered_rule_codes"]
+
+    # 2. Price > MRP is blocked on publish (422)
+    blocked_price = client.post(
+        "/api/v1/seller/studio/listings",
+        json={
+            "title": "Walnut Jewelry Box",
+            "guild": "walnut",
+            "selling_price": "9500",
+            "compare_at_mrp": "5000",
+        },
+    )
+    assert blocked_price.status_code == 422
+
+    # 3. Extreme discount anomaly triggers WARNING + creates PENDING_APPROVAL listing
+    flagged = client.post(
+        "/api/v1/seller/studio/listings",
+        json={
+            "title": "Zadibal Gold-Leaf Papier Mache Vase",
+            "guild": "papier-mache",
+            "description": "Hand-painted floral vase from Zadibal workshop.",
+            "selling_price": "500",
+            "compare_at_mrp": "12000",
+            "stock_quantity": 3,
+        },
+    )
+    assert flagged.status_code == 201
+    fbody = flagged.json()
+    assert fbody["outcome"] == "WARNING"
+    assert "COMM_UNUSUAL_PRICE_OUTLIER" in fbody["triggered_rule_codes"]
+    assert fbody["business_status"] == "PENDING_APPROVAL"
+    listing_id = fbody["created_resource_id"]
+    assert listing_id is not None
+
+    # Seller sees their own pending listing in Seller Studio
+    mine = client.get("/api/v1/seller/studio/listings")
+    assert mine.status_code == 200
+    assert any(item["listing_id"] == listing_id and item["listing_status"] == "PENDING_APPROVAL" for item in mine.json())
+
+    # 4. Duplicate submission of existing product triggers REVIEW_REQUIRED -> creates GuardrailCase
+    dup_payload = {
+        "product_id": entities["product"].id,
+        "product_variant_id": entities["variant"].id,
+        "seller_sku": "HL-DUP-STUDIO-01",
+        "listing_title": "Duplicate Studio Shawl Submission",
+        "selling_price": "22000",
+        "compare_at_mrp": "26000",
+        "currency_code": "INR",
+    }
+    first_sub = client.post("/api/v1/seller/listings", json=dup_payload)
+    assert first_sub.status_code == 201
+    dup_payload["seller_sku"] = "HL-DUP-STUDIO-02"
+    second_sub = client.post("/api/v1/seller/listings", json=dup_payload)
+    assert second_sub.status_code == 201
+    assert second_sub.json()["outcome"] == "REVIEW_REQUIRED"
+    case_id = second_sub.json()["review_case_id"]
+    dup_listing_id = second_sub.json()["created_resource_id"]
+    assert case_id is not None
+
+    # 5. Admin approves both the GuardrailCase AND the Studio listing -> both live in public catalog!
+    set_authenticated_principal(app, entities["admin_principal"])
+    cases = client.get("/api/v1/admin/guardrail/cases")
+    assert cases.status_code == 200
+    assert any(c["id"] == case_id for c in cases.json())
+
+    decided = client.post(
+        f"/api/v1/admin/guardrail/cases/{case_id}/decision",
+        json={
+            "decision": "APPROVE",
+            "reason": "Workshop verified legitimate second batch of shawl listing.",
+        },
+    )
+    assert decided.status_code == 200
+    assert decided.json()["case_status"] == "APPROVED"
+
+    mod = client.post(
+        f"/api/v1/admin/listings/{listing_id}/moderate",
+        json={"listing_status": "ACTIVE"},
+    )
+    assert mod.status_code == 200
+    assert mod.json()["listing_status"] == "ACTIVE"
+
+    catalog = client.get("/api/v1/catalog/products")
+    assert catalog.status_code == 200
+    catalog_ids = {p["listing_id"] for p in catalog.json()}
+    assert listing_id in catalog_ids
+    assert dup_listing_id in catalog_ids
+
+
+def test_12_retail_order_razorpay_checkout_to_admin_refund_end_to_end(app_and_client, db_session, test_settings):
+    import hashlib
+    import hmac
+    from app.modules.payments.router import get_razorpay_gateway
+    from tests.conftest import FakeRazorpayGateway
+
+    app, client = app_and_client
+    fake_rzp = FakeRazorpayGateway()
+    app.dependency_overrides[get_razorpay_gateway] = lambda: fake_rzp
+
+    entities = seed_marketplace_entities(db_session)
+    set_authenticated_principal(app, entities["buyer_principal"])
+
+    # 1. Create retail order
+    order_resp = client.post(
+        "/api/v1/orders/retail",
+        json={
+            "items": [{"seller_listing_id": entities["active_listing"].id, "quantity": 1}],
+            "shipping_address": {
+                "name": "Meera Kaul",
+                "phone": "+91 9811044211",
+                "locality": "Lal Chowk",
+                "city": "Srinagar",
+                "pincode": "190001",
+            },
+            "payment_method": "RAZORPAY_STANDARD",
+        },
+    )
+    assert order_resp.status_code == 201
+    order_id = order_resp.json()["order_id"]
+
+    # 2. Create Razorpay order
+    rzp_order = client.post(
+        "/api/v1/payments/razorpay/create-order",
+        json={
+            "order_scope": "RETAIL",
+            "order_id": order_id,
+            "idempotency_key": "idem-studio-rzp-order-01",
+        },
+    )
+    assert rzp_order.status_code == 200
+    payment_id = rzp_order.json()["payment_id"]
+    provider_order_id = rzp_order.json()["razorpay_order_id"]
+
+    # 3. Verify HMAC signature against captured payment
+    provider_payment_id = "pay_studio_e2e_001"
+    sig = hmac.new(
+        test_settings.razorpay_key_secret.get_secret_value().encode("utf-8"),
+        f"{provider_order_id}|{provider_payment_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    verified = client.post(
+        "/api/v1/payments/razorpay/verify",
+        json={
+            "payment_id": payment_id,
+            "razorpay_order_id": provider_order_id,
+            "razorpay_payment_id": provider_payment_id,
+            "razorpay_signature": sig,
+        },
+    )
+    assert verified.status_code == 200
+    assert verified.json()["payment_status"] == "CAPTURED"
+
+    # 4. Admin views captured payment and issues full refund
+    set_authenticated_principal(app, entities["admin_principal"])
+    admin_payments = client.get("/api/v1/admin/payments")
+    assert admin_payments.status_code == 200
+    assert any(p["id"] == payment_id and p["payment_status"] == "CAPTURED" for p in admin_payments.json())
+
+    refund_resp = client.post(
+        f"/api/v1/payments/{payment_id}/refund",
+        json={
+            "refund_type": "FULL",
+            "reason": "Buyer requested order cancellation prior to workshop dispatch.",
+            "idempotency_key": "idem-studio-refund-01",
+        },
+    )
+    assert refund_resp.status_code == 200
+    assert refund_resp.json()["payment_status"] == "REFUNDED"
+
+    admin_refunds = client.get("/api/v1/admin/refunds")
+    assert admin_refunds.status_code == 200
+    assert any(r["payment_id"] == payment_id for r in admin_refunds.json())
+
+    app.dependency_overrides.pop(get_razorpay_gateway, None)
+

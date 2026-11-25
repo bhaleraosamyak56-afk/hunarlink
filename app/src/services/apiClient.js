@@ -206,6 +206,26 @@ export function createSellerListing(payload, token) {
   return apiRequest('/api/v1/seller/listings', { method: 'POST', body: payload, token });
 }
 
+export function fetchSellerStudioListings(token) {
+  return apiRequest('/api/v1/seller/studio/listings', { token });
+}
+
+export function validateSellerStudioListing(payload, token) {
+  return apiRequest('/api/v1/seller/studio/validate', { method: 'POST', body: payload, token });
+}
+
+export function publishSellerStudioListing(payload, token) {
+  return apiRequest('/api/v1/seller/studio/listings', { method: 'POST', body: payload, token });
+}
+
+export function moderateAdminListing(listingId, listingStatus, token) {
+  return apiRequest(`/api/v1/admin/listings/${encodeURIComponent(listingId)}/moderate`, {
+    method: 'POST',
+    body: { listing_status: listingStatus },
+    token
+  });
+}
+
 export function uploadGuardrailDocument(file, ownerScope, token) {
   const form = new FormData();
   form.append('owner_scope', ownerScope || 'seller_document');
