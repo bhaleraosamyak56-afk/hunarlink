@@ -19,7 +19,12 @@ from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.models.core_models import (
     AdminCredential,
+    Category,
+    Payment,
     PlatformRole,
+    Product,
+    ProductVariant,
+    Refund,
     RetailOrder,
     SellerProductListing,
     SellerProfile,
@@ -27,6 +32,7 @@ from app.models.core_models import (
     User,
     UserRoleAssignment,
 )
+from app.models.guardrail_models import GuardrailCase, GuardrailRule
 
 
 def main() -> None:
@@ -106,8 +112,19 @@ def main() -> None:
 
         listing_count = db.scalar(select(func.count(SellerProductListing.id))) or 0
         order_count = db.scalar(select(func.count(RetailOrder.id))) or 0
-        print(f"\nSUMMARY: {len(users)} users | {len(admin_creds)} admins | {len(sellers)} sellers | "
-              f"{listing_count} listings | {order_count} retail orders")
+        try:
+            payment_count = db.scalar(select(func.count(Payment.id))) or 0
+            refund_count = db.scalar(select(func.count(Refund.id))) or 0
+            rule_count = db.scalar(select(func.count(GuardrailRule.id))) or 0
+            case_count = db.scalar(select(func.count(GuardrailCase.id))) or 0
+        except Exception:
+            payment_count = refund_count = rule_count = case_count = 0
+
+        print(
+            f"\nSUMMARY: {len(users)} users | {len(admin_creds)} admins | {len(sellers)} sellers | "
+            f"{listing_count} listings | {order_count} orders | {payment_count} payments | "
+            f"{refund_count} refunds | {rule_count} ASIGS rules | {case_count} guardrail cases"
+        )
         print("=" * 72)
 
 

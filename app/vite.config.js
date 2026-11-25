@@ -57,6 +57,12 @@ export default defineConfig(({ command, mode }) => {
       port: 5173,
       allowedHosts: true,
       proxy: {
+        /* HunarSathi AI Buyer Chatbot (:5050) — matched before /api -> FastAPI (:8000) */
+        '/api/chat': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/health': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/warmup': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/reset': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        /* HunarLink FastAPI Marketplace Backend (:8000) */
         '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
         '/healthz': { target: 'http://127.0.0.1:8000', changeOrigin: true },
         '/readyz': { target: 'http://127.0.0.1:8000', changeOrigin: true }

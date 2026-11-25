@@ -749,6 +749,16 @@ def decide_guardrail_case(
         reason=payload.reason,
         correlation_id=correlation_id,
     )
+    if case.target_type == "seller_product_listings" and case.target_id:
+        linked_listing = db.scalar(
+            select(SellerProductListing).where(SellerProductListing.id == case.target_id)
+        )
+        if linked_listing is not None:
+            if payload.decision == "APPROVE":
+                linked_listing.listing_status = "ACTIVE"
+            elif payload.decision == "REJECT":
+                linked_listing.listing_status = "REJECTED"
+
     record_audit_log(
         db,
         actor_user_id=principal.user_id,

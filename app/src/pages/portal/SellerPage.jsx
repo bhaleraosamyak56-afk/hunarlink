@@ -5,9 +5,11 @@ import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import { useClerkBridge } from '../../data/clerkConfig.js';
 import {
+  fetchSellerStudioListings,
   probeBackendHealth,
+  publishSellerStudioListing,
   uploadGuardrailDocument,
-  validateSellerListing
+  validateSellerStudioListing
 } from '../../services/apiClient.js';
 import { formatINR, asset } from '../../utils/legacy.js';
 import { appHref } from '../../utils/href.js';
@@ -223,6 +225,7 @@ export default function SellerPage() {
 
   const [seller, setSeller] = useState(null);
   const [backendStatus, setBackendStatus] = useState({ online: false, ready: null });
+  const [dbListings, setDbListings] = useState([]);
   const [asigsResult, setAsigsResult] = useState(null);
   const [asigsBusy, setAsigsBusy] = useState(false);
   const [docScanResult, setDocScanResult] = useState(null);
@@ -257,15 +260,31 @@ export default function SellerPage() {
     setReviews
   } = useStore();
 
+  async function refreshStudioDbListings() {
+    if (!clerk?.getToken) return;
+    try {
+      const token = await clerk.getToken();
+      if (!token) return;
+      const rows = await fetchSellerStudioListings(token);
+      if (Array.isArray(rows)) setDbListings(rows);
+    } catch {
+      // ignore when backend offline
+    }
+  }
+
   useEffect(() => {
     let active = true;
     probeBackendHealth().then((st) => {
       if (active) setBackendStatus(st);
+      if (active && st?.online) {
+        refreshStudioDbListings();
+      }
     });
     return () => {
       active = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seller]);
 
   async function runAsigsValidationCheck() {
     if (!backendStatus.online) {
@@ -279,17 +298,17 @@ export default function SellerPage() {
     try {
       const token = clerk?.getToken ? await clerk.getToken() : null;
       const sku = `HL-${(newForm.guild || 'CRAFT').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-4)}`;
-      const res = await validateSellerListing(
+      const res = await validateSellerStudioListing(
         {
-          product_id: '00000000-0000-0000-0000-000000000001',
-          product_variant_id: '00000000-0000-0000-0000-000000000002',
-          seller_sku: sku,
-          listing_title: newForm.title || 'Untitled Craft',
+          title: newForm.title || 'Untitled Craft',
+          guild: newForm.guild || 'pashmina',
           description: newForm.description || '',
           selling_price: String(Math.max(1, Number(newForm.price) || 1)),
           compare_at_mrp: newForm.mrp ? String(Number(newForm.mrp)) : null,
           currency_code: 'INR',
-          min_order_qty: 1
+          stock_quantity: Math.max(0, parseInt(newForm.stock, 10) || 1),
+          min_order_qty: 1,
+          seller_sku: sku
         },
         token
       );
@@ -368,64 +387,47 @@ export default function SellerPage() {
     setSeller(artisan);
   }, [storeUser, navigate, toast]);
 
-  /* seedInitialSellerInquiriesIfEmpty — the static console seeded two sample
-     responses the first time a seller opened the workspace. */
-  useEffect(() => {
-    if (!seller) return;
-    if (inquiries && inquiries.length > 0) return;
-    const sample = [
-      {
-        id: 'inq-101',
-        type: 'Inquiry',
-        author: 'Ananya Kapoor (New Delhi)',
-        productTitle: 'Royal Khudrang Pashmina Shawl',
-        date: 'Today, 10:15 AM',
-        rating: null,
-        comment:
-          'Namaste Ustad ji! Does this shawl come with the official J&K GI lab micron report and gift cedar box?',
-        reply: ''
-      },
-      {
-        id: 'inq-102',
-        type: 'Review',
-        author: 'Vikramaditya Singh (Mumbai)',
-        productTitle: 'Openwork Chinar Lattice Walnut Chest',
-        date: 'Yesterday',
-        rating: 5,
-        comment:
-          'Extraordinary deep relief carving! Scanned the GI QR tag on arrival and verified Anantnag lineage immediately.',
-        reply:
-          'Thank you for supporting Kashmiri walnut artisans directly. Wishing your family generations of joy with this heirloom!'
-      }
-    ];
-    addInquiry(sample);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seller]);
-
-  /* Persistence belongs to the store — see StoreContext's single write effect.
-     This page no longer touches localStorage for any of these collections. */
-
-  /* ---- derived: the seller's catalogue -------------------------------- */
+  /* Live Seller Studio products: hydrated strictly from the real DB
+     (`/api/v1/seller/studio/listings`) plus newly staged entries — zero dummy
+     seed products or fake inquiries. */
   const products = useMemo(() => {
-    const sellerName = String(seller?.name || '').toLowerCase();
-    const seedMatches = sellerName
-      ? DEMO_SEED_FALLBACK.filter((p) => {
-          const a = p.artisan.toLowerCase();
-          return (
-            sellerName.includes(a) ||
-            a.includes(sellerName.replace(/^ustad\s+|^master\s+/i, ''))
-          );
-        })
-      : [];
+    const fromDb = (dbListings || []).map((row) => {
+      const guildKey = GUILD_META[row.guild] ? row.guild : 'pashmina';
+      const meta = GUILD_META[guildKey];
+      return {
+        id: row.listing_id,
+        title: row.title,
+        guild: guildKey,
+        technique: '',
+        guildLabel: row.guild_label || meta.label,
+        artisan: seller?.name || 'Verified Artisan',
+        sellerEmail: seller?.email || '',
+        district: seller?.district || 'Srinagar',
+        price: Number(row.selling_price || 0),
+        mrp: Number(row.compare_at_mrp || row.selling_price || 0),
+        rating: 5.0,
+        reviewCount: 0,
+        giId: row.seller_sku,
+        giLevel: row.gi_status === 'GI_VERIFIED' ? 3 : 1,
+        purityMetric: row.gi_status,
+        loomHours: 120,
+        dimensions: '',
+        stock: 1,
+        status: row.listing_status === 'ACTIVE' ? 'live' : row.listing_status.toLowerCase(),
+        image: meta.defaultImg,
+        description: row.description || '',
+        listedAt: row.created_at
+      };
+    });
     const seen = new Set();
-    return [...customProducts, ...seedMatches]
+    return [...fromDb, ...customProducts]
       .filter((p) => {
         if (seen.has(p.id)) return false;
         seen.add(p.id);
         return true;
       })
       .map((p) => (overrides[p.id] ? { ...p, ...overrides[p.id] } : p));
-  }, [customProducts, overrides, seller]);
+  }, [dbListings, customProducts, overrides, seller]);
 
   const filteredProducts = useMemo(() => {
     const q = prodQuery.trim().toLowerCase();
@@ -535,7 +537,7 @@ export default function SellerPage() {
     toast(`Selected preset: ${label}`);
   }
 
-  function submitPublish(e) {
+  async function submitPublish(e) {
     e.preventDefault();
     if (!seller) return;
     const price = parseInt(newForm.price, 10);
@@ -551,37 +553,55 @@ export default function SellerPage() {
       ? giRaw || seller.giId || `GI-JK-${Math.floor(1000 + Math.random() * 9000)}`
       : giRaw || `HL-ART-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const product = {
-      id: 'hl-seller-' + Date.now(),
-      title: newForm.title.trim(),
-      guild: newForm.guild,
-      technique: guildInfo.techniques.length ? newForm.technique || guildInfo.techniques[0].id : '',
-      guildLabel: guildInfo.label,
-      artisan: seller.name,
-      sellerEmail: seller.email,
-      district: newForm.district,
-      price,
-      mrp,
-      rating: 5.0,
-      reviewCount: 0,
-      giId: generatedGi,
-      giLevel: seller.giCertified ? 3 : 1,
-      purityMetric: newForm.purity.trim(),
-      loomHours: parseInt(newForm.hours, 10) || 120,
-      dimensions: newForm.dimensions.trim(),
-      stock: parseInt(newForm.stock, 10) || 1,
-      status: 'live',
-      image: newImage || guildInfo.defaultImg,
-      description: newForm.description.trim(),
-      listedAt: new Date().toISOString()
-    };
+    if (backendStatus.online && clerk?.getToken) {
+      setAsigsBusy(true);
+      setAsigsResult(null);
+      try {
+        const token = await clerk.getToken();
+        const res = await publishSellerStudioListing(
+          {
+            title: newForm.title.trim(),
+            guild: newForm.guild || 'pashmina',
+            description: newForm.description.trim() || newForm.title.trim(),
+            selling_price: String(price),
+            compare_at_mrp: String(mrp),
+            currency_code: 'INR',
+            stock_quantity: Math.max(0, parseInt(newForm.stock, 10) || 1),
+            min_order_qty: 1,
+            seller_sku: `HL-${(newForm.guild || 'CRAFT').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-5)}`
+          },
+          token
+        );
+        setAsigsResult({ response: res });
+        await refreshStudioDbListings();
+        setNewForm({
+          ...BLANK_NEW,
+          guild: seller.craft || 'pashmina',
+          district: seller.district || 'Srinagar',
+          giId: seller.giCertified ? seller.giId || '' : ''
+        });
+        setNewImage(guildInfo.defaultImg);
+        setNewPhotoName('');
+        setTab('products');
+        toast(
+          `Saved to database (${res.business_status || 'PENDING_APPROVAL'}, ASIGS: ${res.outcome}). Approve in Admin Console to go live!`,
+          'success'
+        );
+        return;
+      } catch (err) {
+        setAsigsResult({
+          error: err?.message || 'ASIGS blocked this listing.',
+          status: err?.status,
+          detail: err?.payload?.detail
+        });
+        toast(err?.message || 'ASIGS blocked listing submission — see guardrail details.', 'error');
+        return;
+      } finally {
+        setAsigsBusy(false);
+      }
+    }
 
-    addProduct(product);
-    setNewForm({ ...BLANK_NEW, guild: seller.craft || 'pashmina', district: seller.district || 'Srinagar', giId: seller.giCertified ? seller.giId || '' : '' });
-    setNewImage(guildInfo.defaultImg);
-    setNewPhotoName('');
-    setTab('products');
-    toast(`"${product.title}" is now LIVE on HunarLink (${generatedGi})!`, 'success');
+    toast('Start the FastAPI backend on :8000 to publish crafts into the live database.', 'error');
   }
 
   function openEdit(product) {
@@ -1512,8 +1532,6 @@ export default function SellerPage() {
                       <option value="active">Active / In Progress</option>
                       <option value="delivered">Delivered (Stage 5)</option>
                     </select>
-                    <button type="button" className="btn-outline" onClick={simulateOrder}>Simulate New Buyer Order
-                    </button>
                   </div>
                 </div>
 
@@ -1522,12 +1540,10 @@ export default function SellerPage() {
                     <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-500)' }}>
                       <div style={{ marginBottom: '8px', color: 'var(--forest-700)' }}><IconPackage size={32} /></div>
                       <strong style={{ color: 'var(--forest-950)' }}>No matching orders yet</strong>
-                      <p style={{ fontSize: '0.82rem', margin: '6px 0 16px' }}>
-                        When a customer orders any product on HunarLink, you receive every customer, shipping,
-                        payment, and item detail here.
+                      <p style={{ fontSize: '0.82rem', margin: '6px 0 0' }}>
+                        When a buyer places a verified order on HunarLink, complete customer, shipping,
+                        payment, and item details will appear here automatically.
                       </p>
-                      <button type="button" className="btn-gold" onClick={simulateOrder}>Simulate a Live Customer Order
-                      </button>
                     </div>
                   ) : (
                     visibleOrders.map((o) => {
@@ -1634,8 +1650,6 @@ export default function SellerPage() {
                       product questions.
                     </p>
                   </div>
-                  <button type="button" className="btn-outline" onClick={simulateInquiry}>Simulate New Buyer Inquiry
-                  </button>
                 </div>
 
                 <div className="kpi-grid" id="engagement-kpi-grid" style={{ marginBottom: '20px' }}>
