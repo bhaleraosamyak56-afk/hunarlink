@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.models.core_models import (
+    AdminCredential,
     PlatformRole,
     RetailOrder,
     SellerProductListing,
@@ -88,9 +89,24 @@ def main() -> None:
                     f"status={a.application_status} | gi={a.claimed_gi_code or '-'}"
                 )
 
+        try:
+            admin_creds = db.scalars(
+                select(AdminCredential).order_by(AdminCredential.created_at.asc())
+            ).all()
+        except Exception:
+            admin_creds = []
+        print(f"\nAUTHORIZED ADMIN CREDENTIALS — admin_credentials ({len(admin_creds)} total):")
+        if not admin_creds:
+            print("  (none configured yet — run scripts/create_admin_account.py)")
+        for ac in admin_creds:
+            print(
+                f"  • {ac.email} | active={ac.is_active} | last_login={ac.last_login_at or 'never'}\n"
+                f"      password_hash={ac.password_hash}"
+            )
+
         listing_count = db.scalar(select(func.count(SellerProductListing.id))) or 0
         order_count = db.scalar(select(func.count(RetailOrder.id))) or 0
-        print(f"\nSUMMARY: {len(users)} users | {len(sellers)} sellers | "
+        print(f"\nSUMMARY: {len(users)} users | {len(admin_creds)} admins | {len(sellers)} sellers | "
               f"{listing_count} listings | {order_count} retail orders")
         print("=" * 72)
 

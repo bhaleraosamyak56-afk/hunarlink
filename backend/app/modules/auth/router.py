@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.admin_security import create_admin_session_token, verify_admin_password
 from app.core.audit import record_audit_log
 from app.core.auth import (
     AuthenticatedPrincipal,
@@ -24,9 +25,12 @@ from app.core.auth import (
     get_verified_clerk_claims,
     require_admin_permission,
 )
+from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.core.security import SlidingWindowRateLimiter
 from app.models.base import new_uuid, utcnow
 from app.models.core_models import (
+    AdminCredential,
     AdminPermission,
     AdminProfile,
     AdminRole,
@@ -42,6 +46,8 @@ from app.models.core_models import (
     UserRoleAssignment,
 )
 from app.modules.auth.schemas import (
+    AdminPasswordLoginRequest,
+    AdminPasswordLoginResponse,
     ArtisanVerificationSubmitRequest,
     ArtisanVerificationSubmitResponse,
     AuthSyncRequest,
@@ -52,6 +58,7 @@ from app.modules.auth.schemas import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication & User Sync"])
+_admin_login_limiter = SlidingWindowRateLimiter(max_requests=5, window_seconds=60)
 
 ROLE_CODE_MAP = {
     "buyer": ("CUSTOMER", "Retail Customer"),
@@ -497,3 +504,106 @@ def delete_my_address(
     addr.is_active = False
     addr.is_default = False
     db.commit()
+
+
+@router.post("/admin-login", response_model=AdminPasswordLoginResponse)
+def admin_password_login(
+    payload: AdminPasswordLoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AdminPasswordLoginResponse:
+    """Dedicated login strictly for DB-provisioned Admin accounts (zero self-registration)."""
+    normalized_email = payload.email.strip().lower()
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, retry_after = _admin_login_limiter.allow(f"admin-login:{client_ip}:{normalized_email}")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed admin sign-in attempts. Retry in {retry_after}s.",
+        )
+
+    # Ensure table exists seamlessly if backend starts before Alembic 0003 ran.
+    AdminCredential.__table__.create(bind=db.get_bind(), checkfirst=True)
+
+    cred = db.scalar(
+        select(AdminCredential).where(
+            AdminCredential.email == normalized_email,
+            AdminCredential.is_active == True,  # noqa: E712
+        )
+    )
+    if cred is None or not verify_admin_password(payload.password, cred.password_hash):
+        record_audit_log(
+            db,
+            actor_user_id=None,
+            actor_role="ANONYMOUS",
+            action="ADMIN_LOGIN_FAILED",
+            target_type="admin_credentials",
+            target_id=normalized_email,
+            correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
+            new_values={"ip": client_ip},
+        )
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid administrator email or password.",
+        )
+
+    user = db.scalar(select(User).where(User.id == cred.user_id))
+    if user is None or user.account_status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator account is not active.",
+        )
+
+    role_codes = sorted(
+        set(
+            db.scalars(
+                select(PlatformRole.code)
+                .join(
+                    UserRoleAssignment,
+                    UserRoleAssignment.platform_role_id == PlatformRole.id,
+                )
+                .where(
+                    UserRoleAssignment.user_id == user.id,
+                    UserRoleAssignment.assignment_status == "ACTIVE",
+                    PlatformRole.is_active == True,  # noqa: E712
+                )
+            ).all()
+        )
+    )
+    is_admin, admin_permissions = _load_admin_access(db, user.id, role_codes)
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges have been revoked for this account.",
+        )
+
+    cred.last_login_at = utcnow()
+    user.last_login_at = utcnow()
+    record_audit_log(
+        db,
+        actor_user_id=user.id,
+        actor_role="ADMIN",
+        action="ADMIN_LOGIN_SUCCESS",
+        target_type="admin_credentials",
+        target_id=cred.id,
+        correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
+        new_values={"email": cred.email, "ip": client_ip},
+    )
+    db.commit()
+
+    token, ttl = create_admin_session_token(
+        user_id=user.id,
+        email=cred.email,
+        settings=settings,
+    )
+    return AdminPasswordLoginResponse(
+        access_token=token,
+        token_type="bearer",
+        expires_in=ttl,
+        user_id=user.id,
+        email=cred.email,
+        display_name=user.display_name or f"{user.first_name} {user.last_name or ''}".strip(),
+        admin_permissions=admin_permissions,
+    )

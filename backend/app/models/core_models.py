@@ -134,6 +134,21 @@ class AdminRolePermission(Base):
     admin_permission_id: Mapped[str] = mapped_column(UUIDChar(), ForeignKey("admin_permissions.id"), nullable=False)
 
 
+class AdminCredential(Base):
+    """Dedicated password credentials strictly for 1-2 DB-provisioned Admins."""
+
+    __tablename__ = "admin_credentials"
+
+    id: Mapped[str] = mapped_column(UUIDChar(), primary_key=True, default=new_uuid)
+    user_id: Mapped[str] = mapped_column(UUIDChar(), ForeignKey("users.id"), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
 # ---------------------------------------------------------------------------
 # Module B & C: Sellers, GI Verification & Product Catalogue
 # ---------------------------------------------------------------------------

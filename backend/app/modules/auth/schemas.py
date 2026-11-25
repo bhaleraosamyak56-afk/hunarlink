@@ -107,3 +107,20 @@ class UserAddressResponse(BaseModel):
     postal_code: str
     is_default: bool
     created_at: datetime
+
+
+class AdminPasswordLoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(..., min_length=3, max_length=255)
+    password: str = Field(..., min_length=1, max_length=255)
+
+
+class AdminPasswordLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user_id: str
+    email: str
+    display_name: str
+    admin_permissions: list[str] = Field(default_factory=list)

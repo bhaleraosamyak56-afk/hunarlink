@@ -19,9 +19,11 @@ from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.admin_security import verify_admin_session_token
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.core_models import (
+    AdminCredential,
     AdminPermission,
     AdminProfile,
     AdminRole,
@@ -183,17 +185,54 @@ def load_principal_by_clerk_id(db: Session, clerk_user_id: str) -> Authenticated
     )
 
 
+def load_admin_principal_by_user_id(db: Session, user_id: str) -> AuthenticatedPrincipal:
+    """Load an authenticated Admin strictly from live DB credential & RBAC tables."""
+    user = db.scalar(select(User).where(User.id == user_id))
+    if user is None or user.account_status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Administrator account is inactive or not found.",
+        )
+    cred = db.scalar(
+        select(AdminCredential).where(
+            AdminCredential.user_id == user.id,
+            AdminCredential.is_active == True,  # noqa: E712
+        )
+    )
+    if cred is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator credential has been revoked.",
+        )
+    principal = load_principal_by_clerk_id(db, user.clerk_user_id)
+    if not principal.is_active_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges are no longer active.",
+        )
+    return principal
+
+
 def get_current_principal(
     request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
     verifier: ClerkTokenVerifier = Depends(get_token_verifier),
+    settings: Settings = Depends(get_settings),
 ) -> AuthenticatedPrincipal:
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Bearer authentication token.",
         )
+    # 1. Dedicated HunarLink Admin Email+Password HS256 JWT (strictly verified against DB)
+    admin_claims = verify_admin_session_token(creds.credentials, settings)
+    if admin_claims is not None:
+        principal = load_admin_principal_by_user_id(db, str(admin_claims["sub"]))
+        request.state.actor_user_id = principal.user_id
+        return principal
+
+    # 2. Standard Buyer / Artisan Clerk RS256 JWKS JWT
     claims = verifier.verify(creds.credentials)
     principal = load_principal_by_clerk_id(db, str(claims["sub"]))
     request.state.actor_user_id = principal.user_id
