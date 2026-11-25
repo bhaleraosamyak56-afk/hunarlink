@@ -168,16 +168,25 @@ export function deleteMyAddress(addressId, token) {
 
 /* --- 1:1 Authenticated Storefront, Artisans & Retail Order Endpoints --- */
 export function fetchCatalogProducts(categorySlug = null, token = null) {
-  const qs = categorySlug ? `?category_slug=${encodeURIComponent(categorySlug)}` : '';
-  return apiRequest(`/api/v1/catalog/products${qs}`, { token });
+  const params = new URLSearchParams({ limit: '200' });
+  if (categorySlug) params.set('category_slug', categorySlug);
+  return apiRequest(`/api/v1/catalog/products?${params.toString()}`, { token });
 }
 
-export function fetchArtisans(token) {
+export function fetchCatalogProductById(productOrListingId, token = null) {
+  return apiRequest(`/api/v1/catalog/product?id=${encodeURIComponent(productOrListingId)}`, { token });
+}
+
+export function fetchArtisans(token = null) {
   return apiRequest('/api/v1/artisans', { token });
 }
 
-export function fetchArtisanBySlug(slug, token) {
-  return apiRequest(`/api/v1/artisans/${encodeURIComponent(slug)}`, { token });
+export function fetchArtisanById(artisanId, token = null) {
+  return apiRequest(`/api/v1/artisans/detail?id=${encodeURIComponent(artisanId)}`, { token });
+}
+
+export function fetchArtisanBySlug(slugOrId, token = null) {
+  return apiRequest(`/api/v1/artisans/${encodeURIComponent(slugOrId)}`, { token });
 }
 
 export function createRetailOrder(payload, token) {

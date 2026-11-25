@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 const LEGACY = {
   'index.html': '/',
   'product.html': '/product',
+  'artisan.html': '/artisan',
   'auth.html': '/auth',
   'wholesale.html': '/wholesale',
   'admin.html': '/admin',

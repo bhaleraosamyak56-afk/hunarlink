@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { useStore } from '../state/StoreContext.jsx';
+import { useStore, mapDbListingToProduct } from '../state/StoreContext.jsx';
+import { useClerkBridge } from '../data/clerkConfig.js';
+import { fetchCatalogProductById } from '../services/apiClient.js';
 import { formatINR, asset } from '../utils/legacy.js';
 import { srcSetFor } from '../data/imageVariants.js';
-import { artisanSlug, featuredPortraitFor } from '../utils/artisans.js';
+import { artisanProfileHref, featuredPortraitFor } from '../utils/artisans.js';
 import { buildThumbnails, techniqueTag, techniqueSpec } from '../data/pdpThumbs.js';
 import ProductGallery from '../components/ProductGallery.jsx';
 import ProductCard from '../components/ProductCard.jsx';
@@ -43,8 +45,12 @@ const ShieldIcon = (props) => (
 export default function ProductPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const clerkAuth = useClerkBridge();
   const {
     catalogue,
+    artisans: dbArtisans,
+    dbSyncStatus,
+    isRealSignedIn,
     productById,
     pushRecent,
     recentlyViewedItems,
@@ -56,8 +62,60 @@ export default function ProductPage() {
     clearRecentlyViewed
   } = useStore();
 
-  const id = params.get('id') || 'hl-waln-001';
-  const product = productById(id);
+  const rawId = (params.get('id') || '').trim();
+  const cachedProduct = rawId ? productById(rawId) : catalogue[0] || null;
+  const [fetchedProduct, setFetchedProduct] = useState(null);
+  const [lookupLoading, setLookupLoading] = useState(Boolean(rawId && !cachedProduct));
+  const [rejectedByDb, setRejectedByDb] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!rawId) {
+      setFetchedProduct(null);
+      setLookupLoading(false);
+      setRejectedByDb(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    async function verifyListingInDb() {
+      setLookupLoading(true);
+      setRejectedByDb(false);
+      try {
+        const token = clerkAuth.isSignedIn && clerkAuth.getToken ? await clerkAuth.getToken() : null;
+        const row = await fetchCatalogProductById(rawId, token);
+        if (!active) return;
+        const mapped = mapDbListingToProduct(row);
+        setFetchedProduct(mapped);
+        setLookupLoading(false);
+        /* Canonicalise legacy code or slug URLs to the unique database UUID `?id=<uuid>` */
+        if (mapped.id && rawId.toLowerCase() !== String(mapped.id).toLowerCase()) {
+          navigate(`/product?id=${encodeURIComponent(mapped.id)}`, { replace: true });
+        }
+      } catch (err) {
+        if (!active) return;
+        setFetchedProduct(null);
+        if (err?.status === 404 || err?.status === 422) {
+          setRejectedByDb(true);
+        }
+        setLookupLoading(false);
+      }
+    }
+
+    verifyListingInDb();
+    return () => {
+      active = false;
+    };
+  }, [rawId, clerkAuth.isSignedIn, clerkAuth.getToken, navigate]);
+
+  const product = rejectedByDb ? null : fetchedProduct || cachedProduct;
+
+  useEffect(() => {
+    if (!rawId && product?.id) {
+      navigate(`/product?id=${encodeURIComponent(product.id)}`, { replace: true });
+    }
+  }, [rawId, product?.id, navigate]);
 
   useEffect(() => {
     if (product) pushRecent(product.id);
@@ -82,12 +140,25 @@ export default function ProductPage() {
       .slice(0, 4);
   }, [product?.id, product?.guild, catalogue]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if ((lookupLoading || dbSyncStatus === 'loading') && !product) {
+    return (
+      <main id="main-content" className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
+        <p style={{ opacity: 0.75, fontSize: '0.96rem' }}>
+          Loading heirloom craft record from HunarLink database&hellip;
+        </p>
+      </main>
+    );
+  }
+
   if (!product) {
     return (
       <main id="main-content" className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', marginBottom: 12 }}>
           Craft not found
         </h1>
+        <p style={{ opacity: 0.75, marginBottom: 20 }}>
+          No active craft listing matches ID <code>{rawId || 'unknown'}</code> in the HunarLink database.
+        </p>
         <button type="button" className="btn-primary-forest" onClick={() => navigate('/')}>
           Back to the Heritage Store
         </button>
@@ -101,7 +172,9 @@ export default function ProductPage() {
 
   const buyNow = () => {
     addToCart(product.id, 1);
-    openModal('checkout');
+    if (isRealSignedIn) {
+      openModal('checkout');
+    }
   };
 
   return (
@@ -169,13 +242,14 @@ export default function ProductPage() {
             </div>
 
             <Link
-              to={`/artisans/${artisanSlug(product.artisan)}`}
+              to={artisanProfileHref(product)}
               className="pdp-artisan-box pdp-artisan-box-link"
               aria-label={`Open ${product.artisan}'s full workshop profile`}
             >
               <div className="pdp-artisan-profile">
                 {(() => {
-                  const avatarImg = featuredPortraitFor(product.artisan) || 'assets/image_1.jpg';
+                  const avatarImg =
+                    featuredPortraitFor(product, dbArtisans) || product.image || 'assets/image_1.jpg';
                   const avatarSrcSet = srcSetFor(avatarImg);
                   return (
                     <picture>

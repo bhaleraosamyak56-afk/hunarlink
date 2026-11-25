@@ -25,6 +25,7 @@ const LEGACY = {
   'index.html': '/',
   'home.html': '/',
   'product.html': '/product',
+  'artisan.html': '/artisan',
   'auth.html': '/auth',
   'wholesale.html': '/wholesale',
   'admin.html': '/admin',

@@ -70,12 +70,10 @@ function normaliseAddress(a) {
 
 function normaliseGuildSlug(categorySlug = '') {
   const s = String(categorySlug || '').toLowerCase();
-  if (s.includes('pashmina')) return 'pashmina';
-  if (s.includes('carpet') || s.includes('silk')) return 'carpets';
-  if (s.includes('walnut') || s.includes('wood')) return 'woodwork';
+  if (s.includes('pashmina') || s.includes('sozni') || s.includes('kani') || s.includes('shawl')) return 'pashmina';
+  if (s.includes('carpet') || s.includes('silk')) return 'silk-rugs';
+  if (s.includes('walnut') || s.includes('wood')) return 'walnut';
   if (s.includes('papier') || s.includes('mache')) return 'papier-mache';
-  if (s.includes('sozni') || s.includes('shawl')) return 'sozni';
-  if (s.includes('copper') || s.includes('crewel')) return 'copperware';
   return s || 'pashmina';
 }
 
@@ -83,57 +81,73 @@ function craftPhotoForListing(sku = '', guild = 'pashmina') {
   const key = String(sku || '').toUpperCase();
   if (key.includes('PASH-002')) return 'assets/products/pashmina_02.jpg';
   if (key.includes('PASH')) return 'assets/products/pashmina_01.jpg';
-  if (key.includes('SILK')) return 'assets/products/carpet_01.jpg';
+  if (key.includes('SILK')) return 'assets/products/silkrug_01.jpg';
   if (key.includes('WALN')) return 'assets/products/walnut_01.jpg';
-  if (key.includes('PMAC')) return 'assets/products/papiermache_01.jpg';
-  if (guild === 'carpets') return 'assets/products/carpet_01.jpg';
-  if (guild === 'woodwork') return 'assets/products/walnut_01.jpg';
-  if (guild === 'papier-mache') return 'assets/products/papiermache_01.jpg';
-  if (guild === 'copperware') return 'assets/products/copper_01.jpg';
+  if (key.includes('PAPR') || key.includes('PMAC')) return 'assets/products/papier_01.jpg';
+  if (key.includes('KANI')) return 'assets/products/kani_01.jpg';
+  if (key.includes('SOZN')) return 'assets/products/sozni_01.jpg';
+  if (guild === 'silk-rugs') return 'assets/products/silkrug_01.jpg';
+  if (guild === 'walnut') return 'assets/products/walnut_01.jpg';
+  if (guild === 'papier-mache') return 'assets/products/papier_01.jpg';
   return 'assets/products/pashmina_01.jpg';
 }
 
-function mapDbListingToProduct(item) {
-  const guild = normaliseGuildSlug(item.category_slug);
+export function mapDbListingToProduct(item) {
+  const guild = normaliseGuildSlug(item.guild || item.category_slug);
   const price = Number(item.selling_price || 0);
   const mrp = Number(item.compare_at_mrp || price);
+  const originalPrice = Number(item.original_market_price || mrp || price);
   const isGi = item.gi_status === 'GI_VERIFIED' || item.verification_path === 'GI';
+  const rawTech = item.technique ? String(item.technique).toLowerCase() : null;
+  const technique =
+    guild === 'pashmina'
+      ? rawTech && ['handwoven', 'kani', 'sozni'].includes(rawTech)
+        ? rawTech
+        : 'handwoven'
+      : undefined;
+
   return {
     id: item.listing_id,
     sellerListingId: item.listing_id,
     productId: item.product_id,
     productVariantId: item.product_variant_id,
     sellerProfileId: item.seller_profile_id,
+    artisanId: item.seller_profile_id,
+    legacyCode: item.legacy_code || String(item.seller_sku || '').toLowerCase(),
     sku: item.seller_sku,
     slug: item.product_slug,
     title: item.title,
     description: item.description || '',
     guild,
     guildLabel: item.category_name || 'Kashmiri Craft',
-    technique: guild === 'pashmina' ? 'handwoven' : guild,
+    technique,
     artisan: item.artisan_name || item.store_name || 'Verified Artisan',
     artisanSlug: item.artisan_slug,
+    artisanPortrait: item.artisan_portrait_url || null,
     storeName: item.store_name || '',
     district: item.workshop_district || 'Srinagar',
     craftSpecialty: item.craft_specialty || item.category_name || '',
     price,
     mrp,
-    originalPrice: mrp,
-    rating: 4.9,
-    reviewCount: 0,
+    originalPrice,
+    rating: Number(item.rating || 4.9),
+    reviewCount: Number(item.review_count ?? 0),
     giId: item.claimed_gi_code || item.seller_sku,
     giStatus: item.gi_status || 'UNVERIFIED',
-    giLevel: isGi ? 3 : 1,
-    purityMetric: isGi ? 'GI Registry Verified • Direct Artisan Loom' : 'Verified HunarLink Artisan Craft',
-    loomHours: 320,
-    dimensions: 'Standard Artisan Craft',
-    stock: item.max_order_qty || 10,
-    image: craftPhotoForListing(item.seller_sku, guild),
+    giLevel: Number(item.gi_level || (isGi ? 3 : 1)),
+    purityMetric:
+      item.purity_metric ||
+      (isGi ? 'GI Registry Verified • Direct Artisan Loom' : 'Verified HunarLink Artisan Craft'),
+    loomHours: Number(item.loom_hours || 320),
+    dimensions: item.dimensions || 'Standard Artisan Craft',
+    stock: Number(item.max_order_qty || 10),
+    image: item.image_url || craftPhotoForListing(item.seller_sku, guild),
+    galleryImages: Array.isArray(item.gallery_images) ? item.gallery_images : [],
     source: 'database'
   };
 }
 
-function mapDbOrderToUi(o) {
+function mapDbOrderToUi(o, catalogueList = []) {
   const created = o.created_at ? new Date(o.created_at) : new Date();
   const snap = o.shipping_address || {};
   const stageMap = {
@@ -160,16 +174,22 @@ function mapDbOrderToUi(o) {
         ? `${snap.name || ''}, ${snap.locality}, ${snap.city || ''} - ${snap.pincode || ''}`
         : ''
     },
-    items: (o.items || []).map((i) => ({
-      productId: i.seller_listing_id || i.product_id,
-      title: i.title,
-      qty: i.quantity,
-      price: Number(i.unit_price || 0),
-      lineTotal: Number(i.line_total || 0),
-      giId: i.sku || i.gi_status,
-      artisan: 'Verified HunarLink Artisan',
-      image: craftPhotoForListing(i.sku)
-    })),
+    items: (o.items || []).map((i) => {
+      const targetId = i.seller_listing_id || i.product_id;
+      const matched = catalogueList.find(
+        (p) => p.id === targetId || p.productId === i.product_id
+      );
+      return {
+        productId: targetId,
+        title: i.title,
+        qty: i.quantity,
+        price: Number(i.unit_price || 0),
+        lineTotal: Number(i.line_total || 0),
+        giId: matched?.giId || i.sku || i.gi_status,
+        artisan: matched?.artisan || 'Verified HunarLink Artisan',
+        image: matched?.image || craftPhotoForListing(i.sku)
+      };
+    }),
     subtotal: Number(o.subtotal_amount || o.total_amount || 0),
     discount: Number(o.discount_amount || 0),
     shippingFee: Number(o.shipping_fee || 0),
@@ -550,7 +570,9 @@ export function StoreProvider({ children }) {
         ? rawProducts.map(mapDbListingToProduct)
         : [];
       const mappedArtisans = Array.isArray(rawArtisans) ? rawArtisans : [];
-      const mappedOrders = Array.isArray(rawOrders) ? rawOrders.map(mapDbOrderToUi) : [];
+      const mappedOrders = Array.isArray(rawOrders)
+        ? rawOrders.map((o) => mapDbOrderToUi(o, mappedCatalogue))
+        : [];
       const mappedAddresses = Array.isArray(rawAddresses)
         ? rawAddresses.map(normaliseAddress)
         : [];
@@ -629,7 +651,20 @@ export function StoreProvider({ children }) {
   }, []);
 
   const value = useMemo(() => {
-    const productById = (id) => catalogue.find((p) => p.id === id) || null;
+    const productById = (id) => {
+      if (!id) return null;
+      const needle = String(id).trim().toLowerCase();
+      return (
+        catalogue.find(
+          (p) =>
+            String(p.id).toLowerCase() === needle ||
+            String(p.productId || '').toLowerCase() === needle ||
+            String(p.legacyCode || '').toLowerCase() === needle ||
+            String(p.sku || '').toLowerCase() === needle ||
+            String(p.slug || '').toLowerCase() === needle
+        ) || null
+      );
+    };
     const isRealSignedIn = Boolean(
       state.user && state.user.authProvider === 'clerk' && state.user.isLoggedIn
     );

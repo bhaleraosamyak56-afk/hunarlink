@@ -8,6 +8,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ArtisanReviewItem(BaseModel):
+    author: str
+    city: str = "India"
+    stars: int = 5
+    text: str
+
+
 class CatalogProductItem(BaseModel):
     listing_id: str
     product_id: str
@@ -15,20 +22,33 @@ class CatalogProductItem(BaseModel):
     seller_profile_id: str
     seller_sku: str
     product_slug: str
+    legacy_code: str | None = None
     title: str
-    description: str
+    description: str | None = None
     category_slug: str
     category_name: str
+    guild: str | None = None
+    technique: str | None = None
     store_name: str
     artisan_name: str
     artisan_slug: str
+    artisan_portrait_url: str | None = None
     workshop_district: str | None = None
     craft_specialty: str | None = None
     verification_path: str
     verification_status: str
     claimed_gi_code: str | None = None
+    gi_level: int = 2
+    purity_metric: str | None = None
+    loom_hours: int | None = None
+    dimensions: str | None = None
+    rating: float = 4.9
+    review_count: int = 0
+    image_url: str | None = None
+    gallery_images: list[str] = Field(default_factory=list)
     selling_price: Decimal
     compare_at_mrp: Decimal | None = None
+    original_market_price: Decimal | None = None
     currency_code: str
     min_order_qty: int
     max_order_qty: int | None = None
@@ -46,6 +66,15 @@ class ArtisanSummaryItem(BaseModel):
     verification_status: str
     profile_status: str
     claimed_gi_code: str | None = None
+    portrait_url: str | None = None
+    bio: str | None = None
+    credential: str | None = None
+    since_year: int | None = None
+    is_featured_showcase: bool = False
+    featured_order: int = 999
+    average_rating: Decimal = Decimal("4.90")
+    total_reviews: int = 0
+    reviews: list[ArtisanReviewItem] = Field(default_factory=list)
     listing_count: int = 0
     starting_price: Decimal | None = None
     categories: list[str] = Field(default_factory=list)

@@ -223,7 +223,83 @@ def test_07_readyz_reports_truthful_database_connectivity(app_and_client):
     assert body["database_dialect"] == "sqlite"
 
 
-def test_08_seller_studio_asigs_guardrails_to_admin_approval_and_live_catalog(app_and_client, db_session):
+def test_08_uuid_product_and_artisan_lookup_endpoints(app_and_client, db_session):
+    _app, client = app_and_client
+    entities = seed_marketplace_entities(db_session)
+
+    listing_uuid = entities["active_listing"].id
+    seller_uuid = entities["seller_profile"].id
+
+    # Product lookup by unique listing UUID (query param & path)
+    prod_q_resp = client.get(f"/api/v1/catalog/product?id={listing_uuid}")
+    assert prod_q_resp.status_code == 200
+    assert prod_q_resp.json()["listing_id"] == listing_uuid
+
+    prod_resp = client.get(f"/api/v1/catalog/products/{listing_uuid}")
+    assert prod_resp.status_code == 200
+    assert prod_resp.json()["listing_id"] == listing_uuid
+    assert prod_resp.json()["seller_profile_id"] == seller_uuid
+
+    # Artisan lookup by unique seller_profile_id UUID via query param (?id=<uuid>) and path
+    art_q_resp = client.get(f"/api/v1/artisans/detail?id={seller_uuid}")
+    assert art_q_resp.status_code == 200
+    assert art_q_resp.json()["seller_profile_id"] == seller_uuid
+    assert len(art_q_resp.json()["listings"]) == 1
+
+    art_p_resp = client.get(f"/api/v1/artisans/{seller_uuid}")
+    assert art_p_resp.status_code == 200
+    assert art_p_resp.json()["seller_profile_id"] == seller_uuid
+
+    # Invalid / malformed identifiers return 422; unknown UUIDs return 404
+    assert client.get("/api/v1/artisans/detail?id=../../etc/passwd").status_code == 422
+    assert client.get("/api/v1/catalog/products/not_a_valid_id!").status_code == 422
+    assert client.get("/api/v1/artisans/detail?id=00000000-0000-4000-8000-000000000999").status_code == 404
+    assert client.get("/api/v1/catalog/products/00000000-0000-4000-8000-000000000999").status_code == 404
+
+
+def test_09_unverified_or_suspended_artisan_uuid_is_blocked_and_audited(app_and_client, db_session):
+    from app.models.core_models import AuditLog
+
+    _app, client = app_and_client
+    entities = seed_marketplace_entities(db_session)
+    seller = entities["seller_profile"]
+    seller.verification_status = "UNDER_REVIEW"
+    db_session.commit()
+
+    resp = client.get(f"/api/v1/artisans/detail?id={seller.id}")
+    assert resp.status_code == 404
+
+    audit_rows = db_session.query(AuditLog).filter(
+        AuditLog.action == "ARTISAN_ENDPOINT_BLOCKED_UNVERIFIED_ID"
+    ).all()
+    assert len(audit_rows) == 1
+    assert audit_rows[0].target_id == seller.id
+
+
+def test_10_full_96_products_and_53_artisans_seeder_hydrates_images_and_uuids(app_and_client, db_session):
+    from scripts.seed_real_artisans import seed_artisans_and_catalog
+
+    _app, client = app_and_client
+    stats = seed_artisans_and_catalog(session_override=db_session)
+    assert stats["total_artisans"] == 53
+    assert stats["total_products"] == 96
+
+    products = client.get("/api/v1/catalog/products?limit=200").json()
+    assert len(products) == 96
+    listing_uuids = {p["listing_id"] for p in products}
+    assert len(listing_uuids) == 96
+    assert all(p["image_url"] and p["image_url"].startswith("assets/products/") for p in products)
+
+    artisans = client.get("/api/v1/artisans").json()
+    assert len(artisans) == 53
+    artisan_uuids = {a["seller_profile_id"] for a in artisans}
+    assert len(artisan_uuids) == 53
+    showcase = [a for a in artisans if a["is_featured_showcase"]]
+    assert len(showcase) == 6
+    assert all(a["portrait_url"].startswith("img/artisans/artisan-0") for a in showcase)
+
+
+def test_11_seller_studio_asigs_guardrails_to_admin_approval_and_live_catalog(app_and_client, db_session):
     app, client = app_and_client
     entities = seed_marketplace_entities(db_session)
     set_authenticated_principal(app, entities["seller_principal"])
@@ -331,7 +407,7 @@ def test_08_seller_studio_asigs_guardrails_to_admin_approval_and_live_catalog(ap
     assert dup_listing_id in catalog_ids
 
 
-def test_09_retail_order_razorpay_checkout_to_admin_refund_end_to_end(app_and_client, db_session, test_settings):
+def test_12_retail_order_razorpay_checkout_to_admin_refund_end_to_end(app_and_client, db_session, test_settings):
     import hashlib
     import hmac
     from app.modules.payments.router import get_razorpay_gateway
@@ -416,3 +492,4 @@ def test_09_retail_order_razorpay_checkout_to_admin_refund_end_to_end(app_and_cl
     assert any(r["payment_id"] == payment_id for r in admin_refunds.json())
 
     app.dependency_overrides.pop(get_razorpay_gateway, None)
+
