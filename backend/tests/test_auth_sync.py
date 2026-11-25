@@ -657,3 +657,74 @@ def test_09_existing_user_cannot_reregister_and_unverified_artisan_flagged_until
 
     _set_clerk_claims(app, None)
     app.dependency_overrides.pop(get_current_principal, None)
+
+
+def test_09_unregistered_oauth_user_or_artisan_blocked_on_signin_with_404(app_and_client, db_session):
+    from sqlalchemy import select
+    from app.models.core_models import User
+
+    app, client = app_and_client
+    app.dependency_overrides.pop(get_current_principal, None)
+
+    # 1. Brand-new Google buyer clicks "Sign in with Google" (never registered in DB) -> 404!
+    _set_clerk_claims(app, {"sub": "user_unreg_google_buyer", "email": "ghost.buyer@gmail.com"})
+    r_buyer = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "ghost.buyer@gmail.com",
+            "email_verified": True,
+            "first_name": "Ghost",
+            "requested_role": "buyer",
+            "auth_mode": "signin",
+        },
+    )
+    assert r_buyer.status_code == 404
+    assert "register first" in r_buyer.json()["detail"].lower()
+    assert db_session.scalar(select(User).where(User.email == "ghost.buyer@gmail.com")) is None
+
+    # 2. Brand-new Google artisan clicks "Sign in with Google" (never registered in DB) -> 404!
+    _set_clerk_claims(app, {"sub": "user_unreg_google_artisan", "email": "ghost.artisan@gmail.com"})
+    r_artisan = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "ghost.artisan@gmail.com",
+            "email_verified": True,
+            "first_name": "Ghost",
+            "requested_role": "artisan",
+            "auth_mode": "signin",
+        },
+    )
+    assert r_artisan.status_code == 404
+    assert db_session.scalar(select(User).where(User.email == "ghost.artisan@gmail.com")) is None
+
+    # 3. After registering (auth_mode="signup"), subsequent Sign In (auth_mode="signin") succeeds!
+    r_reg = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "ghost.artisan@gmail.com",
+            "email_verified": True,
+            "first_name": "Ghost",
+            "requested_role": "artisan",
+            "auth_mode": "signup",
+        },
+    )
+    assert r_reg.status_code == 200
+    assert r_reg.json()["is_new_user"] is True
+    assert r_reg.json()["artisan_verified"] is False
+
+    r_login = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "ghost.artisan@gmail.com",
+            "email_verified": True,
+            "first_name": "Ghost",
+            "requested_role": "artisan",
+            "auth_mode": "signin",
+        },
+    )
+    assert r_login.status_code == 200
+    assert r_login.json()["is_new_user"] is False
+    assert r_login.json()["is_artisan"] is True
+    assert r_login.json()["artisan_verified"] is False
+
+    _set_clerk_claims(app, None)

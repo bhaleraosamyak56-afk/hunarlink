@@ -50,14 +50,17 @@ export default function LoginPage() {
       ? 'register'
       : 'signin';
   const alreadyRegisteredNotice = params.get('already_registered') === '1';
+  const notRegisteredNotice = params.get('not_registered') === '1';
   const nextUrl = params.get('next') || '/';
 
-  const [authMode, setAuthMode] = useState(initialMode); // 'signin' | 'register'
+  const [authMode, setAuthMode] = useState(notRegisteredNotice ? 'register' : initialMode); // 'signin' | 'register'
   const [role, setRole] = useState(initialRole);
   const [errMsg, setErrMsg] = useState(
     alreadyRegisteredNotice
       ? 'This account already exists in HunarLink. You cannot register again — please Sign In below.'
-      : ''
+      : notRegisteredNotice
+        ? 'No registered HunarLink account was found for that email. Please register first below.'
+        : ''
   );
   const [busyProvider, setBusyProvider] = useState(null);
 
@@ -70,7 +73,7 @@ export default function LoginPage() {
   const [emailBusy, setEmailBusy] = useState(false);
 
   const signedIn = clerk.enabled
-    ? Boolean(clerk.isSignedIn)
+    ? Boolean(clerk.isSignedIn && user && user.isLoggedIn)
     : Boolean(user && user.authProvider === 'clerk' && user.isLoggedIn);
   const isArtisanSession = Boolean(
     user && (user.role === 'seller' || user.role === 'artisan')
@@ -85,6 +88,14 @@ export default function LoginPage() {
       setCode('');
       setErrMsg(
         'This account already exists in HunarLink. Switched to Sign In — enter your email or use Google below to continue.'
+      );
+    } else if (params.get('not_registered') === '1') {
+      setAuthMode('register');
+      setPendingFlow('signUp');
+      setEmailStep('input');
+      setCode('');
+      setErrMsg(
+        'No registered HunarLink account was found for that email. Please register first below.'
       );
     }
   }, [params]);
@@ -162,9 +173,17 @@ export default function LoginPage() {
       }
     } catch (err) {
       if (err?.code === 'NOT_REGISTERED') {
-        setAuthMode('register');
         setEmailStep('input');
-        setErrMsg(err.message);
+        if (role === 'artisan') {
+          navigate('/auth?mode=register&not_registered=1', { replace: true });
+        } else {
+          setAuthMode('register');
+          setErrMsg(
+            err.message ||
+              'No registered HunarLink Buyer account was found for that email. Please register first below.'
+          );
+          navigate('/login?mode=register&not_registered=1', { replace: true });
+        }
       } else {
         setErrMsg(err?.message || 'Invalid email or password.');
       }
@@ -203,9 +222,17 @@ export default function LoginPage() {
             'This email already exists in HunarLink. Switched to Sign In — please sign in below.'
         );
       } else if (err?.code === 'NOT_REGISTERED') {
-        setAuthMode('register');
         setEmailStep('input');
-        setErrMsg(err.message);
+        if (role === 'artisan') {
+          navigate('/auth?mode=register&not_registered=1', { replace: true });
+        } else {
+          setAuthMode('register');
+          setErrMsg(
+            err.message ||
+              'No registered HunarLink Buyer account was found for that email. Please register first below.'
+          );
+          navigate('/login?mode=register&not_registered=1', { replace: true });
+        }
       } else {
         setErrMsg(err?.message || 'Could not send email code. Try Sign in with Google.');
       }
