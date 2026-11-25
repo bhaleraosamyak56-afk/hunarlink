@@ -243,7 +243,7 @@ CREATE TABLE IF NOT EXISTS `admin_action_requests` (
   KEY `idx_aar_requested_by` (`requested_by_user_id`),
   KEY `idx_aar_reviewed_by` (`reviewed_by_user_id`),
   CONSTRAINT `fk_aar_requested_by` FOREIGN KEY (`requested_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `fk_aar_reviewed_by` FOREIGN KEY (`reviewed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT,
+  CONSTRAINT `fk_aar_reviewed_by` FOREIGN KEY (`reviewed_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `chk_aar_dual_control` CHECK (`reviewed_by_user_id` IS NULL OR `reviewed_by_user_id` <> `requested_by_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
