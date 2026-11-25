@@ -298,9 +298,19 @@ def sync_authenticated_user(
     if user is None:
         existing_by_email = db.scalar(select(User).where(User.email == clean_email))
         if existing_by_email is not None:
+            if payload.auth_mode == "signup":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This account already exists in HunarLink. You cannot register again — please log in instead.",
+                )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="An account with this email is already registered under a different identity.",
+            )
+        if payload.auth_mode == "signin":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No registered HunarLink account found for this email. Please register first.",
             )
         is_new_user = True
         first_name = payload.first_name.strip() or clean_email.split("@")[0][:100]
@@ -346,10 +356,12 @@ def sync_authenticated_user(
         user.updated_at = utcnow()
 
     role_code, role_name = ROLE_CODE_MAP[payload.requested_role]
-    _ensure_user_role(db, user.id, role_code, role_name)
-    # Artisans can also browse/purchase as customers, while buyers only get CUSTOMER.
-    if payload.requested_role == "artisan":
-        _ensure_user_role(db, user.id, "CUSTOMER", "Retail Customer")
+    # Only grant/upgrade roles on registration or explicit sync — never mutate roles on plain sign-in
+    if is_new_user or payload.auth_mode != "signin":
+        _ensure_user_role(db, user.id, role_code, role_name)
+        # Artisans can also browse/purchase as customers, while buyers only get CUSTOMER.
+        if payload.requested_role == "artisan":
+            _ensure_user_role(db, user.id, "CUSTOMER", "Retail Customer")
 
     record_audit_log(
         db,

@@ -42,10 +42,13 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const clerk = useClerkBridge();
-  const { setUser, toast, hydrateFromBackend } = useStore();
+  const { user: storeUser, setUser, toast, hydrateFromBackend } = useStore();
 
+  const notRegisteredNotice = params.get('not_registered') === '1';
   const [authMode, setAuthMode] = useState(
-    params.get('mode') === 'register' || params.get('mode') === 'signup' ? 'register' : 'signin'
+    notRegisteredNotice || params.get('mode') === 'register' || params.get('mode') === 'signup'
+      ? 'register'
+      : 'signin'
   );
   const [giMode, setGiMode] = useState('with_gi');
   const [form, setForm] = useState({
@@ -63,12 +66,27 @@ export default function AuthPage() {
   const [checkingDbStatus, setCheckingDbStatus] = useState(false);
   const [resubmitMode, setResubmitMode] = useState(params.get('edit') === '1');
 
-  const [errMsg, setErrMsg] = useState('');
+  const [errMsg, setErrMsg] = useState(
+    notRegisteredNotice
+      ? 'No registered HunarLink Artisan account was found for that email. Please register as an Artisan below first.'
+      : ''
+  );
   const [busyProvider, setBusyProvider] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const clerkUser = clerk.clerkUser;
-  const signedIn = Boolean(clerk.enabled && clerk.isSignedIn && clerkUser);
+  const signedIn = Boolean(
+    clerk.enabled && clerk.isSignedIn && clerkUser && storeUser && storeUser.isLoggedIn
+  );
+
+  useEffect(() => {
+    if (params.get('not_registered') === '1') {
+      setAuthMode('register');
+      setErrMsg(
+        'No registered HunarLink Artisan account was found for that email. Please register as an Artisan below first.'
+      );
+    }
+  }, [params]);
   const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || '';
   const clerkName =
     clerkUser?.fullName ||

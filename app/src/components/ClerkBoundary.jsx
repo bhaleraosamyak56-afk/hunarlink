@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   AuthenticateWithRedirectCallback,
   ClerkProvider,
@@ -148,6 +148,7 @@ function buildSyncedUser(clerkUser, resolvedRole) {
 
 function ClerkBridgeInner({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoaded: userLoaded, isSignedIn, user: clerkUser } = useUser();
   const { isLoaded: authLoaded, getToken: clerkGetToken } = useAuth();
   const clerk = useClerk();
@@ -269,6 +270,21 @@ function ClerkBridgeInner({ children }) {
           { silent: true }
         );
 
+        if (!dbIsArtisan) {
+          setBuyerProfile({
+            ...(buyerProfile || {}),
+            firstName: syncedMeta.first,
+            lastName: syncedMeta.last,
+            fullName: syncedMeta.fullName,
+            email: syncedMeta.email,
+            phone: syncedMeta.phone || buyerProfile?.phone || '',
+            avatarPhoto: clerkAccount.imageUrl || buyerProfile?.avatarPhoto || '',
+            badge: syncedMeta.badge,
+            role: 'buyer',
+            isLoggedIn: true
+          });
+        }
+
         const currentPath = getCurrentAppPath();
         const isEntryOrAuth =
           currentPath === '/' ||
@@ -286,7 +302,7 @@ function ClerkBridgeInner({ children }) {
             navigate('/seller', { replace: true });
           }
         } else if (!dbIsArtisan && (currentPath === '/login' || currentPath === '/sso-callback')) {
-          navigate('/dashboard', { replace: true });
+          navigate('/', { replace: true });
         }
         if (import.meta.env.DEV) {
           console.info(
@@ -296,6 +312,31 @@ function ClerkBridgeInner({ children }) {
         await hydrateFromBackend(token);
         return res;
       } catch (err) {
+        if (err?.status === 404) {
+          // Strict DB login check: email/user does NOT exist in HunarLink DB ->
+          // sign out Clerk immediately and redirect to Register page for the respective role!
+          conflictSigningOutRef.current = true;
+          clearPendingClerkRole();
+          clearPendingClerkAuthMode();
+          lastDbSyncKeyRef.current = '';
+          syncedAccountIdsRef.current.clear();
+          clearSessionState();
+          setUser(null, { silent: true });
+          try {
+            if (clerk?.signOut) {
+              await clerk.signOut(() => {});
+            }
+          } catch {
+            /* ignore */
+          }
+          conflictSigningOutRef.current = false;
+          const registerDest =
+            requestedRole === 'artisan'
+              ? '/auth?mode=register&not_registered=1'
+              : '/login?mode=register&not_registered=1';
+          navigate(registerDest, { replace: true });
+          return null;
+        }
         if (err?.status === 409 && authMode === 'signup') {
           conflictSigningOutRef.current = true;
           clearPendingClerkRole();
@@ -324,11 +365,12 @@ function ClerkBridgeInner({ children }) {
         return null;
       }
     },
-    [clerk, clerkGetToken, clearSessionState, hydrateFromBackend, navigate, setUser]
+    [buyerProfile, clerk, clerkGetToken, clearSessionState, hydrateFromBackend, navigate, setBuyerProfile, setUser]
   );
 
-  /* Mirror the live Clerk user into StoreContext so Header, ProfilePage,
-     OrdersPage, AuthPage and SellerPage all reflect the authenticated session. */
+  /* Mirror the live Clerk user into StoreContext ONLY after verifying against
+     HunarLink's database when the backend is active (prevents unregistered
+     Google/Apple sign-ins from ever entering the app). */
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -343,6 +385,11 @@ function ClerkBridgeInner({ children }) {
     }
 
     if (conflictSigningOutRef.current) return;
+
+    // Wait for <AuthenticateWithRedirectCallback /> on /sso-callback to finish
+    // navigating to /login or /auth before reading/clearing pendingAuthMode and
+    // validating against MySQL DB so its redirect cannot overwrite our 404/409 bounces.
+    if (getCurrentAppPath() === '/sso-callback') return;
 
     const pendingRole = readPendingClerkRole();
     const pendingAuthMode = readPendingClerkAuthMode();
@@ -360,14 +407,21 @@ function ClerkBridgeInner({ children }) {
     saveUserRole(clerkUser.id, resolvedRole);
 
     const synced = buildSyncedUser(clerkUser, resolvedRole);
-    setUser(synced.payload, { silent: true });
-    syncUserToBackend(
-      clerkUser,
-      synced,
-      resolvedRole,
-      pendingAuthMode === 'signup' || pendingAuthMode === 'signin' ? pendingAuthMode : 'sync'
-    );
+    const effectiveAuthMode =
+      pendingAuthMode === 'signup'
+        ? 'signup'
+        : syncedAccountIdsRef.current.has(clerkUser.id)
+          ? 'sync'
+          : 'signin';
 
+    if (canAttemptBackend()) {
+      // Wait for FastAPI DB verification (200 OK) before marking user logged in.
+      syncUserToBackend(clerkUser, synced, resolvedRole, effectiveAuthMode);
+      return;
+    }
+
+    // Static preview fallback when backend is offline
+    setUser(synced.payload, { silent: true });
     if (resolvedRole === 'buyer') {
       setBuyerProfile({
         ...(buyerProfile || {}),
@@ -382,8 +436,6 @@ function ClerkBridgeInner({ children }) {
         isLoggedIn: true
       });
     } else if (resolvedRole === 'artisan' && !synced.artisanVerified) {
-      /* Even before backend hydration finishes, route unverified artisans
-         from auth/home/seller straight to the verification page first. */
       const currentPath = getCurrentAppPath();
       if (
         currentPath === '/' ||
@@ -396,7 +448,7 @@ function ClerkBridgeInner({ children }) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, isSignedIn, clerkUser?.id, clerkUser?.updatedAt]);
+  }, [isLoaded, isSignedIn, clerkUser?.id, clerkUser?.updatedAt, location.pathname]);
 
   const authenticateWithOAuth = useCallback(
     async (provider, { role = 'user', mode = 'signin', redirectTo = '/' } = {}) => {
@@ -448,12 +500,9 @@ function ClerkBridgeInner({ children }) {
       const strategy =
         String(provider || '').toLowerCase() === 'apple' ? 'oauth_apple' : 'oauth_google';
       const origin = window.location.origin;
-      const destPath =
-        normalizedRole === 'artisan'
-          ? '/auth?tab=verify'
-          : (redirectTo || '/').startsWith('/')
-            ? redirectTo || '/'
-            : `/${redirectTo}`;
+      // Always route OAuth callback through /login (buyer) or /auth?tab=verify (artisan)
+      // so ClerkBoundary validates registration against MySQL DB BEFORE entering / or /seller.
+      const destPath = normalizedRole === 'artisan' ? '/auth?tab=verify' : '/login';
       const redirectUrl = `${origin}${base}/sso-callback`;
       const redirectUrlComplete = `${origin}${base}${destPath}`;
 
@@ -506,7 +555,7 @@ function ClerkBridgeInner({ children }) {
     const dest =
       readPendingClerkRole() === 'artisan'
         ? '/auth?tab=verify'
-        : '/';
+        : '/login';
     return (
       <AuthenticateWithRedirectCallback
         signInFallbackRedirectUrl={`${base}${dest}`}
