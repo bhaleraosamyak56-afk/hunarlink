@@ -124,6 +124,7 @@ class SellerStudioListingInput(BaseModel):
 
     title: str = Field(..., min_length=3, max_length=220)
     guild: str = Field(default="pashmina", min_length=2, max_length=64)
+    technique: str | None = Field(default=None, max_length=120)
     description: str | None = Field(default=None, max_length=5000)
     selling_price: Decimal = Field(..., gt=Decimal("0"))
     compare_at_mrp: Decimal | None = Field(default=None, gt=Decimal("0"))
@@ -131,6 +132,11 @@ class SellerStudioListingInput(BaseModel):
     stock_quantity: int = Field(default=1, ge=0)
     min_order_qty: int = Field(default=1, ge=1)
     seller_sku: str | None = Field(default=None, max_length=100)
+    image_url: str | None = Field(default=None, max_length=512)
+    loom_hours: int | None = Field(default=None, ge=1, le=50000)
+    dimensions: str | None = Field(default=None, max_length=160)
+    origin_district: str | None = Field(default=None, max_length=100)
+    purity_metric: str | None = Field(default=None, max_length=255)
     requested_gi_status: str | None = Field(default=None, max_length=40)
     requested_listing_status: str | None = Field(default=None, max_length=40)
 

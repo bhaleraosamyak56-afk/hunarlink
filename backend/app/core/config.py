@@ -25,7 +25,11 @@ class Settings(BaseSettings):
 
     # Explicit CORS & Host allowlists (never wildcard in production)
     cors_allowed_origins: str = Field(
-        default="http://localhost:5173,http://127.0.0.1:5173"
+        default=(
+            "http://localhost:5173,http://127.0.0.1:5173,"
+            "http://localhost:5174,http://127.0.0.1:5174,"
+            "http://localhost:5175,http://127.0.0.1:5175"
+        )
     )
     trusted_hosts: str = Field(default="localhost,127.0.0.1,testserver")
     frontend_base_url: str = Field(default="http://localhost:5173")

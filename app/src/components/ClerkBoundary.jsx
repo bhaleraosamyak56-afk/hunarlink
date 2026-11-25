@@ -17,6 +17,7 @@ import {
   clearPendingClerkRole,
   readClerkArtisanProfile,
   readPendingClerkRole,
+  saveClerkArtisanProfile,
   setPendingClerkRole
 } from '../data/clerkConfig.js';
 
@@ -192,6 +193,67 @@ function ClerkBridgeInner({ children }) {
           token
         );
         lastDbSyncKeyRef.current = syncKey;
+        if (res?.seller_profile) {
+          const sp = res.seller_profile;
+          const dbApproved =
+            sp.verification_status === 'APPROVED' && sp.profile_status === 'ACTIVE';
+          const updatedSaved = {
+            artisanVerified: dbApproved,
+            verificationStatus: sp.verification_status,
+            profileStatus: sp.profile_status,
+            sellerProfileId: sp.seller_profile_id,
+            business: sp.store_name || '',
+            craft: sp.craft_specialty || '',
+            district: sp.workshop_district || '',
+            phone: res.phone || syncedMeta.phone || '',
+            giCertified: sp.verification_path === 'GI' && dbApproved,
+            giId: sp.claimed_gi_authorized_user_no || null,
+            verificationPath: sp.verification_path,
+            applicationNumber: sp.latest_application_number || null,
+            applicationStatus: sp.latest_application_status || sp.verification_status,
+            reviewDecisionNotes: sp.review_decision_notes || null
+          };
+          saveClerkArtisanProfile(clerkAccount.id, updatedSaved);
+          if (requestedRole === 'artisan' || (res.roles || []).includes('DIRECT_SELLER')) {
+            setUser(
+              {
+                ...syncedMeta.payload,
+                role: 'artisan',
+                artisanVerified: dbApproved,
+                verificationStatus: sp.verification_status,
+                profileStatus: sp.profile_status,
+                sellerProfileId: sp.seller_profile_id,
+                business: sp.store_name || '',
+                craft: sp.craft_specialty || '',
+                district: sp.workshop_district || '',
+                cluster: sp.workshop_district || '',
+                giCertified: sp.verification_path === 'GI' && dbApproved,
+                giId: sp.claimed_gi_authorized_user_no || null,
+                applicationNumber: sp.latest_application_number || null,
+                reviewDecisionNotes: sp.review_decision_notes || null,
+                title: dbApproved
+                  ? 'Verified Artisan \u2022 HunarLink Guild'
+                  : `Artisan Verification ${sp.verification_status} \u2022 Pending Admin Review`
+              },
+              { silent: true }
+            );
+          }
+        } else if (requestedRole === 'artisan') {
+          /* No seller_profile exists in DB yet -> ensure local cache never falsely claims verified */
+          saveClerkArtisanProfile(clerkAccount.id, {
+            artisanVerified: false,
+            verificationStatus: 'UNVERIFIED'
+          });
+          setUser(
+            {
+              ...syncedMeta.payload,
+              role: 'artisan',
+              artisanVerified: false,
+              verificationStatus: 'UNVERIFIED'
+            },
+            { silent: true }
+          );
+        }
         if (import.meta.env.DEV) {
           console.info(
             `[HunarLink DB] ${res.is_new_user ? 'Created new' : 'Synced'} user ${res.email} (id=${res.user_id}, roles=${res.roles.join(',')})`
@@ -206,7 +268,7 @@ function ClerkBridgeInner({ children }) {
         }
       }
     },
-    [clerkGetToken, hydrateFromBackend]
+    [clerkGetToken, hydrateFromBackend, setUser]
   );
 
   /* Mirror the live Clerk user into StoreContext so Header, ProfilePage,

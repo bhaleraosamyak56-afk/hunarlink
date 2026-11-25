@@ -38,6 +38,11 @@ class SellerProfileBrief(BaseModel):
     verification_status: str
     profile_status: str
     claimed_gi_authorized_user_no: str | None = None
+    latest_application_id: str | None = None
+    latest_application_number: str | None = None
+    latest_application_status: str | None = None
+    artisan_card_scan_id: str | None = None
+    review_decision_notes: str | None = None
 
 
 class AuthUserProfileResponse(BaseModel):
@@ -61,15 +66,16 @@ class AuthUserProfileResponse(BaseModel):
 
 
 class ArtisanVerificationSubmitRequest(BaseModel):
-    """Artisan GI or Standard verification submission stored in seller_profiles."""
+    """Artisan GI or Standard verification submission stored in seller_verification_applications."""
 
     model_config = ConfigDict(extra="forbid")
 
     store_name: str = Field(..., min_length=2, max_length=160)
     craft_specialty: str = Field(..., min_length=2, max_length=160)
     workshop_district: str = Field(..., min_length=2, max_length=100)
-    verification_path: Literal["GI", "NON_GI"] = "NON_GI"
+    verification_path: Literal["GI", "NON_GI", "STANDARD"] = "NON_GI"
     claimed_gi_code: str | None = Field(default=None, max_length=120)
+    artisan_card_scan_id: str | None = Field(default=None, max_length=64)
     skill_description: str | None = Field(default=None, max_length=2000)
     phone: str | None = Field(default=None, max_length=32)
 

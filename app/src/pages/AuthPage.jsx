@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import {
   clearPendingClerkRole,
-  readClerkArtisanProfile,
   saveClerkArtisanProfile,
   useClerkBridge
 } from '../data/clerkConfig.js';
 import {
   canAttemptBackend,
+  fetchMyAuthProfile,
   submitArtisanVerification,
-  syncAuthenticatedUser
+  syncAuthenticatedUser,
+  uploadGuardrailDocument
 } from '../services/apiClient.js';
 import { IconArrowRight, IconBadgeCheck, IconCheck, IconShield, IconSpark } from '../components/LineIcons.jsx';
 import { hdSrcFor, srcSetFor } from '../data/imageVariants.js';
@@ -48,8 +49,15 @@ export default function AuthPage() {
     craft: 'pashmina',
     district: 'Srinagar',
     giId: '',
+    skillDescription: '',
     terms: false
   });
+  const [cardFile, setCardFile] = useState(null);
+  const [cardPreviewUrl, setCardPreviewUrl] = useState('');
+  const [dbSellerProfile, setDbSellerProfile] = useState(null);
+  const [checkingDbStatus, setCheckingDbStatus] = useState(false);
+  const [resubmitMode, setResubmitMode] = useState(false);
+
   const [errMsg, setErrMsg] = useState('');
   const [busyProvider, setBusyProvider] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -76,12 +84,102 @@ export default function AuthPage() {
   }, []);
 
   useEffect(() => {
-    if (!signedIn || !clerkUser) return;
-    const saved = readClerkArtisanProfile(clerkUser.id);
-    if (saved?.artisanVerified && params.get('edit') !== '1') {
-      navigate('/seller', { replace: true });
+    return () => {
+      if (cardPreviewUrl) URL.revokeObjectURL(cardPreviewUrl);
+    };
+  }, [cardPreviewUrl]);
+
+  const refreshLiveApplicationStatus = useCallback(async () => {
+    if (!signedIn || !clerkUser || !clerk.getToken || !canAttemptBackend()) return;
+    setCheckingDbStatus(true);
+    try {
+      const token = await clerk.getToken();
+      if (!token) return;
+      const me = await fetchMyAuthProfile(token);
+      const sp = me?.seller_profile || null;
+      setDbSellerProfile(sp);
+
+      if (sp) {
+        const isApproved =
+          sp.verification_status === 'APPROVED' && sp.profile_status === 'ACTIVE';
+        const profileToSave = {
+          artisanVerified: isApproved,
+          verificationStatus: sp.verification_status,
+          profileStatus: sp.profile_status,
+          sellerProfileId: sp.seller_profile_id,
+          business: sp.store_name || '',
+          craft: sp.craft_specialty || 'pashmina',
+          district: sp.workshop_district || 'Srinagar',
+          phone: me.phone || '',
+          giCertified: sp.verification_path === 'GI' && isApproved,
+          giId: sp.claimed_gi_authorized_user_no || null,
+          verificationPath: sp.verification_path,
+          applicationNumber: sp.latest_application_number || null,
+          reviewDecisionNotes: sp.review_decision_notes || null
+        };
+        saveClerkArtisanProfile(clerkUser.id, profileToSave);
+        setUser(
+          {
+            id: clerkUser.id,
+            clerkUserId: clerkUser.id,
+            name: clerkName || sp.store_name,
+            fullName: clerkName || sp.store_name,
+            email: clerkEmail,
+            phone: me.phone || '',
+            role: 'artisan',
+            isLoggedIn: true,
+            authProvider: 'clerk',
+            ...profileToSave
+          },
+          { silent: true }
+        );
+
+        if (isApproved && params.get('edit') !== '1') {
+          toast('Your Artisan Workshop has been verified by Admin! Entering Seller Studio.', 'success');
+          await hydrateFromBackend(token);
+          navigate('/seller', { replace: true });
+        }
+      }
+    } catch {
+      /* User may not be synced yet; Step 2 submission will sync them first */
+    } finally {
+      setCheckingDbStatus(false);
     }
-  }, [signedIn, clerkUser, navigate, params]);
+  }, [signedIn, clerkUser, clerk, clerkName, clerkEmail, params, navigate, setUser, toast, hydrateFromBackend]);
+
+  useEffect(() => {
+    if (signedIn && clerkUser) {
+      refreshLiveApplicationStatus();
+    }
+  }, [signedIn, clerkUser, refreshLiveApplicationStatus]);
+
+  function handleCardFileChange(e) {
+    const file = e.target.files?.[0] || null;
+    setErrMsg('');
+    if (cardPreviewUrl) {
+      URL.revokeObjectURL(cardPreviewUrl);
+      setCardPreviewUrl('');
+    }
+    if (!file) {
+      setCardFile(null);
+      return;
+    }
+    const allowedExt = /\.(jpe?g|png|webp|pdf)$/i.test(file.name || '');
+    if (!allowedExt) {
+      setErrMsg('Artisan Card must be a JPG, PNG, WebP image, or PDF document.');
+      setCardFile(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrMsg('Artisan Card file must be under 5 MB.');
+      setCardFile(null);
+      return;
+    }
+    setCardFile(file);
+    if (file.type && file.type.startsWith('image/')) {
+      setCardPreviewUrl(URL.createObjectURL(file));
+    }
+  }
 
   async function launchOAuth(provider) {
     if (!clerk.enabled || !clerk.authenticateWithOAuth) {
@@ -116,83 +214,135 @@ export default function AuthPage() {
       setErrMsg('Enter your workshop or guild name.');
       return;
     }
+    if (!form.phone.trim()) {
+      setErrMsg('Enter your workshop contact phone number.');
+      return;
+    }
     if (giMode === 'with_gi' && !form.giId.trim()) {
       setErrMsg('Enter your GI Certificate / Authorized User Registration Number.');
+      return;
+    }
+    if (giMode === 'without_gi' && !cardFile) {
+      setErrMsg('Please upload your Artisan Card image (J&K Handicrafts / Pehchan / Workshop ID) for Admin verification.');
       return;
     }
     if (!form.terms) {
       setErrMsg('Please confirm the authenticity declaration.');
       return;
     }
+    if (!canAttemptBackend()) {
+      setErrMsg('FastAPI backend (:8000) is unreachable. Start the backend server so your application goes directly into the database.');
+      return;
+    }
 
     setSubmitting(true);
     try {
       const token = await clerk.getToken();
-      if (canAttemptBackend() && token) {
-        await syncAuthenticatedUser(
-          {
-            email: clerkEmail,
-            email_verified: Boolean(
-              clerkUser.primaryEmailAddress?.verification?.status === 'verified'
-            ),
-            first_name: clerkUser.firstName || clerkName.split(' ')[0] || 'Artisan',
-            last_name: clerkUser.lastName || null,
-            display_name: clerkName || form.storeName.trim(),
-            phone: form.phone.trim() || null,
-            requested_role: 'artisan'
-          },
-          token
-        );
-
-        await submitArtisanVerification(
-          {
-            store_name: form.storeName.trim(),
-            craft_specialty: form.craft,
-            workshop_district: form.district,
-            verification_path: giMode === 'with_gi' ? 'GI' : 'STANDARD',
-            claimed_gi_code: giMode === 'with_gi' ? form.giId.trim() : null,
-            phone: form.phone.trim() || null
-          },
-          token
-        );
-        await hydrateFromBackend(token);
+      if (!token) {
+        throw new Error('Could not obtain Clerk session token. Please sign in again.');
       }
 
-      const verifiedProfile = {
-        artisanVerified: true,
-        business: form.storeName.trim(),
-        craft: form.craft,
-        district: form.district,
+      // 1. Sync user account & DIRECT_SELLER role straight into `users` table
+      await syncAuthenticatedUser(
+        {
+          email: clerkEmail,
+          email_verified: Boolean(
+            clerkUser.primaryEmailAddress?.verification?.status === 'verified'
+          ),
+          first_name: clerkUser.firstName || clerkName.split(' ')[0] || 'Artisan',
+          last_name: clerkUser.lastName || null,
+          display_name: clerkName || form.storeName.trim(),
+          phone: form.phone.trim() || null,
+          requested_role: 'artisan'
+        },
+        token
+      );
+
+      // 2. Upload Artisan Card / GI Certificate to private scanned DB storage (`file_security_scans`)
+      let uploadedScanId = null;
+      if (cardFile) {
+        const uploadScope = giMode === 'with_gi' ? 'gi_certificate' : 'artisan_card';
+        const uploadRes = await uploadGuardrailDocument(cardFile, uploadScope, token);
+        uploadedScanId = uploadRes.scan_id;
+      }
+
+      // 3. Stage application in `seller_verification_applications` + `seller_documents` + `seller_profiles` (SUBMITTED / DRAFT)
+      const submitRes = await submitArtisanVerification(
+        {
+          store_name: form.storeName.trim(),
+          craft_specialty: form.craft,
+          workshop_district: form.district,
+          verification_path: giMode === 'with_gi' ? 'GI' : 'NON_GI',
+          claimed_gi_code: giMode === 'with_gi' ? form.giId.trim() : null,
+          artisan_card_scan_id: uploadedScanId,
+          skill_description: form.skillDescription.trim() || null,
+          phone: form.phone.trim() || null
+        },
+        token
+      );
+
+      const sp = submitRes.seller_profile;
+      const pendingProfile = {
+        artisanVerified: false,
+        verificationStatus: sp.verification_status,
+        profileStatus: sp.profile_status,
+        sellerProfileId: sp.seller_profile_id,
+        business: sp.store_name,
+        craft: sp.craft_specialty,
+        district: sp.workshop_district,
         phone: form.phone.trim(),
-        giId: giMode === 'with_gi' ? form.giId.trim() : null,
-        verificationPath: giMode === 'with_gi' ? 'GI' : 'STANDARD'
+        giId: sp.claimed_gi_authorized_user_no || null,
+        verificationPath: sp.verification_path,
+        applicationNumber: submitRes.application_number
       };
-      saveClerkArtisanProfile(clerkUser.id, verifiedProfile);
+      saveClerkArtisanProfile(clerkUser.id, pendingProfile);
       setUser(
         {
           id: clerkUser.id,
-          name: clerkName || form.storeName.trim(),
+          clerkUserId: clerkUser.id,
+          name: clerkName || sp.store_name,
+          fullName: clerkName || sp.store_name,
           email: clerkEmail,
           phone: form.phone.trim(),
-          role: 'seller',
+          role: 'artisan',
           isLoggedIn: true,
           authProvider: 'clerk',
-          artisanVerified: true,
-          business: form.storeName.trim(),
-          craft: form.craft,
-          district: form.district,
-          giId: verifiedProfile.giId
+          ...pendingProfile
         },
         { silent: true }
       );
-      toast('Artisan verification saved to HunarLink database.', 'success');
-      navigate('/seller', { replace: true });
+      setDbSellerProfile({
+        ...sp,
+        latest_application_id: submitRes.application_id,
+        latest_application_number: submitRes.application_number,
+        latest_application_status: submitRes.application_status
+      });
+      setResubmitMode(false);
+      await hydrateFromBackend(token);
+      toast(
+        `Application ${submitRes.application_number} staged in database for Admin verification!`,
+        'success'
+      );
     } catch (err) {
       setErrMsg(err?.message || 'Could not submit artisan verification to the database.');
     } finally {
       setSubmitting(false);
     }
   }
+
+  const isPendingReview =
+    signedIn &&
+    dbSellerProfile &&
+    ['SUBMITTED', 'UNDER_REVIEW', 'NEEDS_MORE_INFO'].includes(
+      dbSellerProfile.verification_status
+    ) &&
+    !resubmitMode;
+
+  const isRejected =
+    signedIn &&
+    dbSellerProfile &&
+    dbSellerProfile.verification_status === 'REJECTED' &&
+    !resubmitMode;
 
   return (
     <div className="portal-page login-page">
@@ -211,6 +361,9 @@ export default function AuthPage() {
             </div>
           </Link>
           <nav className="up-nav-links">
+            <Link to="/" className="up-nav-pill">
+              Storefront
+            </Link>
             <Link to="/login" className="up-nav-pill">
               Buyer Sign In
             </Link>
@@ -263,13 +416,13 @@ export default function AuthPage() {
               <h1>Kashmiri Artisan Verification</h1>
               <p>
                 Every artisan on HunarLink verifies their identity via Clerk and submits either a
-                GI Authorized User certificate or a Standard Artisan workshop application stored
-                directly in our database.
+                GI Authorized User certificate or an Artisan Card image. Applications stay staged
+                in our database until verified by an Administrator in the Admin Console.
               </p>
             </div>
             <ul className="login-perks">
-              <li><IconBadgeCheck size={14} /> Direct database registration in seller_profiles</li>
-              <li><IconShield size={14} /> Zero unverified or anonymous craft listings</li>
+              <li><IconBadgeCheck size={14} /> Staged in seller_verification_applications &amp; seller_documents</li>
+              <li><IconShield size={14} /> Promoted to live Verified Artisans only after Admin approval</li>
             </ul>
           </div>
 
@@ -316,6 +469,112 @@ export default function AuthPage() {
                   </div>
                 )}
               </>
+            ) : isPendingReview ? (
+              <div>
+                <div className="login-head">
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '999px',
+                      background: 'rgba(199, 91, 57, 0.12)',
+                      color: '#a34121',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      marginBottom: '0.6rem'
+                    }}
+                  >
+                    ● Staged in Database • Awaiting Admin Verification
+                  </span>
+                  <h2 className="login-title">Application Under Admin Review</h2>
+                  <p className="login-sub">
+                    Your workshop <strong>{dbSellerProfile.store_name}</strong> is saved in{' '}
+                    <code>seller_verification_applications</code> and awaiting inspection in the
+                    Admin Panel. Once approved by Admin, your profile automatically goes live on the
+                    Artisan Directory and unlocks your Seller Studio.
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    background: '#faf6f0',
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    borderRadius: '10px',
+                    padding: '0.9rem 1rem',
+                    fontSize: '0.85rem',
+                    marginBottom: '1rem',
+                    lineHeight: 1.65
+                  }}
+                >
+                  <div>
+                    <strong>Application #:</strong>{' '}
+                    <code>{dbSellerProfile.latest_application_number || 'SUBMITTED'}</code>
+                  </div>
+                  <div>
+                    <strong>Assigned Artisan UUID:</strong>{' '}
+                    <code style={{ fontSize: '0.78rem' }}>{dbSellerProfile.seller_profile_id}</code>
+                  </div>
+                  <div>
+                    <strong>Track:</strong>{' '}
+                    {dbSellerProfile.verification_path === 'GI'
+                      ? `GI Certified (${dbSellerProfile.claimed_gi_authorized_user_no || 'Submitted'})`
+                      : 'Standard Artisan (Artisan Card Uploaded)'}
+                  </div>
+                  <div>
+                    <strong>District &amp; Craft:</strong> {dbSellerProfile.workshop_district} •{' '}
+                    {dbSellerProfile.craft_specialty}
+                  </div>
+                  <div>
+                    <strong>Current DB Status:</strong>{' '}
+                    <code>{dbSellerProfile.verification_status}</code> /{' '}
+                    <code>{dbSellerProfile.profile_status}</code>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-orange"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    disabled={checkingDbStatus}
+                    onClick={refreshLiveApplicationStatus}
+                  >
+                    {checkingDbStatus ? 'Checking Database…' : 'Check Approval Status'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-orange-outline"
+                    onClick={() => setResubmitMode(true)}
+                  >
+                    Update / Re-upload Card
+                  </button>
+                </div>
+              </div>
+            ) : isRejected ? (
+              <div>
+                <div className="login-head">
+                  <h2 className="login-title">Verification Requires Update</h2>
+                  <p className="login-sub">
+                    Your previous application for <strong>{dbSellerProfile.store_name}</strong> was
+                    marked <code>REJECTED</code> during Admin review.
+                  </p>
+                </div>
+                {dbSellerProfile.review_decision_notes && (
+                  <div className="login-error show" style={{ marginBottom: '1rem' }}>
+                    <strong>Admin Note:</strong> {dbSellerProfile.review_decision_notes}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn-orange"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => setResubmitMode(true)}
+                >
+                  Submit Updated Artisan Card &amp; Details
+                </button>
+              </div>
             ) : (
               <form onSubmit={submitVerification}>
                 <div className="login-head">
@@ -376,8 +635,8 @@ export default function AuthPage() {
                       onChange={(e) => setForm((f) => ({ ...f, craft: e.target.value }))}
                     >
                       <option value="pashmina">Pashmina Textiles</option>
-                      <option value="carpets">Silk-on-Silk Carpets</option>
-                      <option value="woodwork">Walnut Woodcarving</option>
+                      <option value="silk-rugs">Silk-on-Silk Rugs</option>
+                      <option value="walnut">Walnut Woodcarving</option>
                       <option value="papier-mache">Papier-Mâché Art</option>
                       <option value="sozni">Sozni Embroidery</option>
                       <option value="copperware">Copperware</option>
@@ -396,8 +655,7 @@ export default function AuthPage() {
                       <option value="Anantnag">Anantnag</option>
                       <option value="Baramulla">Baramulla</option>
                       <option value="Pulwama">Pulwama</option>
-                      <option value="Ganderbal">Ganderbal</option>
-                      <option value="Bandipora">Bandipora</option>
+                      <option value="Ganderbal">Bandipora / Ganderbal</option>
                     </select>
                   </div>
                 </div>
@@ -415,22 +673,105 @@ export default function AuthPage() {
                   />
                 </div>
 
-                {giMode === 'with_gi' && (
+                {giMode === 'with_gi' ? (
+                  <>
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="art-gi">
+                        GI Registration / Authorized User Number *
+                      </label>
+                      <input
+                        id="art-gi"
+                        type="text"
+                        className="up-input"
+                        placeholder="e.g. GI-JK-PASH-8821"
+                        required
+                        value={form.giId}
+                        onChange={(e) => setForm((f) => ({ ...f, giId: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label className="up-label" htmlFor="art-card-gi">
+                        GI Certificate / Artisan Card Image (Optional — JPG, PNG, WebP, PDF)
+                      </label>
+                      <input
+                        id="art-card-gi"
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                        className="up-input"
+                        onChange={handleCardFileChange}
+                      />
+                    </div>
+                  </>
+                ) : (
                   <div className="form-field">
-                    <label className="up-label" htmlFor="art-gi">
-                      GI Registration / Authorized User Number *
+                    <label className="up-label" htmlFor="art-card-std">
+                      Artisan Card Image (J&amp;K Handicrafts / Pehchan Card) *
                     </label>
                     <input
-                      id="art-gi"
-                      type="text"
-                      className="up-input"
-                      placeholder="e.g. GI-JK-PASH-8821"
+                      id="art-card-std"
+                      type="file"
                       required
-                      value={form.giId}
-                      onChange={(e) => setForm((f) => ({ ...f, giId: e.target.value }))}
+                      accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                      className="up-input"
+                      onChange={handleCardFileChange}
                     />
+                    <span style={{ display: 'block', fontSize: '0.76rem', opacity: 0.75, marginTop: '0.28rem' }}>
+                      Sent directly to private DB storage for Admin verification before activating your artisan profile.
+                    </span>
                   </div>
                 )}
+
+                {cardFile && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '8px',
+                      background: '#f7f3ec',
+                      border: '1px solid rgba(0,0,0,0.08)',
+                      marginBottom: '0.75rem',
+                      fontSize: '0.8rem'
+                    }}
+                  >
+                    {cardPreviewUrl && (
+                      <img
+                        src={cardPreviewUrl}
+                        alt="Artisan card preview"
+                        style={{
+                          width: '54px',
+                          height: '40px',
+                          objectFit: 'cover',
+                          borderRadius: '5px',
+                          border: '1px solid rgba(0,0,0,0.12)'
+                        }}
+                      />
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cardFile.name}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', opacity: 0.7 }}>
+                        {(cardFile.size / 1024).toFixed(1)} KB • Ready for ASIGS malware &amp; signature scan
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-field">
+                  <label className="up-label" htmlFor="art-bio">
+                    Craft Lineage / Workshop Note (Optional)
+                  </label>
+                  <textarea
+                    id="art-bio"
+                    rows={2}
+                    className="up-input"
+                    placeholder="Briefly describe your loom, carving tradition, or family workshop…"
+                    value={form.skillDescription}
+                    onChange={(e) => setForm((f) => ({ ...f, skillDescription: e.target.value }))}
+                  />
+                </div>
 
                 <label
                   style={{
@@ -447,8 +788,8 @@ export default function AuthPage() {
                     onChange={(e) => setForm((f) => ({ ...f, terms: e.target.checked }))}
                   />
                   <span>
-                    I declare that all craft details and GI identifiers submitted are genuine and
-                    produced in Jammu &amp; Kashmir.
+                    I declare that all craft details and Artisan Card / GI documents submitted are
+                    genuine and produced in Jammu &amp; Kashmir.
                   </span>
                 </label>
 
@@ -459,7 +800,7 @@ export default function AuthPage() {
                   disabled={submitting}
                 >
                   <IconCheck size={15} />
-                  {submitting ? 'Saving to database…' : 'Submit Artisan Verification'}
+                  {submitting ? 'Uploading & staging in DB…' : 'Submit for Admin Verification'}
                   <IconArrowRight size={14} />
                 </button>
               </form>

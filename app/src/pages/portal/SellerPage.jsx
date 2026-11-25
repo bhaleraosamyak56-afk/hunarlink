@@ -414,7 +414,7 @@ export default function SellerPage() {
         dimensions: '',
         stock: 1,
         status: row.listing_status === 'ACTIVE' ? 'live' : row.listing_status.toLowerCase(),
-        image: meta.defaultImg,
+        image: row.image_url || meta.defaultImg,
         description: row.description || '',
         listedAt: row.created_at
       };
@@ -562,13 +562,19 @@ export default function SellerPage() {
           {
             title: newForm.title.trim(),
             guild: newForm.guild || 'pashmina',
+            technique: newForm.technique || null,
             description: newForm.description.trim() || newForm.title.trim(),
             selling_price: String(price),
             compare_at_mrp: String(mrp),
             currency_code: 'INR',
             stock_quantity: Math.max(0, parseInt(newForm.stock, 10) || 1),
             min_order_qty: 1,
-            seller_sku: `HL-${(newForm.guild || 'CRAFT').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-5)}`
+            seller_sku: `HL-${(newForm.guild || 'CRAFT').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-5)}`,
+            image_url: newImage && !newImage.startsWith('data:') ? newImage : guildInfo.defaultImg,
+            loom_hours: Math.max(1, parseInt(newForm.hours, 10) || 180),
+            dimensions: (newForm.dimensions || '').trim() || null,
+            origin_district: (newForm.district || seller.district || 'Srinagar').trim(),
+            purity_metric: (newForm.purity || '').trim() || null
           },
           token
         );

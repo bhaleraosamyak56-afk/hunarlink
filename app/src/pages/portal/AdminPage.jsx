@@ -5,6 +5,7 @@ import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import {
   canAttemptBackend,
+  decideAdminArtisanApplication,
   decideAdminGuardrailCase,
   fetchAdminGuardrailCases,
   fetchAdminGuardrailRules,
@@ -12,6 +13,7 @@ import {
   fetchAdminPayments,
   fetchAdminPaymentWebhooks,
   fetchAdminRefunds,
+  fetchGuardrailDocumentBlobUrl,
   fetchMyAuthProfile,
   initiateAdminRefund,
   moderateAdminListing
@@ -40,8 +42,9 @@ const ADMIN_TOKEN_KEY = 'hunarlink_admin_session_jwt';
 
 const TABS = [
   { id: 'overview', label: 'Overview & Users', icon: <IconGrid size={15} /> },
-  { id: 'admins', label: 'Admin DB Accounts', icon: <IconShield size={15} /> },
+  { id: 'applications', label: 'Pending Artisan Verifications', icon: <IconShield size={15} /> },
   { id: 'sellers', label: 'Artisans & Listings', icon: <IconPalette size={15} /> },
+  { id: 'admins', label: 'Admin DB Accounts', icon: <IconShield size={15} /> },
   { id: 'orders', label: 'Retail Orders', icon: <IconPackage size={15} /> },
   { id: 'payments', label: 'Payments & Refunds', icon: <IconReceipt size={15} /> },
   { id: 'guardrails', label: 'ASIGS Guardrails', icon: <IconShield size={15} /> }
@@ -81,6 +84,8 @@ export default function AdminPage() {
   const [tab, setTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [revealedHashes, setRevealedHashes] = useState({});
+  const [cardPreviewModal, setCardPreviewModal] = useState(null);
+  const [busyAppId, setBusyAppId] = useState(null);
   const [data, setData] = useState({
     overview: null,
     payments: [],
@@ -241,6 +246,78 @@ export default function AdminPage() {
     }
   }
 
+  async function handleViewArtisanCard(appItem) {
+    if (!appItem?.artisan_card_scan_id) {
+      toast('No Artisan Card file is attached to this application.', 'error');
+      return;
+    }
+    try {
+      const { blobUrl, mimeType } = await fetchGuardrailDocumentBlobUrl(
+        appItem.artisan_card_scan_id,
+        adminToken
+      );
+      if (cardPreviewModal?.blobUrl) {
+        URL.revokeObjectURL(cardPreviewModal.blobUrl);
+      }
+      setCardPreviewModal({
+        blobUrl,
+        mimeType,
+        appNumber: appItem.application_number,
+        storeName: appItem.store_name,
+        artisanName: appItem.artisan_name,
+        filename: appItem.artisan_card_filename || 'artisan-card',
+        applicationId: appItem.id,
+        status: appItem.application_status
+      });
+    } catch (err) {
+      toast(err?.message || 'Could not retrieve Artisan Card from private DB storage.', 'error');
+    }
+  }
+
+  function closeCardPreviewModal() {
+    if (cardPreviewModal?.blobUrl) {
+      URL.revokeObjectURL(cardPreviewModal.blobUrl);
+    }
+    setCardPreviewModal(null);
+  }
+
+  async function handleDecideArtisanApplication(appItem, decision) {
+    let notes = '';
+    if (decision === 'REJECT') {
+      const entered = window.prompt(
+        `Reason for rejecting ${appItem.store_name} (${appItem.application_number}):`,
+        'Artisan card image was unclear — please re-upload a clear photo.'
+      );
+      if (entered === null) return;
+      notes = entered.trim();
+    } else {
+      notes = 'Artisan Card / GI details verified by Admin and promoted to live directory.';
+    }
+
+    setBusyAppId(appItem.id);
+    try {
+      const res = await decideAdminArtisanApplication(
+        appItem.id,
+        { decision, notes },
+        adminToken
+      );
+      if (cardPreviewModal?.applicationId === appItem.id) {
+        closeCardPreviewModal();
+      }
+      toast(
+        decision === 'APPROVE'
+          ? `Approved ${res.store_name}! Promoted live to /artisan?id=${res.seller_profile_id}`
+          : `Application ${res.application_number} marked REJECTED.`,
+        'success'
+      );
+      await loadLiveAdminData(adminToken);
+    } catch (err) {
+      toast(err?.message || 'Could not update artisan application.', 'error');
+    } finally {
+      setBusyAppId(null);
+    }
+  }
+
   if (authState.status === 'checking') {
     return <AdminLoginPage checking />;
   }
@@ -255,6 +332,7 @@ export default function AdminPage() {
 
   const ov = data.overview || {
     counts: {},
+    artisan_applications: [],
     admin_credentials: [],
     users: [],
     sellers: [],
@@ -298,16 +376,21 @@ export default function AdminPage() {
 
       <main className="up-container" id="main-content" style={{ paddingBlock: '1.75rem 3.5rem' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={tab === t.id ? 'btn-orange' : 'btn-orange-outline'}
-              onClick={() => setTab(t.id)}
-            >
-              {t.icon} {t.label}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const pendingCount =
+              t.id === 'applications' ? Number(ov.counts?.pending_applications || 0) : 0;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={tab === t.id ? 'btn-orange' : 'btn-orange-outline'}
+                onClick={() => setTab(t.id)}
+              >
+                {t.icon} {t.label}
+                {pendingCount > 0 ? ` (${pendingCount})` : ''}
+              </button>
+            );
+          })}
           <button
             type="button"
             className="btn-orange-outline"
@@ -335,8 +418,25 @@ export default function AdminPage() {
             <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>USERS IN DB</div>
             <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.users ?? 0}</div>
           </div>
+          <div
+            className="fk-panel-card"
+            style={{
+              padding: '1rem 1.25rem',
+              cursor: 'pointer',
+              border:
+                (ov.counts?.pending_applications ?? 0) > 0
+                  ? '1px solid rgba(199, 91, 57, 0.45)'
+                  : undefined
+            }}
+            onClick={() => setTab('applications')}
+          >
+            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>PENDING ARTISAN CARDS</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#a34121' }}>
+              {ov.counts?.pending_applications ?? 0}
+            </div>
+          </div>
           <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
-            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>VERIFIED ARTISANS</div>
+            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>ARTISAN PROFILES</div>
             <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.sellers ?? 0}</div>
           </div>
           <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
@@ -376,6 +476,137 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+          </section>
+        )}
+
+        {tab === 'applications' && (
+          <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
+            <h2 style={{ marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <IconShield size={18} /> Artisan Verification Queue (<code>seller_verification_applications</code>)
+            </h2>
+            <p style={{ fontSize: '0.85rem', opacity: 0.78, marginBottom: '1.1rem' }}>
+              Every Standard Artisan (with Artisan Card image) or GI Certified registration stays staged
+              in the database as <code>SUBMITTED / DRAFT</code> until verified here. Clicking{' '}
+              <strong>Verify &amp; Push Live</strong> promotes their <code>seller_profiles</code> record to{' '}
+              <code>APPROVED / ACTIVE</code> and publishes their unique workshop URL (<code>/artisan?id=&lt;uuid&gt;</code>).
+            </p>
+            {(ov.artisan_applications || []).length === 0 ? (
+              <p style={{ opacity: 0.7 }}>No artisan verification applications in the database yet.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                      <th style={{ padding: '0.55rem' }}>App #</th>
+                      <th style={{ padding: '0.55rem' }}>Workshop &amp; Artisan</th>
+                      <th style={{ padding: '0.55rem' }}>Craft &amp; District</th>
+                      <th style={{ padding: '0.55rem' }}>Track / GI</th>
+                      <th style={{ padding: '0.55rem' }}>Artisan Card</th>
+                      <th style={{ padding: '0.55rem' }}>DB Status</th>
+                      <th style={{ padding: '0.55rem' }}>Admin Verification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(ov.artisan_applications || []).map((appItem) => {
+                      const isPending = ['SUBMITTED', 'UNDER_REVIEW', 'NEEDS_MORE_INFO'].includes(
+                        appItem.application_status
+                      );
+                      return (
+                        <tr
+                          key={appItem.id}
+                          style={{
+                            borderBottom: '1px solid rgba(0,0,0,0.06)',
+                            background: isPending ? 'rgba(199, 91, 57, 0.05)' : undefined
+                          }}
+                        >
+                          <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>
+                            <div>{appItem.application_number}</div>
+                            <div style={{ fontSize: '0.7rem', opacity: 0.65 }}>
+                              {appItem.seller_profile_id?.slice(0, 8)}…
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>
+                            <div style={{ fontWeight: 600 }}>{appItem.store_name}</div>
+                            <div style={{ fontSize: '0.78rem', opacity: 0.78 }}>
+                              {appItem.artisan_name}
+                              {appItem.artisan_email ? ` • ${appItem.artisan_email}` : ''}
+                              {appItem.artisan_phone ? ` • ${appItem.artisan_phone}` : ''}
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>
+                            <div>{appItem.craft_specialty || '—'}</div>
+                            <div style={{ fontSize: '0.78rem', opacity: 0.75 }}>
+                              {appItem.workshop_district || '—'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>
+                            <span style={{ fontWeight: 600 }}>
+                              {appItem.verification_path === 'GI' ? 'GI Certified' : 'Standard Artisan'}
+                            </span>
+                            {appItem.claimed_gi_code && (
+                              <div style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                {appItem.claimed_gi_code}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>
+                            {appItem.artisan_card_scan_id ? (
+                              <button
+                                type="button"
+                                className="btn-orange-outline"
+                                style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                                onClick={() => handleViewArtisanCard(appItem)}
+                              >
+                                View Artisan Card
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.76rem', opacity: 0.6 }}>No card file</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.55rem', fontWeight: 600 }}>
+                            <div>{appItem.application_status}</div>
+                            {appItem.application_status === 'APPROVED' && (
+                              <Link
+                                to={`/artisan?id=${encodeURIComponent(appItem.seller_profile_id)}`}
+                                style={{ fontSize: '0.74rem', color: '#a34121', textDecoration: 'underline' }}
+                              >
+                                Open Live Profile →
+                              </Link>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.55rem' }}>
+                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              {appItem.application_status !== 'APPROVED' && (
+                                <button
+                                  type="button"
+                                  className="btn-orange"
+                                  style={{ padding: '0.28rem 0.65rem', fontSize: '0.75rem' }}
+                                  disabled={busyAppId === appItem.id}
+                                  onClick={() => handleDecideArtisanApplication(appItem, 'APPROVE')}
+                                >
+                                  Verify &amp; Push Live
+                                </button>
+                              )}
+                              {appItem.application_status !== 'REJECTED' && (
+                                <button
+                                  type="button"
+                                  className="btn-orange-outline"
+                                  style={{ padding: '0.28rem 0.65rem', fontSize: '0.75rem' }}
+                                  disabled={busyAppId === appItem.id}
+                                  onClick={() => handleDecideArtisanApplication(appItem, 'REJECT')}
+                                >
+                                  Reject
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
 
@@ -785,6 +1016,116 @@ export default function AdminPage() {
           </section>
         )}
       </main>
+
+      {cardPreviewModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(18, 16, 14, 0.72)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem'
+          }}
+          onClick={closeCardPreviewModal}
+        >
+          <div
+            className="fk-panel-card"
+            style={{
+              maxWidth: '720px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '1.25rem',
+              background: '#fff'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  Artisan Card Inspection — {cardPreviewModal.storeName}
+                </h3>
+                <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+                  Application <code>{cardPreviewModal.appNumber}</code> • {cardPreviewModal.artisanName} •{' '}
+                  <code>{cardPreviewModal.filename}</code>
+                </div>
+              </div>
+              <button type="button" className="btn-orange-outline" onClick={closeCardPreviewModal}>
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                background: '#f7f4ee',
+                border: '1px solid rgba(0,0,0,0.1)',
+                borderRadius: '10px',
+                padding: '0.75rem',
+                textAlign: 'center',
+                marginBottom: '1rem'
+              }}
+            >
+              {cardPreviewModal.mimeType === 'application/pdf' ? (
+                <iframe
+                  title="Artisan Card PDF"
+                  src={cardPreviewModal.blobUrl}
+                  style={{ width: '100%', height: '480px', border: 'none', borderRadius: '6px' }}
+                />
+              ) : (
+                <img
+                  src={cardPreviewModal.blobUrl}
+                  alt={`Artisan Card for ${cardPreviewModal.storeName}`}
+                  style={{ maxWidth: '100%', maxHeight: '520px', objectFit: 'contain', borderRadius: '6px' }}
+                />
+              )}
+            </div>
+
+            {cardPreviewModal.status !== 'APPROVED' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                <button
+                  type="button"
+                  className="btn-orange-outline"
+                  disabled={busyAppId === cardPreviewModal.applicationId}
+                  onClick={() =>
+                    handleDecideArtisanApplication(
+                      {
+                        id: cardPreviewModal.applicationId,
+                        store_name: cardPreviewModal.storeName,
+                        application_number: cardPreviewModal.appNumber
+                      },
+                      'REJECT'
+                    )
+                  }
+                >
+                  Reject Application
+                </button>
+                <button
+                  type="button"
+                  className="btn-orange"
+                  disabled={busyAppId === cardPreviewModal.applicationId}
+                  onClick={() =>
+                    handleDecideArtisanApplication(
+                      {
+                        id: cardPreviewModal.applicationId,
+                        store_name: cardPreviewModal.storeName,
+                        application_number: cardPreviewModal.appNumber
+                      },
+                      'APPROVE'
+                    )
+                  }
+                >
+                  Verify Card &amp; Push Artisan Live
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

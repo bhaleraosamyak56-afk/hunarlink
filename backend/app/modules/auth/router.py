@@ -38,6 +38,7 @@ from app.models.core_models import (
     AdminUserRole,
     PlatformRole,
     RetailOrder,
+    SellerDocument,
     SellerProductListing,
     SellerProfile,
     SellerVerificationApplication,
@@ -45,6 +46,7 @@ from app.models.core_models import (
     UserAddress,
     UserRoleAssignment,
 )
+from app.models.guardrail_models import FileSecurityScan
 from app.modules.auth.schemas import (
     AdminPasswordLoginRequest,
     AdminPasswordLoginResponse,
@@ -136,6 +138,38 @@ def _load_admin_access(db: Session, user_id: str, role_codes: list[str]) -> tupl
     return True, perms
 
 
+def _build_seller_brief(db: Session, seller: SellerProfile | None) -> SellerProfileBrief | None:
+    if seller is None:
+        return None
+    latest_app = db.scalar(
+        select(SellerVerificationApplication)
+        .where(SellerVerificationApplication.seller_profile_id == seller.id)
+        .order_by(SellerVerificationApplication.created_at.desc())
+        .limit(1)
+    )
+    meta = (
+        latest_app.submitted_metadata
+        if latest_app and isinstance(latest_app.submitted_metadata, dict)
+        else {}
+    )
+    return SellerProfileBrief(
+        seller_profile_id=seller.id,
+        store_name=seller.store_name,
+        store_slug=seller.store_slug,
+        craft_specialty=seller.craft_specialty,
+        workshop_district=seller.workshop_district,
+        verification_path=seller.verification_path,
+        verification_status=seller.verification_status,
+        profile_status=seller.profile_status,
+        claimed_gi_authorized_user_no=seller.claimed_gi_authorized_user_no,
+        latest_application_id=latest_app.id if latest_app else None,
+        latest_application_number=latest_app.application_number if latest_app else None,
+        latest_application_status=latest_app.application_status if latest_app else None,
+        artisan_card_scan_id=meta.get("artisan_card_scan_id"),
+        review_decision_notes=latest_app.review_decision_notes if latest_app else None,
+    )
+
+
 def _build_user_response(
     db: Session, user: User, *, is_new_user: bool = False
 ) -> AuthUserProfileResponse:
@@ -157,21 +191,7 @@ def _build_user_response(
     )
     is_admin, admin_permissions = _load_admin_access(db, user.id, role_codes)
     seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
-    seller_brief = (
-        SellerProfileBrief(
-            seller_profile_id=seller.id,
-            store_name=seller.store_name,
-            store_slug=seller.store_slug,
-            craft_specialty=seller.craft_specialty,
-            workshop_district=seller.workshop_district,
-            verification_path=seller.verification_path,
-            verification_status=seller.verification_status,
-            profile_status=seller.profile_status,
-            claimed_gi_authorized_user_no=seller.claimed_gi_authorized_user_no,
-        )
-        if seller is not None
-        else None
-    )
+    seller_brief = _build_seller_brief(db, seller)
     return AuthUserProfileResponse(
         synced=True,
         is_new_user=is_new_user,
@@ -209,7 +229,7 @@ def sync_authenticated_user(
     clean_email = payload.email.strip().lower()
     if "@" not in clean_email:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="A valid email address is required.",
         )
 
@@ -313,12 +333,48 @@ def submit_artisan_verification(
 ) -> ArtisanVerificationSubmitResponse:
     """Persist an authenticated artisan's GI or Standard verification application.
 
-    Note: verification_status is always stored as `SUBMITTED` (never self-approved)
-    so platform admins / ASIGS review retain sole authority over GI verification.
+    - Standard (`NON_GI` / `STANDARD`) applications require an uploaded Artisan Card
+      image/PDF (`artisan_card_scan_id` from `/api/v1/guardrails/documents/upload`) so
+      administrators can inspect the physical card in `/admin`.
+    - Applications stay staged in `seller_verification_applications` (`SUBMITTED`) with
+      `SellerProfile.profile_status='DRAFT'` and `verification_status='SUBMITTED'`
+      (excluded from public `/api/v1/artisans`) until an Admin approves them in `/admin`,
+      which promotes the record straight into the live verified artisans table.
     """
     user = db.scalar(select(User).where(User.id == principal.user_id))
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    normalized_path = "GI" if payload.verification_path == "GI" else "NON_GI"
+    claimed_gi = (payload.claimed_gi_code or "").strip() or None
+    card_scan_id = (payload.artisan_card_scan_id or "").strip() or None
+
+    if normalized_path == "GI" and not claimed_gi:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="GI Certified track requires a GI Registration / Authorized User number.",
+        )
+
+    scan_row: FileSecurityScan | None = None
+    if card_scan_id:
+        scan_row = db.scalar(
+            select(FileSecurityScan).where(FileSecurityScan.id == card_scan_id)
+        )
+        if scan_row is None or scan_row.uploader_user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Uploaded Artisan Card document was not found for your account. Please upload it again.",
+            )
+        if scan_row.scan_status == "INFECTED":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Uploaded Artisan Card failed security scanning.",
+            )
+    elif normalized_path == "NON_GI":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Standard Artisan registration requires uploading your Artisan Card image for Admin verification.",
+        )
 
     if payload.phone and payload.phone.strip():
         user.phone = payload.phone.strip()[:32]
@@ -335,10 +391,11 @@ def submit_artisan_verification(
             store_slug=_slugify_store(payload.store_name.strip()),
             craft_specialty=payload.craft_specialty.strip(),
             workshop_district=payload.workshop_district.strip(),
-            verification_path=payload.verification_path,
+            verification_path=normalized_path,
             profile_status="DRAFT",
             verification_status="SUBMITTED",
-            claimed_gi_authorized_user_no=(payload.claimed_gi_code or "").strip() or None,
+            claimed_gi_authorized_user_no=claimed_gi,
+            bio=(payload.skill_description or "").strip()[:1000] or None,
         )
         db.add(seller)
         db.flush()
@@ -346,26 +403,60 @@ def submit_artisan_verification(
         seller.store_name = payload.store_name.strip()
         seller.craft_specialty = payload.craft_specialty.strip()
         seller.workshop_district = payload.workshop_district.strip()
-        seller.verification_path = payload.verification_path
-        seller.claimed_gi_authorized_user_no = (payload.claimed_gi_code or "").strip() or None
+        seller.verification_path = normalized_path
+        seller.claimed_gi_authorized_user_no = claimed_gi
+        if payload.skill_description and payload.skill_description.strip():
+            seller.bio = payload.skill_description.strip()[:1000]
         if seller.verification_status != "APPROVED":
             seller.verification_status = "SUBMITTED"
+            seller.profile_status = "DRAFT"
 
     app_number = f"HL-VER-{utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
     application = SellerVerificationApplication(
         id=new_uuid(),
         seller_profile_id=seller.id,
         application_number=app_number,
-        verification_path=payload.verification_path,
+        verification_path=normalized_path,
         application_status="SUBMITTED",
-        claimed_gi_code=(payload.claimed_gi_code or "").strip() or None,
+        claimed_gi_code=claimed_gi,
         claimed_craft_cluster=payload.workshop_district.strip(),
         submitted_metadata={
             "craft_specialty": payload.craft_specialty.strip(),
             "skill_description": (payload.skill_description or "").strip()[:1000],
+            "artisan_card_scan_id": scan_row.id if scan_row else None,
+            "artisan_card_filename": scan_row.original_filename if scan_row else None,
+            "artisan_card_mime": scan_row.detected_mime_type if scan_row else None,
+            "phone": (payload.phone or user.phone or "").strip(),
         },
     )
     db.add(application)
+    db.flush()
+
+    if scan_row is not None:
+        existing_doc = db.scalar(
+            select(SellerDocument).where(SellerDocument.storage_key == scan_row.storage_key)
+        )
+        if existing_doc is None:
+            doc_type = "GI_AUTHORIZED_USER_CERT" if normalized_path == "GI" else "IDENTITY_PROOF"
+            db.add(
+                SellerDocument(
+                    id=new_uuid(),
+                    seller_profile_id=seller.id,
+                    application_id=application.id,
+                    document_type=doc_type,
+                    storage_key=scan_row.storage_key,
+                    original_filename=scan_row.original_filename,
+                    detected_mime_type=scan_row.detected_mime_type,
+                    file_size_bytes=scan_row.file_size_bytes,
+                    sha256_hash=scan_row.sha256_hash,
+                    scan_status=scan_row.scan_status if scan_row.scan_status in {"PENDING_SCAN", "CLEAN", "INFECTED", "SCAN_ERROR"} else "CLEAN",
+                    verification_status="PENDING",
+                    uploaded_by_user_id=user.id,
+                )
+            )
+        else:
+            existing_doc.application_id = application.id
+            existing_doc.verification_status = "PENDING"
 
     record_audit_log(
         db,
@@ -377,8 +468,9 @@ def submit_artisan_verification(
         correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
         new_values={
             "application_number": app_number,
-            "verification_path": payload.verification_path,
+            "verification_path": normalized_path,
             "workshop_district": payload.workshop_district.strip(),
+            "artisan_card_scan_id": scan_row.id if scan_row else None,
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -388,21 +480,13 @@ def submit_artisan_verification(
     db.refresh(seller)
     db.refresh(application)
 
+    brief = _build_seller_brief(db, seller)
+    assert brief is not None
     return ArtisanVerificationSubmitResponse(
         application_id=application.id,
         application_number=application.application_number,
         application_status=application.application_status,
-        seller_profile=SellerProfileBrief(
-            seller_profile_id=seller.id,
-            store_name=seller.store_name,
-            store_slug=seller.store_slug,
-            craft_specialty=seller.craft_specialty,
-            workshop_district=seller.workshop_district,
-            verification_path=seller.verification_path,
-            verification_status=seller.verification_status,
-            profile_status=seller.profile_status,
-            claimed_gi_authorized_user_no=seller.claimed_gi_authorized_user_no,
-        ),
+        seller_profile=brief,
     )
 
 

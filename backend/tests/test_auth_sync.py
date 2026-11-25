@@ -420,3 +420,122 @@ def test_07_admin_password_login_allows_only_db_provisioned_admins_and_revocatio
         headers={"Authorization": f"Bearer {token}"},
     )
     assert ov_revoked.status_code == 403
+
+
+def test_08_standard_artisan_requires_card_image_stays_staged_until_admin_verifies(
+    app_and_client, db_session
+):
+    """End-to-end verification of the Standard Artisan Card staging -> Admin approval flow."""
+    from app.core.auth import load_principal_by_clerk_id
+    from tests.conftest import seed_marketplace_entities
+
+    app, client = app_and_client
+    entities = seed_marketplace_entities(db_session)
+
+    # 1. New Clerk artisan signs in -> synced directly into `users`
+    _set_clerk_claims(app, {"sub": "user_2stdArtisanCard01"})
+    sync = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "velly.loom@example.com",
+            "email_verified": True,
+            "first_name": "Samyak",
+            "last_name": "Bhalerao",
+            "display_name": "Samyak Bhalerao",
+            "requested_role": "artisan",
+        },
+    )
+    assert sync.status_code == 200
+    _set_clerk_claims(app, None)
+
+    artisan_principal = load_principal_by_clerk_id(db_session, "user_2stdArtisanCard01")
+    set_authenticated_principal(app, artisan_principal)
+
+    # 2. Submitting `STANDARD` without an uploaded Artisan Card image returns clear 422
+    missing_card = client.post(
+        "/api/v1/auth/artisan-verification",
+        json={
+            "store_name": "Velly Loom",
+            "craft_specialty": "pashmina",
+            "workshop_district": "Srinagar",
+            "verification_path": "STANDARD",
+            "phone": "9419012345",
+        },
+    )
+    assert missing_card.status_code == 422
+    assert "Artisan Card" in missing_card.json()["detail"]
+
+    # 3. Artisan uploads valid PNG Artisan Card image -> stored in `file_security_scans`
+    valid_png = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x03\x01\x01\x00\x18\xdd\x8d\xb0"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    up_resp = client.post(
+        "/api/v1/guardrails/documents/upload",
+        data={"owner_scope": "artisan_card"},
+        files={"file": ("artisan_pehchan_card.png", valid_png, "image/png")},
+    )
+    assert up_resp.status_code == 201
+    scan_id = up_resp.json()["scan_id"]
+
+    # 4. Artisan submits Standard verification with `artisan_card_scan_id`
+    sub_resp = client.post(
+        "/api/v1/auth/artisan-verification",
+        json={
+            "store_name": "Velly Loom",
+            "craft_specialty": "pashmina",
+            "workshop_district": "Srinagar",
+            "verification_path": "STANDARD",
+            "artisan_card_scan_id": scan_id,
+            "skill_description": "Handloom Pashmina weaving studio in Srinagar.",
+            "phone": "9419012345",
+        },
+    )
+    assert sub_resp.status_code == 201
+    sub_body = sub_resp.json()
+    app_id = sub_body["application_id"]
+    seller_uuid = sub_body["seller_profile"]["seller_profile_id"]
+    assert sub_body["application_status"] == "SUBMITTED"
+    assert sub_body["seller_profile"]["verification_status"] == "SUBMITTED"
+    assert sub_body["seller_profile"]["profile_status"] == "DRAFT"
+    assert sub_body["seller_profile"]["verification_path"] == "NON_GI"
+
+    # 5. Staged artisan is NOT yet in public `/api/v1/artisans` or `/api/v1/artisans/detail?id=`
+    pub_list = client.get("/api/v1/artisans").json()
+    assert all(a["seller_profile_id"] != seller_uuid for a in pub_list)
+    assert client.get(f"/api/v1/artisans/detail?id={seller_uuid}").status_code == 404
+
+    # 6. Admin opens `/api/v1/admin/overview`, sees the pending application + card scan_id,
+    #    fetches the Artisan Card image bytes, and clicks Verify & Push Live (`APPROVE`)
+    set_authenticated_principal(app, entities["admin_principal"])
+    ov = client.get("/api/v1/admin/overview")
+    assert ov.status_code == 200
+    ov_data = ov.json()
+    assert ov_data["counts"]["pending_applications"] >= 1
+    staged_entry = next(a for a in ov_data["artisan_applications"] if a["id"] == app_id)
+    assert staged_entry["store_name"] == "Velly Loom"
+    assert staged_entry["artisan_card_scan_id"] == scan_id
+
+    card_dl = client.get(f"/api/v1/guardrails/documents/{scan_id}")
+    assert card_dl.status_code == 200
+    assert card_dl.headers["content-type"] == "image/png"
+
+    approve = client.post(
+        f"/api/v1/admin/artisan-applications/{app_id}/decision",
+        json={"decision": "APPROVE", "notes": "Pehchan Artisan Card verified."},
+    )
+    assert approve.status_code == 200
+    assert approve.json()["verification_status"] == "APPROVED"
+    assert approve.json()["profile_status"] == "ACTIVE"
+
+    # 7. Artisan is NOW immediately live in `/api/v1/artisans` & `/artisan?id=<seller_uuid>`!
+    pub_after = client.get("/api/v1/artisans").json()
+    assert any(a["seller_profile_id"] == seller_uuid and a["store_name"] == "Velly Loom" for a in pub_after)
+    detail_after = client.get(f"/api/v1/artisans/detail?id={seller_uuid}")
+    assert detail_after.status_code == 200
+    assert detail_after.json()["store_name"] == "Velly Loom"
+
+    app.dependency_overrides.pop(get_current_principal, None)
+
