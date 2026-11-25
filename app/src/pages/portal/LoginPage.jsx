@@ -12,6 +12,7 @@ import {
   IconArrowRight
 } from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
+import { useClerkBridge } from '../../data/clerkConfig.js';
 
 /* ==========================================================================
    LoginPage — collector (user) & artisan sign in / collector sign up
@@ -124,6 +125,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const navTimer = useRef(null);
+  const clerk = useClerkBridge();
+  const [oauthBusy, setOauthBusy] = useState(null);
   const {
     setUser,
     user: storeUser,
@@ -391,7 +394,26 @@ export default function LoginPage() {
     land(`Signed in as ${profile.fullName}!`, profile);
   }
 
-  function socialLogin(provider) {
+  async function socialLogin(provider) {
+    if (clerk.enabled && clerk.authenticateWithOAuth) {
+      setOauthBusy(provider);
+      try {
+        const res = await clerk.authenticateWithOAuth(provider, {
+          role,
+          mode,
+          redirectTo: target
+        });
+        if (res && res.alreadySignedIn) {
+          toast(`Signed in with Clerk! Opening your ${role === 'artisan' ? 'workspace' : 'account'}...`, 'success');
+          scheduleNavigate(res.destination, 400);
+        }
+      } catch (err) {
+        toast(err?.message || `Could not continue with ${provider}.`, 'error');
+        setOauthBusy(null);
+      }
+      return;
+    }
+
     if (role === 'artisan') {
       const demo = { ...SEED_ARTISANS[0], socialProvider: provider };
       landArtisan(
@@ -424,11 +446,18 @@ export default function LoginPage() {
   })();
   const isArtisanSession = liveRole === 'artisan';
 
-  function signOutHere() {
+  async function signOutHere() {
     try {
       window.localStorage.removeItem(AUTH_KEY);
     } catch {
       /* storage may be unavailable in private mode; the store is the source */
+    }
+    if (clerk.enabled && clerk.signOutClerk) {
+      try {
+        await clerk.signOutClerk();
+      } catch {
+        /* fall through to local sign-out */
+      }
     }
     setUser(null, { silent: true });
     setBuyerProfile(buildProfile(buyerProfile, { isLoggedIn: false }));
@@ -759,20 +788,32 @@ export default function LoginPage() {
                 <button
                   type="button"
                   className="login-social-btn"
+                  disabled={Boolean(oauthBusy)}
                   onClick={() => socialLogin('Google')}
                 >
                   <GoogleIcon />
-                  <span>Continue with Google</span>
+                  <span>
+                    {oauthBusy === 'Google' ? 'Connecting to Google\u2026' : 'Continue with Google'}
+                  </span>
                 </button>
                 <button
                   type="button"
                   className="login-social-btn"
+                  disabled={Boolean(oauthBusy)}
                   onClick={() => socialLogin('Apple')}
                 >
                   <AppleIcon />
-                  <span>Continue with Apple</span>
+                  <span>
+                    {oauthBusy === 'Apple' ? 'Connecting to Apple\u2026' : 'Continue with Apple'}
+                  </span>
                 </button>
               </div>
+              {clerk.enabled && (
+                <p className="login-social-note">
+                  Clerk OAuth active on localhost &mdash; use the same browser signed into dashboard.clerk.com.
+                </p>
+              )}
+              <div id="clerk-captcha" />
             </div>
 
             <div className="login-swap">

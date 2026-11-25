@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const atRoot = mode === 'root'
+  const isDevServer = command === 'serve'
   const adminPreview = process.env.HUNARLINK_ADMIN_PREVIEW === '1'
   const adminPreviewEntry = adminPreview ? {
     name: 'admin-login-preview-entry',
@@ -23,7 +24,7 @@ export default defineConfig(({ mode }) => {
   } : null
   return {
     plugins: [react(), ...(adminPreviewEntry ? [adminPreviewEntry] : [])],
-    base: adminPreview ? '/' : atRoot ? '/hunarlink/' : '/hunarlink/react/',
+    base: adminPreview || isDevServer ? '/' : atRoot ? '/hunarlink/' : '/hunarlink/react/',
     build: {
       outDir: atRoot ? '../dist' : '../react',
       emptyOutDir: true,
@@ -31,12 +32,19 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           /* React and the router change far less often than the app, so they
-             get their own long-lived chunks. A deploy that only touches page
-             code then leaves the vendor chunks cached in the browser. */
+             get their own long-lived chunks. Leave @clerk (and its internal
+             query/dequal deps) unassigned so they stay inside the lazy
+             ClerkBoundary chunk and never pull into vendor-react or index
+             preloads. */
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('@clerk') || id.includes('@tanstack') || id.includes('dequal')) {
+                return undefined
+              }
               if (id.includes('react-router')) return 'vendor-router'
-              if (id.includes('react')) return 'vendor-react'
+              if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+                return 'vendor-react'
+              }
               return 'vendor'
             }
             return undefined

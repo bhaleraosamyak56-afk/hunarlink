@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
+import { useClerkBridge } from '../../data/clerkConfig.js';
 import { formatINR, asset } from '../../utils/legacy.js';
 import { appHref } from '../../utils/href.js';
 import { IconGrid, IconPlus, IconPalette, IconPackage, IconChat, IconHeart, IconX } from '../../components/LineIcons.jsx';
@@ -211,6 +212,7 @@ const save = (key, value) => {
 export default function SellerPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const clerk = useClerkBridge();
   const fileRef = useRef(null);
   const editFileRef = useRef(null);
 
@@ -403,11 +405,18 @@ export default function SellerPage() {
     }
   }
 
-  function logout() {
+  async function logout() {
     try {
       localStorage.removeItem(KEYS.AUTH);
     } catch (err) {
       /* ignore */
+    }
+    if (clerk.enabled && clerk.signOutClerk) {
+      try {
+        await clerk.signOutClerk();
+      } catch (err) {
+        /* ignore */
+      }
     }
     setUser(null, { silent: true });
     navigate('/auth?mode=login&role=artisan');

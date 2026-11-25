@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
+import { useClerkBridge } from '../../data/clerkConfig.js';
 import Modal from '../Modal.jsx';
 import { ArrowRight } from '../Icons.jsx';
 
@@ -73,7 +74,8 @@ function RoleIcon({ kind }) {
 
 export default function LoginChoiceModal() {
   const navigate = useNavigate();
-  const { closeModal, user, setUser } = useStore();
+  const clerk = useClerkBridge();
+  const { closeModal, user, setUser, buyerProfile, setBuyerProfile } = useStore();
 
   const go = (to) => {
     closeModal();
@@ -160,10 +162,18 @@ export default function LoginChoiceModal() {
               type="button"
               className="lc-signout"
               id="login-choice-signout"
-              onClick={() => {
-                /* the store has no dedicated sign-out action; clearing the
-                   session is the same shape the portal gates test for */
-                setUser({ ...(user || {}), isLoggedIn: false });
+              onClick={async () => {
+                if (clerk.enabled && clerk.signOutClerk) {
+                  try {
+                    await clerk.signOutClerk();
+                  } catch {
+                    /* ignore */
+                  }
+                }
+                setUser(null, { silent: true });
+                if (buyerProfile && buyerProfile.isLoggedIn) {
+                  setBuyerProfile({ ...buyerProfile, isLoggedIn: false });
+                }
                 closeModal();
               }}
             >

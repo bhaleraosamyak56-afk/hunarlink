@@ -602,6 +602,11 @@
       height: 18px;
     }
 
+    .btn-social:disabled {
+      opacity: 0.68;
+      cursor: wait;
+    }
+
     /* Bottom Switcher Link */
     .auth-footer-prompt {
       text-align: center;

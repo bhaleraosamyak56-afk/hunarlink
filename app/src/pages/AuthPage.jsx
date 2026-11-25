@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
+import { useClerkBridge } from '../data/clerkConfig.js';
 import { AUTH_CONFIG, DEMO_ARTISANS } from '../data/authConfig.js';
 import AuthMarkup from './auth/AuthMarkup.jsx';
 import '../styles/auth.css';
@@ -30,6 +31,8 @@ const AUTOFILL_CREDS = {
 export default function AuthPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const clerk = useClerkBridge();
+  const [oauthBusy, setOauthBusy] = useState(null);
   const { setUser, toast, platformUsers, setPlatformUsers } = useStore();
 
   const mode = ['login', 'register', 'forgot'].includes(params.get('mode'))
@@ -590,7 +593,27 @@ export default function AuthPage() {
     setTimeout(() => setMode('login'), 2000);
   }
 
-  function socialAuth(provider) {
+  async function socialAuth(provider) {
+    if (clerk.enabled && clerk.authenticateWithOAuth) {
+      setOauthBusy(provider);
+      flash(`Connecting to ${provider} via Clerk...`);
+      try {
+        const res = await clerk.authenticateWithOAuth(provider, {
+          role: 'artisan',
+          mode,
+          redirectTo: '/seller'
+        });
+        if (res && res.alreadySignedIn) {
+          flash('Signed in with Clerk! Opening your workspace...');
+          window.setTimeout(() => navigate('/seller'), 400);
+        }
+      } catch (err) {
+        flash(err?.message || `Could not continue with ${provider}.`);
+        setOauthBusy(null);
+      }
+      return;
+    }
+
     flash(`Connecting to ${provider} Secure Identity Gateway...`);
     setTimeout(() => {
       signInArtisan({
@@ -787,6 +810,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   className="btn-social"
+                  disabled={Boolean(oauthBusy)}
                   onClick={() => socialAuth('Google')}
                 >
                   <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
@@ -804,19 +828,21 @@ export default function AuthPage() {
                       d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1A7 7 0 0 1 12 4.8z"
                     />
                   </svg>
-                  Continue with Google
+                  {oauthBusy === 'Google' ? 'Connecting to Google\u2026' : 'Continue with Google'}
                 </button>
                 <button
                   type="button"
                   className="btn-social"
+                  disabled={Boolean(oauthBusy)}
                   onClick={() => socialAuth('Apple')}
                 >
                   <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
                     <path d="M16.4 12.9c0-2.4 2-3.6 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.6.9s-1.9-.9-3.1-.8c-1.6 0-3 .9-3.9 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3.1-.7s1.9.7 3.1.7 2.1-1.1 2.9-2.2c.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.7zM14 5.4c.6-.8 1.1-1.9 1-3-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z" />
                   </svg>
-                  Continue with Apple
+                  {oauthBusy === 'Apple' ? 'Connecting to Apple\u2026' : 'Continue with Apple'}
                 </button>
               </div>
+              <div id="clerk-captcha" />
             </div>
 
             <div className="auth-footer-prompt" id="auth-footer-prompt">
