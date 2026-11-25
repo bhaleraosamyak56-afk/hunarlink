@@ -20,7 +20,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_log
 from app.core.auth import AuthenticatedPrincipal, get_current_principal, require_admin_permission
+from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.security import SlidingWindowRateLimiter
 from app.models.base import new_uuid, utcnow
@@ -42,6 +44,7 @@ from app.models.core_models import (
     User,
     UserRoleAssignment,
 )
+from app.models.guardrail_models import FileSecurityScan
 from app.modules.guardrails import repository as guardrail_repo, service as guardrail_service
 from app.modules.guardrails.schemas import (
     GuardrailOutcome,
@@ -783,6 +786,16 @@ def admin_live_overview(
     """Strictly admin-only real database snapshot for the Admin Console."""
     users = list(db.scalars(select(User).order_by(User.created_at.desc()).limit(200)).all())
     sellers = list(db.scalars(select(SellerProfile).order_by(SellerProfile.created_at.desc()).limit(200)).all())
+    applications = list(
+        db.scalars(
+            select(SellerVerificationApplication)
+            .order_by(SellerVerificationApplication.created_at.desc())
+            .limit(200)
+        ).all()
+    )
+    seller_docs = list(
+        db.scalars(select(SellerDocument).order_by(SellerDocument.created_at.desc()).limit(300)).all()
+    )
     listings = list(
         db.scalars(select(SellerProductListing).order_by(SellerProductListing.created_at.desc()).limit(200)).all()
     )
@@ -791,11 +804,28 @@ def admin_live_overview(
         db.scalars(select(AdminCredential).order_by(AdminCredential.created_at.asc())).all()
     )
     users_by_id = {u.id: u for u in users}
+    sellers_by_id = {s.id: s for s in sellers}
+    docs_by_app_id: dict[str, list[SellerDocument]] = defaultdict(list)
+    for d in seller_docs:
+        if d.application_id:
+            docs_by_app_id[d.application_id].append(d)
+
+    # Map storage_key -> FileSecurityScan.id so Admin UI can fetch private uploaded cards cleanly
+    scan_keys = [d.storage_key for d in seller_docs if d.storage_key]
+    scan_id_by_key: dict[str, str] = {}
+    if scan_keys:
+        for sc in db.scalars(select(FileSecurityScan).where(FileSecurityScan.storage_key.in_(scan_keys))).all():
+            scan_id_by_key[sc.storage_key] = sc.id
+
     try:
         if guardrail_repo.ensure_default_guardrail_rules(db):
             db.commit()
     except Exception:
         db.rollback()
+
+    pending_apps_count = sum(
+        1 for a in applications if a.application_status in {"SUBMITTED", "UNDER_REVIEW", "NEEDS_MORE_INFO"}
+    )
 
     return {
         "admin_user_id": admin.user_id,
@@ -803,10 +833,85 @@ def admin_live_overview(
         "counts": {
             "users": len(users),
             "sellers": len(sellers),
+            "pending_applications": pending_apps_count,
             "listings": len(listings),
             "orders": len(orders),
             "admins": len(admin_creds),
         },
+        "artisan_applications": [
+            {
+                "id": app_row.id,
+                "application_number": app_row.application_number,
+                "seller_profile_id": app_row.seller_profile_id,
+                "store_name": sellers_by_id[app_row.seller_profile_id].store_name
+                if app_row.seller_profile_id in sellers_by_id
+                else "Artisan Workshop",
+                "artisan_name": (
+                    users_by_id[sellers_by_id[app_row.seller_profile_id].user_id].display_name
+                    or users_by_id[sellers_by_id[app_row.seller_profile_id].user_id].email
+                )
+                if app_row.seller_profile_id in sellers_by_id
+                and sellers_by_id[app_row.seller_profile_id].user_id in users_by_id
+                else "Artisan",
+                "artisan_email": (
+                    users_by_id[sellers_by_id[app_row.seller_profile_id].user_id].email
+                )
+                if app_row.seller_profile_id in sellers_by_id
+                and sellers_by_id[app_row.seller_profile_id].user_id in users_by_id
+                else None,
+                "artisan_phone": (
+                    (app_row.submitted_metadata or {}).get("phone")
+                    or (
+                        users_by_id[sellers_by_id[app_row.seller_profile_id].user_id].phone
+                        if app_row.seller_profile_id in sellers_by_id
+                        and sellers_by_id[app_row.seller_profile_id].user_id in users_by_id
+                        else None
+                    )
+                ),
+                "craft_specialty": (
+                    sellers_by_id[app_row.seller_profile_id].craft_specialty
+                    if app_row.seller_profile_id in sellers_by_id
+                    else (app_row.submitted_metadata or {}).get("craft_specialty")
+                ),
+                "workshop_district": app_row.claimed_craft_cluster
+                or (
+                    sellers_by_id[app_row.seller_profile_id].workshop_district
+                    if app_row.seller_profile_id in sellers_by_id
+                    else None
+                ),
+                "verification_path": app_row.verification_path,
+                "application_status": app_row.application_status,
+                "seller_verification_status": (
+                    sellers_by_id[app_row.seller_profile_id].verification_status
+                    if app_row.seller_profile_id in sellers_by_id
+                    else None
+                ),
+                "seller_profile_status": (
+                    sellers_by_id[app_row.seller_profile_id].profile_status
+                    if app_row.seller_profile_id in sellers_by_id
+                    else None
+                ),
+                "claimed_gi_code": app_row.claimed_gi_code,
+                "skill_description": (app_row.submitted_metadata or {}).get("skill_description"),
+                "artisan_card_scan_id": (app_row.submitted_metadata or {}).get("artisan_card_scan_id")
+                or next(
+                    (
+                        scan_id_by_key.get(d.storage_key)
+                        for d in docs_by_app_id.get(app_row.id, [])
+                        if scan_id_by_key.get(d.storage_key)
+                    ),
+                    None,
+                ),
+                "artisan_card_filename": (app_row.submitted_metadata or {}).get("artisan_card_filename")
+                or next(
+                    (d.original_filename for d in docs_by_app_id.get(app_row.id, [])),
+                    None,
+                ),
+                "review_decision_notes": app_row.review_decision_notes,
+                "created_at": app_row.created_at.isoformat(),
+            }
+            for app_row in applications
+        ],
         "admin_credentials": [
             {
                 "id": ac.id,
@@ -1133,12 +1238,173 @@ def admin_moderate_listing(
 
     prev = listing.listing_status
     listing.listing_status = target_status
+    record_audit_log(
+        db,
+        actor_user_id=admin.user_id,
+        actor_role="ADMIN",
+        action=f"ADMIN_LISTING_{target_status}",
+        target_type="seller_product_listings",
+        target_id=listing.id,
+        correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
+        previous_values={"listing_status": prev},
+        new_values={"listing_status": target_status},
+        ip_address=request.client.host if request.client else None,
+    )
     db.commit()
     return {
         "listing_id": listing.id,
         "previous_status": prev,
         "listing_status": listing.listing_status,
         "moderated_by": admin.user_id,
+    }
+
+
+@router.post("/admin/artisan-applications/{application_id}/decision")
+def admin_decide_artisan_application(
+    application_id: str,
+    payload: dict,
+    request: Request,
+    admin: AuthenticatedPrincipal = Depends(require_admin_permission("guardrails.decide")),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Approve or Reject a staged Artisan Verification Application from `/admin`.
+
+    - `APPROVE`: promotes `SellerVerificationApplication.application_status = 'APPROVED'`,
+      sets `SellerProfile.verification_status = 'APPROVED'` and `SellerProfile.profile_status = 'ACTIVE'`,
+      marks linked `SellerDocument`s `ACCEPTED`, and ensures active `DIRECT_SELLER` role assignment.
+      The artisan immediately unlocks `/seller` and appears in `/api/v1/artisans` under their unique UUID!
+    - `REJECT`: sets `application_status = 'REJECTED'`, `SellerProfile.verification_status = 'REJECTED'`,
+      `SellerProfile.profile_status = 'DRAFT'`, and marks linked documents `REJECTED`.
+    """
+    decision = str(payload.get("decision") or "").strip().upper()
+    notes = str(payload.get("notes") or "").strip()[:1000] or None
+    if decision not in {"APPROVE", "REJECT"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="decision must be APPROVE or REJECT.",
+        )
+
+    app_row = db.scalar(
+        select(SellerVerificationApplication).where(
+            SellerVerificationApplication.id == application_id
+        )
+    )
+    if app_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artisan verification application not found.",
+        )
+
+    seller = db.scalar(
+        select(SellerProfile).where(SellerProfile.id == app_row.seller_profile_id)
+    )
+    if seller is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Linked seller profile not found.",
+        )
+
+    if seller.user_id == admin.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrators cannot self-approve their own seller application.",
+        )
+
+    prev_app_status = app_row.application_status
+    prev_seller_ver = seller.verification_status
+    prev_seller_prof = seller.profile_status
+
+    docs = list(
+        db.scalars(
+            select(SellerDocument).where(SellerDocument.application_id == app_row.id)
+        ).all()
+    )
+
+    if decision == "APPROVE":
+        app_row.application_status = "APPROVED"
+        seller.verification_status = "APPROVED"
+        seller.profile_status = "ACTIVE"
+        for d in docs:
+            d.verification_status = "ACCEPTED"
+            d.reviewed_by_user_id = admin.user_id
+            d.review_notes = notes or "Verified by HunarLink Admin"
+
+        # Ensure DIRECT_SELLER role is active
+        ds_role = db.scalar(select(PlatformRole).where(PlatformRole.code == "DIRECT_SELLER"))
+        if ds_role is None:
+            ds_role = PlatformRole(
+                id=new_uuid(), code="DIRECT_SELLER", name="Direct Artisan Seller", is_active=True
+            )
+            db.add(ds_role)
+            db.flush()
+        assign = db.scalar(
+            select(UserRoleAssignment).where(
+                UserRoleAssignment.user_id == seller.user_id,
+                UserRoleAssignment.platform_role_id == ds_role.id,
+            )
+        )
+        if assign is None:
+            db.add(
+                UserRoleAssignment(
+                    id=new_uuid(),
+                    user_id=seller.user_id,
+                    platform_role_id=ds_role.id,
+                    assignment_status="ACTIVE",
+                    granted_at=utcnow(),
+                )
+            )
+        else:
+            assign.assignment_status = "ACTIVE"
+    else:
+        app_row.application_status = "REJECTED"
+        seller.verification_status = "REJECTED"
+        seller.profile_status = "DRAFT"
+        for d in docs:
+            d.verification_status = "REJECTED"
+            d.reviewed_by_user_id = admin.user_id
+            d.review_notes = notes or "Rejected by HunarLink Admin"
+
+    app_row.reviewed_by_user_id = admin.user_id
+    app_row.review_decision_notes = notes or (
+        "Verified & promoted to live artisan directory"
+        if decision == "APPROVE"
+        else "Application rejected during admin verification"
+    )
+
+    record_audit_log(
+        db,
+        actor_user_id=admin.user_id,
+        actor_role="ADMIN",
+        action=f"ADMIN_ARTISAN_APPLICATION_{decision}",
+        target_type="seller_verification_applications",
+        target_id=app_row.id,
+        reason=app_row.review_decision_notes,
+        correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
+        previous_values={
+            "application_status": prev_app_status,
+            "seller_verification_status": prev_seller_ver,
+            "seller_profile_status": prev_seller_prof,
+        },
+        new_values={
+            "application_status": app_row.application_status,
+            "seller_verification_status": seller.verification_status,
+            "seller_profile_status": seller.profile_status,
+        },
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
+    return {
+        "application_id": app_row.id,
+        "application_number": app_row.application_number,
+        "application_status": app_row.application_status,
+        "seller_profile_id": seller.id,
+        "store_name": seller.store_name,
+        "verification_status": seller.verification_status,
+        "profile_status": seller.profile_status,
+        "artisan_page_url": f"/artisan?id={seller.id}",
+        "reviewed_by": admin.user_id,
+        "review_decision_notes": app_row.review_decision_notes,
     }
 
 
@@ -1163,6 +1429,17 @@ def admin_verify_seller(
     prev_verify = seller.verification_status
     seller.verification_status = decision
     seller.profile_status = "ACTIVE" if decision == "APPROVED" else "DRAFT"
+
+    latest_app = db.scalar(
+        select(SellerVerificationApplication)
+        .where(SellerVerificationApplication.seller_profile_id == seller.id)
+        .order_by(SellerVerificationApplication.created_at.desc())
+        .limit(1)
+    )
+    if latest_app is not None:
+        latest_app.application_status = decision
+        latest_app.reviewed_by_user_id = admin.user_id
+
     db.commit()
     return {
         "seller_id": seller.id,

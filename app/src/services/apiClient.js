@@ -125,13 +125,42 @@ export async function apiRequest(path, { method = 'GET', body = undefined, token
   const data = isJson ? await resp.json().catch(() => null) : null;
 
   if (!resp.ok) {
-    const detail =
-      typeof data?.detail === 'string'
-        ? data.detail
-        : data?.detail?.field_errors?.[0]?.message || `Request failed (HTTP ${resp.status})`;
+    let detail = `Request failed (HTTP ${resp.status})`;
+    if (typeof data?.detail === 'string') {
+      detail = data.detail;
+    } else if (Array.isArray(data?.detail) && data.detail.length > 0) {
+      const first = data.detail[0];
+      const field = Array.isArray(first?.loc) ? first.loc[first.loc.length - 1] : '';
+      detail = field ? `${field}: ${first.msg}` : first?.msg || detail;
+    } else if (data?.detail?.field_errors?.[0]?.message) {
+      detail = data.detail.field_errors[0].message;
+    } else if (data?.detail?.issues?.[0]?.message) {
+      detail = data.detail.issues[0].message;
+    }
     throw new ApiError(resp.status, detail, data);
   }
   return data;
+}
+
+export async function fetchProtectedBlobUrl(path, token) {
+  const base = resolveApiBase();
+  if (base === null) {
+    throw new ApiError(0, 'HunarLink FastAPI backend is not configured.');
+  }
+  const resp = await fetch(`${base}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!resp.ok) {
+    const isJson = (resp.headers.get('content-type') || '').includes('application/json');
+    const data = isJson ? await resp.json().catch(() => null) : null;
+    const msg = typeof data?.detail === 'string' ? data.detail : `Could not load document (HTTP ${resp.status})`;
+    throw new ApiError(resp.status, msg, data);
+  }
+  const blob = await resp.blob();
+  return {
+    blobUrl: URL.createObjectURL(blob),
+    mimeType: resp.headers.get('content-type') || blob.type || 'application/octet-stream'
+  };
 }
 
 /* --- 1:1 Clerk Auth -> DB User Sync & Artisan Onboarding Endpoints --- */
@@ -231,6 +260,21 @@ export function moderateAdminListing(listingId, listingStatus, token) {
     body: { listing_status: listingStatus },
     token
   });
+}
+
+export function decideAdminArtisanApplication(applicationId, { decision, notes }, token) {
+  return apiRequest(
+    `/api/v1/admin/artisan-applications/${encodeURIComponent(applicationId)}/decision`,
+    {
+      method: 'POST',
+      body: { decision, notes: notes || null },
+      token
+    }
+  );
+}
+
+export function fetchGuardrailDocumentBlobUrl(scanId, token) {
+  return fetchProtectedBlobUrl(`/api/v1/guardrails/documents/${encodeURIComponent(scanId)}`, token);
 }
 
 export function verifyAdminSeller(sellerId, decision, token) {

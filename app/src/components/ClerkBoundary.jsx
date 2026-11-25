@@ -216,17 +216,23 @@ function ClerkBridgeInner({ children }) {
 
         if (dbIsArtisan) {
           const existingLocal = readClerkArtisanProfile(clerkAccount.id) || {};
+          const sp = res?.seller_profile || null;
           const mergedArtisan = {
             ...existingLocal,
             name: res?.display_name || syncedMeta.fullName || existingLocal.name || '',
             email: res?.email || syncedMeta.email || '',
             phone: res?.phone || syncedMeta.phone || existingLocal.phone || '',
-            business: res?.seller_profile?.store_name || existingLocal.business || '',
-            craft: res?.seller_profile?.craft_specialty || existingLocal.craft || '',
-            district: res?.seller_profile?.workshop_district || existingLocal.district || '',
-            giCertified: res?.seller_profile?.verification_path === 'GI',
-            giId: res?.seller_profile?.claimed_gi_authorized_user_no || existingLocal.giId || null,
+            sellerProfileId: sp?.seller_profile_id || existingLocal.sellerProfileId || null,
+            business: sp?.store_name || existingLocal.business || '',
+            craft: sp?.craft_specialty || existingLocal.craft || '',
+            district: sp?.workshop_district || existingLocal.district || '',
+            giCertified: sp?.verification_path === 'GI' && dbArtisanVerified,
+            giId: sp?.claimed_gi_authorized_user_no || existingLocal.giId || null,
+            verificationPath: sp?.verification_path || existingLocal.verificationPath || null,
             verificationStatus: dbVerificationStatus,
+            profileStatus: sp?.profile_status || 'DRAFT',
+            applicationNumber: sp?.latest_application_number || existingLocal.applicationNumber || null,
+            reviewDecisionNotes: sp?.review_decision_notes || null,
             artisanVerified: dbArtisanVerified,
             title: dbArtisanVerified
               ? 'Verified Artisan \u2022 HunarLink DB'
@@ -245,6 +251,9 @@ function ClerkBridgeInner({ children }) {
             artisanVerified: dbIsArtisan ? dbArtisanVerified : false,
             verificationStatus: dbVerificationStatus,
             sellerProfile: res?.seller_profile || null,
+            sellerProfileId: res?.seller_profile?.seller_profile_id || null,
+            applicationNumber: res?.seller_profile?.latest_application_number || null,
+            reviewDecisionNotes: res?.seller_profile?.review_decision_notes || null,
             dbUserId: res?.user_id || null,
             dbRoles: res?.roles || [],
             isAdmin: Boolean(res?.is_admin)
@@ -271,7 +280,6 @@ function ClerkBridgeInner({ children }) {
         } else if (!dbIsArtisan && (currentPath === '/login' || currentPath === '/sso-callback')) {
           navigate('/dashboard', { replace: true });
         }
-
         if (import.meta.env.DEV) {
           console.info(
             `[HunarLink DB] ${res.is_new_user ? 'Created new' : 'Synced'} user ${res.email} (id=${res.user_id}, roles=${res.roles.join(',')}, artisan_verified=${dbArtisanVerified})`
