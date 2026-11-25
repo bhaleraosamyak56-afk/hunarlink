@@ -8,14 +8,13 @@ import { srcSetFor } from '../../data/imageVariants.js';
 import '../../styles/admin-login.css';
 
 const DEMO_ADMIN = {
-  identifier: 'admin@hunarlink.com',
-  password: 'AdminPass@123'
+  identifier: 'admin@hunarlink.com'
 };
 
 export default function AdminLoginPage() {
   const { setAdminToken, toast } = useStore();
   const [identifier, setIdentifier] = useState(DEMO_ADMIN.identifier);
-  const [password, setPassword] = useState(DEMO_ADMIN.password);
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -127,9 +126,9 @@ export default function AdminLoginPage() {
                   name="password"
                   type="password"
                   autoComplete="current-password"
+                  placeholder="Enter demo password or leave blank in static preview"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  required
                 />
               </div>
 

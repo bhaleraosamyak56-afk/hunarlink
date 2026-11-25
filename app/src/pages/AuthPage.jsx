@@ -23,11 +23,6 @@ import { IconFile, IconHammer, IconShield } from '../components/LineIcons.jsx';
    /login, which shares the same profile key.
    ========================================================================== */
 
-const AUTOFILL_CREDS = {
-  artisan_mir: ['ghulam.mir@zadibalpashmina.com', 'SozniLoom100%'],
-  artisan_wani: ['fayaz.wani@anantnagcrafts.org', 'WalnutArtisan#1']
-};
-
 export default function AuthPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -470,7 +465,7 @@ export default function AuthPage() {
   function quickFill(which) {
     const demo = DEMO_ARTISANS[which] || {};
     setMode('login');
-    setLogin({ email: demo.email || '', password: AUTOFILL_CREDS[which]?.[1] || '' });
+    setLogin({ email: demo.email || '', password: '' });
     signInArtisan({ ...demo });
   }
 

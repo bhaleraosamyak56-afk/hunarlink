@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../../state/StoreContext.jsx';
+import { useClerkBridge } from '../../data/clerkConfig.js';
 import { formatINR } from '../../utils/legacy.js';
+import { probeBackendHealth } from '../../services/apiClient.js';
+import {
+  executeServerRetailCheckout,
+  startRazorpayStandardCheckout
+} from '../../services/razorpayCheckout.js';
 import Modal from '../Modal.jsx';
 import { IconShield } from '../../components/LineIcons.jsx';
 
@@ -10,17 +16,21 @@ import { IconShield } from '../../components/LineIcons.jsx';
    1. User identity
    2. Delivery address (saved, or add a new one)
    3. Order summary with the GI certificate preview
-   4. Simulated escrow payment
+   4. Razorpay Standard Checkout (or separate Cash on Delivery)
 
-   Placing an order writes through the store, clears the bag and the coupon,
-   and hands off to the orders modal — the same sequence as the static build.
+   Honesty note:
+   - Uses Razorpay Standard Checkout (NOT escrow and NOT Route split settlement).
+   - When VITE_API_BASE_URL and a backend order/token are active, totals and
+     payment capture are verified server-side via FastAPI.
+   - On static GitHub Pages preview without a live backend, orders are clearly
+     marked as Static Preview orders (never falsely claimed as live captured).
    ========================================================================== */
 
 const STEPS = [
   '1. User ID',
   '2. Delivery Address',
   '3. GI Certificate & Summary',
-  '4. Escrow Payment'
+  '4. Payment'
 ];
 
 export default function CheckoutModal() {
@@ -40,6 +50,7 @@ export default function CheckoutModal() {
     toast
   } = useStore();
 
+  const { getToken, isSignedIn: clerkSignedIn } = useClerkBridge();
   const [step, setStep] = useState(1);
   const [buyer, setBuyer] = useState({
     name: user?.name || 'Demo User',
@@ -54,8 +65,22 @@ export default function CheckoutModal() {
     loc: ''
   });
   const [method, setMethod] = useState(null);
+  const [backendStatus, setBackendStatus] = useState({ online: false, ready: null });
 
-  if (!ui.modal || ui.modal.type !== 'checkout') return null;
+  const isOpen = Boolean(ui.modal && ui.modal.type === 'checkout');
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let active = true;
+    probeBackendHealth().then((status) => {
+      if (active) setBackendStatus(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const selected = addresses.find((a) => a.id === addressId) || addresses[0];
 
@@ -83,10 +108,68 @@ export default function CheckoutModal() {
     toast('Delivery address saved and selected', 'success');
   };
 
-  const pay = (paymentMethod) => {
+  const pay = async (paymentMethod) => {
     setMethod(paymentMethod);
+    const isCod = /cod|delivery/i.test(paymentMethod);
     const now = new Date();
-    const orderId = `HL-ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    let orderId = `HL-ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    let authoritativeTotal = totals.netPayable;
+
+    let verifiedPaymentStatus = isCod
+      ? 'COD (Pay on Delivery — Separate from Online Checkout)'
+      : 'Preview Order (Static Storefront — Sign in with Backend & Razorpay Keys for Live Capture)';
+
+    const authToken = ui.modal?.authToken || (clerkSignedIn && getToken ? await getToken() : null);
+    const serverListingItems = cartItems
+      .filter(({ product: p }) => Boolean(p.sellerListingId))
+      .map(({ product: p, qty }) => ({ seller_listing_id: p.sellerListingId, quantity: qty }));
+    const allItemsHaveServerListing =
+      cartItems.length > 0 && serverListingItems.length === cartItems.length;
+
+    if (backendStatus.online && authToken) {
+      try {
+        if (!isCod && ui.modal?.backendOrderId) {
+          const verified = await startRazorpayStandardCheckout({
+            orderScope: ui.modal?.orderScope || 'RETAIL',
+            orderId: ui.modal.backendOrderId,
+            authToken,
+            buyer: {
+              name: buyer.name || selected?.name,
+              email: user?.email,
+              phone: buyer.phone || selected?.phone
+            }
+          });
+          verifiedPaymentStatus = `${verified.payment_status} (${verified.fulfilment_status})`;
+        } else if (allItemsHaveServerListing && (isCod || backendStatus.ready?.razorpay_configured)) {
+          const result = await executeServerRetailCheckout({
+            items: serverListingItems,
+            shippingAddress: {
+              name: buyer.name || selected?.name || 'HunarLink Collector',
+              phone: buyer.phone || selected?.phone || '+91 9811044210',
+              locality: selected?.locality || 'Residency Road',
+              city: selected?.city || 'Jammu',
+              state: selected?.state || 'Jammu and Kashmir',
+              pincode: selected?.pincode || '180001'
+            },
+            paymentMethod: isCod ? 'COD' : 'RAZORPAY_STANDARD',
+            authToken,
+            buyer: {
+              name: buyer.name || selected?.name,
+              email: user?.email,
+              phone: buyer.phone || selected?.phone
+            }
+          });
+          orderId = result.order.order_number || orderId;
+          authoritativeTotal = Number(result.order.total_amount) || totals.netPayable;
+          verifiedPaymentStatus = result.paymentStatusLabel;
+        }
+      } catch (err) {
+        setMethod(null);
+        toast(err?.message || 'Server checkout could not be completed.', 'error');
+        return;
+      }
+    }
+
     const order = {
       id: orderId,
       date: now.toLocaleDateString('en-IN', {
@@ -123,12 +206,9 @@ export default function CheckoutModal() {
       discount: totals.couponDiscount || 0,
       couponCode: coupon || null,
       shippingFee: totals.shippingFee || 0,
-      total: totals.netPayable,
-      artisanPayout: totals.netPayable,
+      total: authoritativeTotal,
       paymentMethod,
-      paymentStatus: /cod|delivery/i.test(paymentMethod)
-        ? 'Verify-on-Delivery Escrow'
-        : 'Paid (Escrow Protected)',
+      paymentStatus: verifiedPaymentStatus,
       address: selected
         ? `${selected.name}, ${selected.locality}, ${selected.city} - ${selected.pincode}`
         : '',
@@ -142,7 +222,12 @@ export default function CheckoutModal() {
     removeCoupon();
     closeModal();
     openModal('orders');
-    toast(`Order ${orderId} confirmed! Seller notified with complete order details.`, 'success');
+    toast(
+      isCod
+        ? `COD Order ${orderId} recorded.`
+        : `Order ${orderId} recorded (${verifiedPaymentStatus}).`,
+      'success'
+    );
   };
 
   return (
@@ -360,7 +445,7 @@ export default function CheckoutModal() {
                 color: 'var(--forest-950)'
               }}
             >
-              <span>Total Escrow Payable (Zero Platform Cut)</span>
+              <span>Estimated Order Total (INR &mdash; Server Verified at Payment)</span>
               <span>{formatINR(totals.netPayable)}</span>
             </div>
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between' }}>
@@ -368,7 +453,7 @@ export default function CheckoutModal() {
                 &larr; Back
               </button>
               <button type="button" className="btn-primary-forest" onClick={() => setStep(4)}>
-                Proceed to Escrow Payment &rarr;
+                Proceed to Payment &rarr;
               </button>
             </div>
           </div>
@@ -376,27 +461,55 @@ export default function CheckoutModal() {
 
         {step === 4 && (
           <div style={{ background: 'var(--bg-ivory)', padding: 18, borderRadius: 10 }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.35rem', marginBottom: 12 }}>
-              Step 4: Select Simulated Artisan Escrow Payment ({formatINR(totals.netPayable)})
+            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.35rem', marginBottom: 6 }}>
+              Step 4: Razorpay Standard Checkout or Cash on Delivery ({formatINR(totals.netPayable)})
             </h3>
+            <p style={{ fontSize: '0.76rem', color: 'var(--text-500)', marginBottom: 14 }}>
+              Online payments use <strong>Razorpay Standard Checkout</strong> (INR) with server-side
+              total verification &amp; HMAC signature verification (standard payment capture, not an
+              escrow vault). Cash on Delivery is handled separately at delivery.
+            </p>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 10px',
+                borderRadius: 6,
+                marginBottom: 14,
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                background: backendStatus.online ? '#e8f5ee' : '#f4f1ea',
+                color: backendStatus.online ? '#124e33' : '#5f5646',
+                border: `1px solid ${backendStatus.online ? '#b6dfc9' : '#ded6c5'}`
+              }}
+            >
+              <span>{backendStatus.online ? '● FastAPI Backend Connected' : '○ Static Storefront Preview'}</span>
+              {backendStatus.online && (
+                <span style={{ fontWeight: 400 }}>
+                  &bull; Razorpay Keys:{' '}
+                  {backendStatus.ready?.razorpay_configured ? 'Configured' : 'Not configured yet (Preview fallback)'}
+                </span>
+              )}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {[
                 {
-                  id: 'UPI Direct Artisan Escrow',
-                  title: '\u{1F4F1} Instant UPI Escrow',
-                  note: 'Direct UPI transfer held in GI-verified artisan escrow until delivery.',
-                  cta: 'Pay via UPI'
+                  id: 'Razorpay UPI (Standard Checkout)',
+                  title: '\u{1F4F1} UPI via Razorpay',
+                  note: 'Pay via UPI apps inside Razorpay Standard Checkout; verified server-side.',
+                  cta: 'Pay via Razorpay UPI'
                 },
                 {
-                  id: 'Card Escrow Payment',
-                  title: '\u{1F4B3} Credit / Debit Card',
-                  note: 'Visa, Mastercard, RuPay & Zero-Cost Heritage EMI options.',
-                  cta: 'Pay via Card'
+                  id: 'Razorpay Card / NetBanking',
+                  title: '\u{1F4B3} Cards & NetBanking',
+                  note: 'Visa, Mastercard, RuPay & Indian NetBanking processed directly by Razorpay.',
+                  cta: 'Pay via Razorpay'
                 },
                 {
-                  id: 'Cash on Delivery Escrow',
-                  title: '\u{1F4E6} Pay on Delivery',
-                  note: 'Inspect the GI seal with the courier, then pay into escrow.',
+                  id: 'Cash on Delivery (COD)',
+                  title: '\u{1F4E6} Cash on Delivery',
+                  note: 'Separate offline COD flow — pay upon courier delivery (no online Razorpay charge).',
                   cta: 'Confirm COD'
                 }
               ].map((opt) => (

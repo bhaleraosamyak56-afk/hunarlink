@@ -1,0 +1,26 @@
+# ==============================================================================
+# HunarLink MySQL 8.4 LTS Security Configuration — EXAMPLE ONLY
+# ==============================================================================
+# Place under /etc/mysql/mysql.conf.d/99-hunarlink-security.cnf (Linux)
+# Never bind MySQL to 0.0.0.0 on a public internet interface!
+
+[mysqld]
+# Bind ONLY to loopback (single-host) or private VPC subnet IP (multi-tier)
+bind-address            = 127.0.0.1
+mysqlx_bind_address     = 127.0.0.1
+
+# Enforce UTF8MB4 & strict transactional SQL modes matching hunarlink-database/
+character-set-server    = utf8mb4
+collation-server        = utf8mb4_0900_ai_ci
+default-time-zone       = '+00:00'
+sql_mode                = STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+
+# Reject unencrypted database connections & disable client file loading
+require_secure_transport = ON
+local_infile             = OFF
+symbolic-links           = 0
+
+# Prevent runaway connections & log slow queries for ops auditing
+max_connections         = 150
+slow_query_log          = ON
+long_query_time         = 2

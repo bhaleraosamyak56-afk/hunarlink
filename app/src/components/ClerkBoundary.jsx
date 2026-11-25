@@ -66,7 +66,7 @@ function formatClerkError(err, provider) {
 
 function ClerkBridgeInner({ children }) {
   const { isLoaded: userLoaded, isSignedIn, user: clerkUser } = useUser();
-  const { isLoaded: authLoaded } = useAuth();
+  const { isLoaded: authLoaded, getToken: clerkGetToken } = useAuth();
   const clerk = useClerk();
   const { isLoaded: signInLoaded, signIn } = useSignIn();
   const { isLoaded: signUpLoaded, signUp } = useSignUp();
@@ -284,17 +284,27 @@ function ClerkBridgeInner({ children }) {
     );
   }, []);
 
+  const getToken = useCallback(async () => {
+    if (!isSignedIn || typeof clerkGetToken !== 'function') return null;
+    try {
+      return (await clerkGetToken()) || null;
+    } catch {
+      return null;
+    }
+  }, [isSignedIn, clerkGetToken]);
+
   const bridgeValue = useMemo(
     () => ({
       enabled: true,
       isLoaded,
       isSignedIn: Boolean(isSignedIn),
       clerkUser: clerkUser || null,
+      getToken,
       authenticateWithOAuth,
       signOutClerk,
       renderSsoCallback
     }),
-    [isLoaded, isSignedIn, clerkUser, authenticateWithOAuth, signOutClerk, renderSsoCallback]
+    [isLoaded, isSignedIn, clerkUser, getToken, authenticateWithOAuth, signOutClerk, renderSsoCallback]
   );
 
   return (

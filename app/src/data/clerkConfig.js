@@ -36,6 +36,7 @@ export const DEFAULT_CLERK_BRIDGE = {
   isLoaded: true,
   isSignedIn: false,
   clerkUser: null,
+  getToken: async () => null,
   authenticateWithOAuth: null,
   signOutClerk: null,
   renderSsoCallback: null

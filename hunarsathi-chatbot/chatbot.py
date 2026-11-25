@@ -55,6 +55,7 @@ MAX_TOTAL_LATENCY_SEC = 18.0
 MODEL_COOLDOWN_SEC = 300.0  # Skip a 429/503/404 model for 5 minutes
 
 MAX_HISTORY_TURNS = 6
+MAX_ACTIVE_SESSIONS = 500
 CACHE_TTL_SEC = 600.0
 CACHE_MAX_SIZE = 200
 
@@ -70,7 +71,7 @@ OFF_TOPIC_REFUSAL = (
 _LOCK = threading.Lock()
 _CLIENT: Optional[genai.Client] = None
 _CLIENT_API_KEY: Optional[str] = None
-_SESSION_HISTORY: Dict[str, List[Dict[str, str]]] = {}
+_SESSION_HISTORY: "OrderedDict[str, List[Dict[str, str]]]" = OrderedDict()
 _RESPONSE_CACHE: "OrderedDict[str, Tuple[float, str, str]]" = OrderedDict()
 _MODEL_COOLDOWN_UNTIL: Dict[str, float] = {}
 _NO_THINKING_CFG_MODELS: set[str] = set()
@@ -346,11 +347,18 @@ def local_hunarlink_reply(user_message: str) -> str:
 
 def _persist_turn(session_id: str, user_message: str, reply_text: str) -> None:
     with _LOCK:
-        history = _SESSION_HISTORY.setdefault(session_id, [])
+        history = _SESSION_HISTORY.get(session_id)
+        if history is None:
+            history = []
+            _SESSION_HISTORY[session_id] = history
+        else:
+            _SESSION_HISTORY.move_to_end(session_id)
         history.append({"role": "user", "text": user_message})
         history.append({"role": "model", "text": reply_text})
         if len(history) > MAX_HISTORY_TURNS * 2:
             _SESSION_HISTORY[session_id] = history[-(MAX_HISTORY_TURNS * 2) :]
+        while len(_SESSION_HISTORY) > MAX_ACTIVE_SESSIONS:
+            _SESSION_HISTORY.popitem(last=False)
 
 
 def _get_history_snapshot(session_id: str) -> List[Dict[str, str]]:

@@ -2,7 +2,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
+import { useClerkBridge } from '../../data/clerkConfig.js';
 import { demoApi } from '../../data/adminDemo.js';
+import {
+  decideAdminGuardrailCase,
+  fetchAdminGuardrailCases,
+  fetchAdminGuardrailRules,
+  fetchAdminPayments,
+  fetchAdminPaymentWebhooks,
+  fetchAdminRefunds,
+  initiateAdminRefund,
+  probeBackendHealth
+} from '../../services/apiClient.js';
+import { generateIdempotencyKey } from '../../services/razorpayCheckout.js';
 import { appHref } from '../../utils/href.js';
 import AdminLoginPage from './AdminLoginPage.jsx';
 import { IconGrid, IconUsers, IconPalette, IconSearchScan, IconMapPin, IconReceipt, IconTag,
@@ -41,6 +53,8 @@ const TABS = [
     { id: 'wholesale', icon: <IconPackage size={16} />, label: 'Wholesale & RFQs' }
   ] },
   { group: 'GOVERNANCE & SECURITY', items: [
+    { id: 'guardrails', icon: <IconShield size={16} />, label: 'ASIGS Guardrail Center' },
+    { id: 'payments', icon: <IconReceipt size={16} />, label: 'Razorpay Payments & Refunds' },
     { id: 'settings', icon: <IconShield size={16} />, label: 'Platform Control Center' },
     { id: 'audit', icon: <IconLog size={16} />, label: 'Immutable Audit Logs' },
     { id: 'roles', icon: <IconGear size={16} />, label: '14 Admin Roles (RBAC)' }
@@ -97,9 +111,20 @@ export default function AdminPage() {
   /* The admin bearer token is session state owned by the store, which persists
      it under hunarlink_admin_token and mirrors changes from other tabs. */
   const { toast, adminToken, setAdminToken } = useStore();
+  const clerk = useClerkBridge();
   const [tab, setTab] = useState('dashboard');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [backendStatus, setBackendStatus] = useState({ online: false, ready: null });
+  const [liveOps, setLiveOps] = useState({
+    loading: false,
+    error: null,
+    cases: [],
+    rules: [],
+    payments: [],
+    webhooks: [],
+    refunds: []
+  });
 
   const [data, setData] = useState(EMPTY);
   const [wholesaleApps, setWholesaleApps] = useState(() => loadWholesaleAdminRequests());
@@ -151,10 +176,68 @@ export default function AdminPage() {
     }
   }, [toast]);
 
+  const loadLiveBackendOps = useCallback(async () => {
+    const status = await probeBackendHealth();
+    setBackendStatus(status);
+    if (!status.online) {
+      setLiveOps((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'FastAPI backend is offline (Static Preview Mode). Run uvicorn on :8000 or set VITE_API_BASE_URL to manage live ASIGS cases and Razorpay payments.'
+      }));
+      return;
+    }
+
+    setLiveOps((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const token = (clerk?.getToken ? await clerk.getToken() : null) || null;
+      if (!token) {
+        setLiveOps({
+          loading: false,
+          error:
+            'FastAPI backend is online, but live Admin Guardrail & Payment endpoints require a Clerk Admin Bearer JWT (demo offline login cannot bypass server RBAC).',
+          cases: [],
+          rules: [],
+          payments: [],
+          webhooks: [],
+          refunds: []
+        });
+        return;
+      }
+
+      const [cases, rules, payments, webhooks, refunds] = await Promise.all([
+        fetchAdminGuardrailCases(token),
+        fetchAdminGuardrailRules(token),
+        fetchAdminPayments(token),
+        fetchAdminPaymentWebhooks(token),
+        fetchAdminRefunds(token)
+      ]);
+      setLiveOps({
+        loading: false,
+        error: null,
+        cases: arr(cases),
+        rules: arr(rules),
+        payments: arr(payments),
+        webhooks: arr(webhooks),
+        refunds: arr(refunds)
+      });
+    } catch (err) {
+      setLiveOps((prev) => ({
+        ...prev,
+        loading: false,
+        error: err?.message || 'Unable to load live FastAPI Admin operations.'
+      }));
+    }
+  }, [clerk]);
+
   useEffect(() => {
-    if (adminToken) load();
-    else setLoading(false);
-  }, [adminToken, load]);
+    if (adminToken) {
+      load();
+      loadLiveBackendOps();
+    } else {
+      setLoading(false);
+    }
+  }, [adminToken, load, loadLiveBackendOps]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -238,6 +321,39 @@ export default function AdminPage() {
         })
       });
       toast(`Platform switch '${payload.key}' ${payload.next ? 'ENABLED' : 'DISABLED'}.`, 'success');
+    } else if (type === 'guardrail_decision') {
+      try {
+        const token = clerk?.getToken ? await clerk.getToken() : null;
+        await decideAdminGuardrailCase(
+          payload.caseId,
+          { decision: payload.decision, reason },
+          token
+        );
+        toast(`ASIGS Case ${payload.caseNumber}: ${payload.decision}`, 'success');
+        await loadLiveBackendOps();
+      } catch (err) {
+        toast(err?.message || 'Failed to record ASIGS guardrail decision.', 'error');
+      }
+      return;
+    } else if (type === 'payment_refund') {
+      try {
+        const token = clerk?.getToken ? await clerk.getToken() : null;
+        await initiateAdminRefund(
+          payload.paymentId,
+          {
+            refund_type: payload.refundType || 'FULL',
+            amount: payload.amount || null,
+            reason,
+            idempotency_key: generateIdempotencyKey('rfd')
+          },
+          token
+        );
+        toast(`Refund initiated for payment ${payload.paymentRef}.`, 'success');
+        await loadLiveBackendOps();
+      } catch (err) {
+        toast(err?.message || 'Failed to initiate Razorpay refund.', 'error');
+      }
+      return;
     }
     load();
   }
@@ -373,6 +489,18 @@ export default function AdminPage() {
             </nav>
 
             <div className="sidebar-footer">
+              <div
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  marginBottom: '8px',
+                  background: backendStatus.online ? 'rgba(22, 130, 82, 0.16)' : 'rgba(255,255,255,0.08)',
+                  color: backendStatus.online ? '#a6f0c9' : '#d6cfc1'
+                }}
+              >
+                {backendStatus.online ? '● FastAPI Backend Online' : '○ Static Preview Mode'}
+              </div>
               <div className="user-chip">
                 <div className="status-indicator online"></div>
                 <div className="chip-info">
@@ -1054,6 +1182,171 @@ export default function AdminPage() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* LIVE TAB A: ASIGS GUARDRAIL CENTER */}
+            {tab === 'guardrails' && (
+              <section id="tab-guardrails" className="tab-pane active">
+                <div className="panel-card">
+                  <div className="panel-header">
+                    <h3>ASIGS Guardrail Center (Live FastAPI)</h3>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={loadLiveBackendOps}
+                    >
+                      Refresh Live Data
+                    </button>
+                  </div>
+                  {liveOps.error && (
+                    <p className="section-notice">{liveOps.error}</p>
+                  )}
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Case #</th><th>Workflow</th><th>Outcome</th><th>Status</th>
+                          <th>Rule Codes</th><th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liveOps.cases.length === 0 ? (
+                          <tr>
+                            <td colSpan="6" className="loading-cell">
+                              {liveOps.loading ? 'Loading live ASIGS cases…' : 'No open live guardrail cases loaded.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          liveOps.cases.map((c) => (
+                            <tr key={c.id}>
+                              <td><code>{c.case_number}</code></td>
+                              <td>{c.workflow_name}</td>
+                              <td><span className="badge badge-gold">{c.guardrail_outcome}</span></td>
+                              <td><span className="badge badge-neutral">{c.case_status}</span></td>
+                              <td><small>{(c.reason_codes || []).join(', ') || '—'}</small></td>
+                              <td>
+                                {c.case_status === 'OPEN' ? (
+                                  <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-primary btn-sm"
+                                      onClick={() =>
+                                        ask(
+                                          'guardrail_decision',
+                                          { caseId: c.id, caseNumber: c.case_number, decision: 'APPROVE' },
+                                          `Mandatory audit reason to APPROVE case ${c.case_number}`,
+                                          'Verified seller evidence and cleared guardrail flag.'
+                                        )
+                                      }
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline btn-sm"
+                                      onClick={() =>
+                                        ask(
+                                          'guardrail_decision',
+                                          { caseId: c.id, caseNumber: c.case_number, decision: 'REJECT' },
+                                          `Mandatory audit reason to REJECT case ${c.case_number}`,
+                                          'Rejected due to unverified submission evidence.'
+                                        )
+                                      }
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <small>{c.decision_reason || 'Decided'}</small>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ marginTop: '14px', fontSize: '0.78rem', color: 'var(--text-500)' }}>
+                    Active server guardrail rules loaded: <strong>{liveOps.rules.length}</strong>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* LIVE TAB B: RAZORPAY PAYMENTS, WEBHOOKS & REFUNDS */}
+            {tab === 'payments' && (
+              <section id="tab-payments" className="tab-pane active">
+                <div className="panel-card">
+                  <div className="panel-header">
+                    <h3>Razorpay Standard Checkout Payments &amp; Refunds (Live FastAPI)</h3>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={loadLiveBackendOps}
+                    >
+                      Refresh Live Data
+                    </button>
+                  </div>
+                  {liveOps.error && (
+                    <p className="section-notice">{liveOps.error}</p>
+                  )}
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Payment Ref</th><th>Purpose</th><th>Amount</th><th>Captured</th>
+                          <th>Refunded</th><th>Status</th><th>Razorpay Order</th><th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liveOps.payments.length === 0 ? (
+                          <tr>
+                            <td colSpan="8" className="loading-cell">
+                              {liveOps.loading ? 'Loading live payments…' : 'No live Razorpay payments loaded.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          liveOps.payments.map((p) => (
+                            <tr key={p.id}>
+                              <td><code>{p.payment_reference}</code></td>
+                              <td>{p.payment_purpose}</td>
+                              <td>{inr(p.amount, true)}</td>
+                              <td>{inr(p.captured_amount, true)}</td>
+                              <td>{inr(p.refunded_amount, true)}</td>
+                              <td><span className="badge badge-gold">{p.payment_status}</span></td>
+                              <td><small><code>{p.provider_order_id || '—'}</code></small></td>
+                              <td>
+                                {['CAPTURED', 'PARTIALLY_REFUNDED'].includes(p.payment_status) ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() =>
+                                      ask(
+                                        'payment_refund',
+                                        { paymentId: p.id, paymentRef: p.payment_reference, refundType: 'FULL' },
+                                        `Mandatory audit reason to issue FULL refund for ${p.payment_reference}`,
+                                        'Customer return verified; issuing full Razorpay refund.'
+                                      )
+                                    }
+                                  >
+                                    Full Refund
+                                  </button>
+                                ) : (
+                                  <small>—</small>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ marginTop: '14px', display: 'flex', gap: '18px', fontSize: '0.78rem', color: 'var(--text-500)' }}>
+                    <span>Signed Webhook Events Logged: <strong>{liveOps.webhooks.length}</strong></span>
+                    <span>Processed / Tracked Refunds: <strong>{liveOps.refunds.length}</strong></span>
                   </div>
                 </div>
               </section>

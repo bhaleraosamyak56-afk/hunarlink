@@ -1,0 +1,16 @@
+# HunarLink Backend Dependencies (Python 3.11+ / FastAPI / MySQL 8.4 LTS)
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.0.58
+PyMySQL==1.2.4
+alembic==1.20.1
+pydantic==2.14.4
+pydantic-settings==2.16.3
+razorpay==1.4.2
+PyJWT[crypto]==2.15.1
+python-multipart==0.0.34
+
+# Testing & SQL verification
+httpx==0.28.1
+pytest==8.4.2
+sqlglot==26.33.0
