@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import {
+  clearPendingClerkAuthMode,
   clearPendingClerkRole,
   readClerkArtisanProfile,
   saveClerkArtisanProfile,
@@ -9,6 +10,7 @@ import {
 } from '../data/clerkConfig.js';
 import {
   canAttemptBackend,
+  fetchMyAuthProfile,
   submitArtisanVerification,
   syncAuthenticatedUser
 } from '../services/apiClient.js';
@@ -41,6 +43,9 @@ export default function AuthPage() {
   const clerk = useClerkBridge();
   const { setUser, toast, hydrateFromBackend } = useStore();
 
+  const [authMode, setAuthMode] = useState(
+    params.get('mode') === 'register' || params.get('mode') === 'signup' ? 'register' : 'signin'
+  );
   const [giMode, setGiMode] = useState('with_gi');
   const [form, setForm] = useState({
     storeName: '',
@@ -53,6 +58,9 @@ export default function AuthPage() {
   const [errMsg, setErrMsg] = useState('');
   const [busyProvider, setBusyProvider] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dbProfile, setDbProfile] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [editingForm, setEditingForm] = useState(params.get('edit') === '1');
 
   const clerkUser = clerk.clerkUser;
   const signedIn = Boolean(clerk.enabled && clerk.isSignedIn && clerkUser);
@@ -65,7 +73,10 @@ export default function AuthPage() {
   useEffect(() => {
     const reset = (ev) => {
       setBusyProvider(null);
-      if (ev?.persisted) clearPendingClerkRole();
+      if (ev?.persisted) {
+        clearPendingClerkRole();
+        clearPendingClerkAuthMode();
+      }
     };
     window.addEventListener('pageshow', reset);
     window.addEventListener('focus', reset);
@@ -75,13 +86,76 @@ export default function AuthPage() {
     };
   }, []);
 
-  useEffect(() => {
+  async function refreshLiveVerificationStatus() {
     if (!signedIn || !clerkUser) return;
-    const saved = readClerkArtisanProfile(clerkUser.id);
-    if (saved?.artisanVerified && params.get('edit') !== '1') {
-      navigate('/seller', { replace: true });
+    setCheckingStatus(true);
+    try {
+      if (canAttemptBackend() && clerk.getToken) {
+        const token = await clerk.getToken();
+        if (token) {
+          const me = await fetchMyAuthProfile(token);
+          setDbProfile(me);
+          const seller = me?.seller_profile || null;
+          if (seller) {
+            setForm((prev) => ({
+              ...prev,
+              storeName: prev.storeName || seller.store_name || '',
+              craft: seller.craft_specialty || prev.craft,
+              district: seller.workshop_district || prev.district,
+              phone: prev.phone || me?.phone || '',
+              giId: prev.giId || seller.claimed_gi_authorized_user_no || ''
+            }));
+            setGiMode(seller.verification_path === 'GI' ? 'with_gi' : 'without_gi');
+          }
+          if (me?.artisan_verified && params.get('edit') !== '1') {
+            saveClerkArtisanProfile(clerkUser.id, {
+              artisanVerified: true,
+              verificationStatus: 'APPROVED',
+              business: seller?.store_name || '',
+              craft: seller?.craft_specialty || '',
+              district: seller?.workshop_district || '',
+              giId: seller?.claimed_gi_authorized_user_no || null
+            });
+            setUser(
+              {
+                id: clerkUser.id,
+                name: me?.display_name || clerkName || seller?.store_name || 'Verified Artisan',
+                email: me?.email || clerkEmail,
+                phone: me?.phone || '',
+                role: 'artisan',
+                isLoggedIn: true,
+                authProvider: 'clerk',
+                artisanVerified: true,
+                verificationStatus: 'APPROVED',
+                sellerProfile: seller,
+                business: seller?.store_name || '',
+                craft: seller?.craft_specialty || '',
+                district: seller?.workshop_district || '',
+                giId: seller?.claimed_gi_authorized_user_no || null
+              },
+              { silent: true }
+            );
+            navigate('/seller', { replace: true });
+            return;
+          }
+        }
+      } else {
+        const saved = readClerkArtisanProfile(clerkUser.id);
+        if (saved?.artisanVerified && params.get('edit') !== '1') {
+          navigate('/seller', { replace: true });
+        }
+      }
+    } catch {
+      /* backend offline or first sync pending — keep verification form accessible */
+    } finally {
+      setCheckingStatus(false);
     }
-  }, [signedIn, clerkUser, navigate, params]);
+  }
+
+  useEffect(() => {
+    refreshLiveVerificationStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, clerkUser?.id]);
 
   async function launchOAuth(provider) {
     if (!clerk.enabled || !clerk.authenticateWithOAuth) {
@@ -93,7 +167,7 @@ export default function AuthPage() {
     try {
       const res = await clerk.authenticateWithOAuth(provider, {
         role: 'artisan',
-        mode: 'register',
+        mode: authMode === 'register' ? 'signup' : 'signin',
         redirectTo: '/auth?tab=verify'
       });
       if (res?.alreadySignedIn && res?.destination) {
@@ -128,6 +202,7 @@ export default function AuthPage() {
     setSubmitting(true);
     try {
       const token = await clerk.getToken();
+      let savedSeller = null;
       if (canAttemptBackend() && token) {
         await syncAuthenticatedUser(
           {
@@ -139,60 +214,92 @@ export default function AuthPage() {
             last_name: clerkUser.lastName || null,
             display_name: clerkName || form.storeName.trim(),
             phone: form.phone.trim() || null,
-            requested_role: 'artisan'
+            requested_role: 'artisan',
+            auth_mode: 'sync'
           },
           token
         );
 
-        await submitArtisanVerification(
+        const verifyRes = await submitArtisanVerification(
           {
             store_name: form.storeName.trim(),
             craft_specialty: form.craft,
             workshop_district: form.district,
-            verification_path: giMode === 'with_gi' ? 'GI' : 'STANDARD',
+            verification_path: giMode === 'with_gi' ? 'GI' : 'NON_GI',
             claimed_gi_code: giMode === 'with_gi' ? form.giId.trim() : null,
             phone: form.phone.trim() || null
           },
           token
         );
+        savedSeller = verifyRes?.seller_profile || null;
         await hydrateFromBackend(token);
       }
 
-      const verifiedProfile = {
-        artisanVerified: true,
+      const nextStatus = savedSeller?.verification_status || 'SUBMITTED';
+      const isApprovedNow = nextStatus === 'APPROVED';
+      const nextProfile = {
+        artisanVerified: isApprovedNow,
+        verificationStatus: nextStatus,
         business: form.storeName.trim(),
         craft: form.craft,
         district: form.district,
         phone: form.phone.trim(),
         giId: giMode === 'with_gi' ? form.giId.trim() : null,
-        verificationPath: giMode === 'with_gi' ? 'GI' : 'STANDARD'
+        verificationPath: giMode === 'with_gi' ? 'GI' : 'NON_GI'
       };
-      saveClerkArtisanProfile(clerkUser.id, verifiedProfile);
+      saveClerkArtisanProfile(clerkUser.id, nextProfile);
       setUser(
         {
           id: clerkUser.id,
           name: clerkName || form.storeName.trim(),
           email: clerkEmail,
           phone: form.phone.trim(),
-          role: 'seller',
+          role: 'artisan',
           isLoggedIn: true,
           authProvider: 'clerk',
-          artisanVerified: true,
+          artisanVerified: isApprovedNow,
+          verificationStatus: nextStatus,
+          sellerProfile: savedSeller,
           business: form.storeName.trim(),
           craft: form.craft,
           district: form.district,
-          giId: verifiedProfile.giId
+          giId: nextProfile.giId
         },
         { silent: true }
       );
-      toast('Artisan verification saved to HunarLink database.', 'success');
-      navigate('/seller', { replace: true });
+      setDbProfile((prev) => ({
+        ...(prev || {}),
+        artisan_verified: isApprovedNow,
+        seller_profile: savedSeller || {
+          store_name: form.storeName.trim(),
+          craft_specialty: form.craft,
+          workshop_district: form.district,
+          verification_path: giMode === 'with_gi' ? 'GI' : 'NON_GI',
+          verification_status: nextStatus,
+          profile_status: 'DRAFT',
+          claimed_gi_authorized_user_no: giMode === 'with_gi' ? form.giId.trim() : null
+        }
+      }));
+      setEditingForm(false);
+      if (isApprovedNow) {
+        toast('Artisan verification approved! Opening Artisan Workspace.', 'success');
+        navigate('/seller', { replace: true });
+      } else {
+        toast(
+          'Artisan verification submitted to HunarLink database! Pending Admin approval.',
+          'success'
+        );
+      }
     } catch (err) {
       setErrMsg(err?.message || 'Could not submit artisan verification to the database.');
     } finally {
       setSubmitting(false);
     }
   }
+
+  const liveSeller = dbProfile?.seller_profile || null;
+  const liveStatus = liveSeller?.verification_status || 'UNVERIFIED';
+  const showPendingCard = signedIn && liveStatus === 'SUBMITTED' && !editingForm;
 
   return (
     <div className="portal-page login-page">
@@ -277,11 +384,44 @@ export default function AuthPage() {
             {!signedIn ? (
               <>
                 <div className="login-head">
-                  <h2 className="login-title">Step 1: Verify Your Identity</h2>
+                  <h2 className="login-title">
+                    {authMode === 'register'
+                      ? 'Step 1: Register Artisan Account'
+                      : 'Step 1: Artisan Sign In'}
+                  </h2>
                   <p className="login-sub">
-                    Sign in with Google or Apple to link your artisan workshop profile.
+                    {authMode === 'register'
+                      ? 'New artisans register below. Already registered in our DB? Switch to Sign In — existing accounts cannot re-register.'
+                      : 'Sign in with Google or Apple. Unverified artisans will proceed straight to Verification.'}
                   </p>
                 </div>
+
+                <div className="seg" style={{ marginBottom: '0.9rem' }}>
+                  <span className="seg-label">Action</span>
+                  <div className="seg-track">
+                    <button
+                      type="button"
+                      className={`seg-btn${authMode === 'signin' ? ' is-on' : ''}`}
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setErrMsg('');
+                      }}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className={`seg-btn${authMode === 'register' ? ' is-on' : ''}`}
+                      onClick={() => {
+                        setAuthMode('register');
+                        setErrMsg('');
+                      }}
+                    >
+                      Register
+                    </button>
+                  </div>
+                </div>
+
                 {errMsg && (
                   <div className="login-error show" role="alert" style={{ marginBottom: '0.85rem' }}>
                     {errMsg}
@@ -297,7 +437,13 @@ export default function AuthPage() {
                         onClick={() => launchOAuth('google')}
                       >
                         <GoogleGlyph />
-                        <span>{busyProvider === 'google' ? 'Redirecting…' : 'Continue with Google'}</span>
+                        <span>
+                          {busyProvider === 'google'
+                            ? 'Redirecting…'
+                            : authMode === 'register'
+                              ? 'Register with Google'
+                              : 'Sign in with Google'}
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -306,9 +452,18 @@ export default function AuthPage() {
                         onClick={() => launchOAuth('apple')}
                       >
                         <AppleGlyph />
-                        <span>{busyProvider === 'apple' ? 'Redirecting…' : 'Continue with Apple'}</span>
+                        <span>
+                          {busyProvider === 'apple'
+                            ? 'Redirecting…'
+                            : authMode === 'register'
+                              ? 'Register with Apple'
+                              : 'Sign in with Apple'}
+                        </span>
                       </button>
                     </div>
+                    <p className="login-footer-note" style={{ marginTop: '0.85rem' }}>
+                      Prefer email code? Use <Link to={`/login?role=artisan&mode=${authMode}`}>Artisan Email {authMode === 'register' ? 'Registration' : 'Sign In'}</Link>.
+                    </p>
                   </div>
                 ) : (
                   <div className="login-error show" role="alert">
@@ -316,6 +471,65 @@ export default function AuthPage() {
                   </div>
                 )}
               </>
+            ) : showPendingCard ? (
+              <div>
+                <div className="login-head">
+                  <h2 className="login-title">Artisan Verification Under Review</h2>
+                  <p className="login-sub">
+                    Signed in as <strong>{clerkName || clerkEmail}</strong> ({clerkEmail})
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    background: 'rgba(180, 83, 9, 0.08)',
+                    border: '1px solid rgba(180, 83, 9, 0.25)',
+                    borderRadius: '10px',
+                    padding: '1rem 1.15rem',
+                    marginBottom: '1rem',
+                    fontSize: '0.88rem',
+                    lineHeight: 1.55
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>
+                    Status: SUBMITTED (Pending Admin Approval)
+                  </div>
+                  <div>Workshop: <strong>{liveSeller?.store_name || form.storeName}</strong></div>
+                  <div>District: <strong>{liveSeller?.workshop_district || form.district}</strong></div>
+                  <div>
+                    Path: <strong>{liveSeller?.verification_path === 'GI' ? 'GI Certified' : 'Standard Artisan'}</strong>
+                    {liveSeller?.claimed_gi_authorized_user_no
+                      ? ` (${liveSeller.claimed_gi_authorized_user_no})`
+                      : ''}
+                  </div>
+                  <p style={{ margin: '0.6rem 0 0', opacity: 0.85 }}>
+                    Your Seller Workspace unlocks automatically once a HunarLink Admin approves your
+                    application in <code>/admin</code>. Until then, signing in always brings you
+                    here first.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <button
+                    type="button"
+                    className="btn-orange"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    disabled={checkingStatus}
+                    onClick={refreshLiveVerificationStatus}
+                  >
+                    <IconCheck size={15} />
+                    {checkingStatus ? 'Checking Database Status…' : 'Refresh Verification Status'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-orange-outline"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => setEditingForm(true)}
+                  >
+                    Edit / Update Workshop Application
+                  </button>
+                </div>
+              </div>
             ) : (
               <form onSubmit={submitVerification}>
                 <div className="login-head">
@@ -324,6 +538,13 @@ export default function AuthPage() {
                     Signed in as <strong>{clerkName || clerkEmail}</strong> ({clerkEmail})
                   </p>
                 </div>
+
+                {liveStatus === 'REJECTED' && (
+                  <div className="login-error show" role="alert" style={{ marginBottom: '0.85rem' }}>
+                    Your previous artisan verification application was rejected. Please review and
+                    resubmit your workshop &amp; GI details below.
+                  </div>
+                )}
 
                 {errMsg && (
                   <div className="login-error show" role="alert" style={{ marginBottom: '0.85rem' }}>
