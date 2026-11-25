@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { srcSetFor } from '../../data/imageVariants.js';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import { formatINR } from '../../utils/legacy.js';
+import { artisanSlug } from '../../utils/artisans.js';
 import { ARTISAN_SHOWCASE } from '../../data/artisanShowcase.js';
 import { Star } from '../Icons.jsx';
 
@@ -140,7 +141,12 @@ export default function ArtisansSection() {
           <div className="artisan-slide" key={index}>
             {/* ---------------------------------------------------- portrait */}
             <div className="artisan-portrait-col">
-              <div className="artisan-portrait">
+              <Link
+                to={`/artisans/${artisanSlug(artisan.name)}`}
+                className="artisan-portrait"
+                style={{ display: 'block', textDecoration: 'none' }}
+                aria-label={`Open ${artisan.name}'s full profile`}
+              >
                 <picture>
                   {srcSetFor(artisan.portrait) && (
                     <source
@@ -159,13 +165,20 @@ export default function ArtisansSection() {
                 <div className="artisan-portrait-tag">
                   <span className="artisan-since">At the loom since {artisan.since}</span>
                 </div>
-              </div>
+              </Link>
             </div>
 
             {/* ------------------------------------------------------- story */}
             <div className="artisan-copy-col">
               <div className="artisan-craft-line">{artisan.craft}</div>
-              <h3 className="artisan-name">{artisan.name}</h3>
+              <h3 className="artisan-name">
+                <Link
+                  to={`/artisans/${artisanSlug(artisan.name)}`}
+                  style={{ color: 'inherit', textDecoration: 'none' }}
+                >
+                  {artisan.name}
+                </Link>
+              </h3>
               <div className="artisan-credential">{artisan.credential}</div>
               <p className="artisan-bio">{artisan.bio}</p>
 
@@ -216,11 +229,9 @@ export default function ArtisansSection() {
                 <button
                   type="button"
                   className="btn-primary-forest artisan-shop-btn"
-                  onClick={() =>
-                    topProduct && navigate(`/product?id=${encodeURIComponent(topProduct.id)}`)
-                  }
+                  onClick={() => navigate(`/artisans/${artisanSlug(artisan.name)}`)}
                 >
-                  <span>View their work</span>
+                  <span>View full profile</span>
                   <span aria-hidden="true">&rarr;</span>
                 </button>
                 {topProduct && (

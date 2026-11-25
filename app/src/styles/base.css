@@ -2267,6 +2267,19 @@ button {
   margin-bottom: 12px;
 }
 
+.product-artisan-link {
+  color: var(--forest-900);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.product-artisan-link:hover {
+  color: var(--btn-orange);
+  border-bottom-color: var(--btn-orange);
+}
+
 .product-footer-row {
   margin-top: auto;
   padding-top: 10px;
@@ -5935,7 +5948,6 @@ body {
 }
 
 .ha-1 {
-  background-image: url('/hunarlink/img/artisans/artisan-02-840.webp');
   left: 30%;
   top: -12%;
   width: 26vw;
@@ -5944,7 +5956,6 @@ body {
 }
 
 .ha-2 {
-  background-image: url('/hunarlink/img/artisans/artisan-03-840.webp');
   left: 55%;
   top: -18%;
   width: 24vw;
@@ -5956,7 +5967,6 @@ body {
 }
 
 .ha-3 {
-  background-image: url('/hunarlink/img/artisans/artisan-05-840.webp');
   left: 84%;
   top: -14%;
   width: 22vw;

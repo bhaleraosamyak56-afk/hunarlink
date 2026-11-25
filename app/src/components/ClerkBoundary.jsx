@@ -54,8 +54,9 @@ function formatClerkError(err, provider) {
   const first = err?.errors?.[0];
   const code = first?.code || '';
   const msg = first?.longMessage || first?.message || err?.message || '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'this origin';
   if (code === 'dev_browser_unauthenticated') {
-    return 'Clerk dev mode requires using the same browser where you are signed into dashboard.clerk.com on http://localhost:5173.';
+    return `Clerk dev mode requires using the same browser where you are signed into dashboard.clerk.com on ${origin}.`;
   }
   if (/not enabled|unsupported|strategy/i.test(msg)) {
     return `${provider} sign-in is not enabled yet in your Clerk Dashboard (User & Authentication -> SSO Connections).`;
@@ -230,7 +231,7 @@ function ClerkBridgeInner({ children }) {
         window.setTimeout(() => {
           reject(
             new Error(
-              `Clerk did not start the ${provider} redirect in time. Check that ${provider} is enabled in your Clerk Dashboard and that you are running on http://localhost:5173.`
+              `Clerk did not start the ${provider} redirect in time. Check that ${provider} is enabled in your Clerk Dashboard and allowed for ${origin}.`
             )
           );
         }, 12000);

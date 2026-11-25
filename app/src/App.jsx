@@ -42,6 +42,7 @@ const LoginPage = lazy(() => import('./pages/portal/LoginPage.jsx'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage.jsx'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
 const ArtisansPage = lazy(() => import('./pages/ArtisansPage.jsx'));
+const ArtisanProfilePage = lazy(() => import('./pages/ArtisanProfilePage.jsx'));
 const SsoCallbackPage = lazy(() => import('./pages/SsoCallbackPage.jsx'));
 import NotFound from './pages/NotFound.jsx';
 import SpaRedirect from './pages/SpaRedirect.jsx';
@@ -164,6 +165,7 @@ export default function App() {
             breadcrumb links here instead of filtering the marketplace. */}
         <Route path="/category/:slug" element={<CategoryPage />} />
         <Route path="/artisans" element={<ArtisansPage />} />
+        <Route path="/artisans/:slug" element={<ArtisanProfilePage />} />
         <Route path="/product" element={<ProductPage />} />
         <Route path="/product.html" element={<ProductPage />} />
         <Route path="/auth" element={<AuthPage />} />

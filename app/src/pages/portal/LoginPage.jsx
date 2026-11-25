@@ -12,7 +12,7 @@ import {
   IconArrowRight
 } from '../../components/LineIcons.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
-import { useClerkBridge } from '../../data/clerkConfig.js';
+import { IS_CLERK_DEV_KEY, useClerkBridge } from '../../data/clerkConfig.js';
 
 /* ==========================================================================
    LoginPage — collector (user) & artisan sign in / collector sign up
@@ -810,7 +810,9 @@ export default function LoginPage() {
               </div>
               {clerk.enabled && (
                 <p className="login-social-note">
-                  Clerk OAuth active on localhost &mdash; use the same browser signed into dashboard.clerk.com.
+                  {IS_CLERK_DEV_KEY
+                    ? 'Clerk dev OAuth active \u2014 use the same browser signed into dashboard.clerk.com.'
+                    : 'Secured with Clerk OAuth.'}
                 </p>
               )}
               <div id="clerk-captcha" />

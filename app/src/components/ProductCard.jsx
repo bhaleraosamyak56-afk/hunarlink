@@ -1,8 +1,9 @@
 import React, { memo } from 'react';
 import { srcSetFor } from '../data/imageVariants.js';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
-import { formatINR, asset } from '../utils/legacy.js';;
+import { formatINR, asset } from '../utils/legacy.js';
+import { artisanSlug } from '../utils/artisans.js';
 import { Heart, Bag, ShieldCheck, Star } from './Icons.jsx';
 import { IconSpark } from '../components/LineIcons.jsx';
 
@@ -103,7 +104,15 @@ function ProductCard({ product: p, onBuyNow }) {
         </button>
 
         <p className="product-artisan-line">
-          by {p.artisan} &bull; {p.district}
+          by{' '}
+          <Link
+            to={`/artisans/${artisanSlug(p.artisan)}`}
+            className="product-artisan-link"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {p.artisan}
+          </Link>{' '}
+          &bull; {p.district}
         </p>
 
         <div className="product-purity-chip">{p.purityMetric}</div>

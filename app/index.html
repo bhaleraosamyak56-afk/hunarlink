@@ -6,11 +6,11 @@
     <title>HunarLink — GI-Certified Kashmiri Handicrafts Marketplace</title>
     <!-- The mark is vector first, with PNG fallbacks for the browsers and
          platforms that refuse SVG icons (older Safari, iOS home screens). -->
-    <link rel="icon" href="/hunarlink/brand/favicon-32.png" sizes="32x32" type="image/png" />
-    <link rel="icon" href="/hunarlink/brand/favicon-48.png" sizes="48x48" type="image/png" />
-    <link rel="icon" href="/hunarlink/img/brand/logo.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/hunarlink/brand/favicon-180.png" />
-    <link rel="manifest" href="/hunarlink/site.webmanifest" />
+    <link rel="icon" href="%BASE_URL%brand/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="%BASE_URL%brand/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="icon" href="%BASE_URL%img/brand/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%BASE_URL%brand/favicon-180.png" />
+    <link rel="manifest" href="%BASE_URL%site.webmanifest" />
     <meta name="theme-color" content="#0B3A26" />
     <meta
       name="description"
@@ -29,14 +29,14 @@
          in fonts.css and fetched on demand. -->
     <link
       rel="preload"
-      href="/hunarlink/fonts/PlusJakartaSans-400-normal-latin.woff2"
+      href="%BASE_URL%fonts/PlusJakartaSans-400-normal-latin.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
     <link
       rel="preload"
-      href="/hunarlink/fonts/CormorantGaramond-700-normal-latin.woff2"
+      href="%BASE_URL%fonts/CormorantGaramond-700-normal-latin.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -44,7 +44,7 @@
     <!-- @font-face declarations only, so this one stays render-blocking and
          cheap: 15 KB, no visual styles, and it prevents a flash of fallback
          type. -->
-    <link rel="stylesheet" href="/hunarlink/fonts/fonts.css" />
+    <link rel="stylesheet" href="%BASE_URL%fonts/fonts.css" />
 
     <!--
       The main stylesheet is left render-blocking on purpose.
