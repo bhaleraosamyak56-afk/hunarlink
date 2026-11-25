@@ -58,6 +58,7 @@ from app.models.core_models import (
 )
 from app.models.guardrail_models import GuardrailRule
 from app.modules.payments.router import get_razorpay_gateway, payment_rate_limiter
+from app.modules.storefront.router import artisan_lookup_rate_limiter, product_lookup_rate_limiter
 
 
 @dataclass
@@ -198,6 +199,8 @@ def app_and_client(
     fake_razorpay: FakeRazorpayGateway,
 ):
     payment_rate_limiter._hits.clear()
+    artisan_lookup_rate_limiter._hits.clear()
+    product_lookup_rate_limiter._hits.clear()
     app = create_app(settings_override=test_settings)
 
     def _override_db():

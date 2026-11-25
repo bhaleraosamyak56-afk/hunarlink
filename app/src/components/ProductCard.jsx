@@ -3,7 +3,7 @@ import { srcSetFor } from '../data/imageVariants.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { formatINR, asset } from '../utils/legacy.js';
-import { artisanSlug } from '../utils/artisans.js';
+import { artisanProfileHref, productProfileHref } from '../utils/artisans.js';
 import { Heart, Bag, ShieldCheck, Star } from './Icons.jsx';
 import { IconSpark } from '../components/LineIcons.jsx';
 
@@ -28,7 +28,7 @@ function ProductCard({ product: p, onBuyNow }) {
   const retail = p.originalPrice ?? p.mrp;
   const discountPct = Math.round(((retail - p.price) / retail) * 100);
 
-  const open = () => navigate(`/product?id=${encodeURIComponent(p.id)}`);
+  const open = () => navigate(productProfileHref(p));
 
   /* Variants come from the generated HD manifest, so Retina displays pick the
      full-resolution sharp-YUV WebP tier while compact mobile stays crisp. */
@@ -103,7 +103,7 @@ function ProductCard({ product: p, onBuyNow }) {
         <p className="product-artisan-line">
           by{' '}
           <Link
-            to={`/artisans/${artisanSlug(p.artisan)}`}
+            to={artisanProfileHref(p)}
             className="product-artisan-link"
             onClick={(e) => e.stopPropagation()}
           >

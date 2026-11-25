@@ -227,6 +227,8 @@ export default function App() {
             /category/pashmina-kani (a technique inside one). The product
             breadcrumb links here instead of filtering the marketplace. */}
         <Route path="/category/:slug" element={<CategoryPage />} />
+        <Route path="/artisan" element={<ArtisanProfilePage />} />
+        <Route path="/artisan.html" element={<ArtisanProfilePage />} />
         <Route path="/artisans" element={<ArtisansPage />} />
         <Route path="/artisans/:slug" element={<ArtisanProfilePage />} />
         <Route path="/product" element={<ProductPage />} />

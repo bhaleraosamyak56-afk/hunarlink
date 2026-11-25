@@ -55,12 +55,15 @@ const BENTO = [
 
 export default function HeroSection() {
   const navigate = useNavigate();
-  const { openModal, openDrawer, catalogue } = useStore();
+  const { openModal, openDrawer, productById } = useStore();
 
-  /* The price on the feature card is read from the live catalogue. It used to
-     be typed into the string above, which left the hero advertising Rs 1,850
-     for a piece the grid below listed at a hundred times that. */
-  const featurePrice = catalogue.find((p) => p.id === BENTO[0].id)?.price;
+  /* The price and UUID on each feature card are resolved from the live DB catalogue. */
+  const featurePrice = productById(BENTO[0].id)?.price;
+  const openBentoProduct = (legacyCode) => {
+    const match = productById(legacyCode);
+    const targetId = match ? match.id : legacyCode;
+    navigate(`/product?id=${encodeURIComponent(targetId)}`);
+  };
   const [place, setPlace] = useState(0);
 
   useEffect(() => {
@@ -187,7 +190,7 @@ export default function HeroSection() {
                 type="button"
                 key={b.id}
                 className={`bento-card${b.main ? ' bento-main' : ''}`}
-                onClick={() => navigate(`/product?id=${b.id}`)}
+                onClick={() => openBentoProduct(b.id)}
               >
                 {/* Full-HD WebP srcSet with Retina-aware sizes so the hero
                     centerpiece and flanking craft cards render razor-sharp. */}

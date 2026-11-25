@@ -165,6 +165,31 @@ class SellerProfile(Base):
     profile_status: Mapped[str] = mapped_column(String(32), default="DRAFT", nullable=False)
     verification_status: Mapped[str] = mapped_column(String(32), default="UNVERIFIED", nullable=False)
     claimed_gi_authorized_user_no: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    average_rating: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("0.00"), nullable=False)
+    total_reviews: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class SellerDocument(Base):
+    __tablename__ = "seller_documents"
+
+    id: Mapped[str] = mapped_column(UUIDChar(), primary_key=True, default=new_uuid)
+    seller_profile_id: Mapped[str] = mapped_column(UUIDChar(), ForeignKey("seller_profiles.id"), nullable=False)
+    application_id: Mapped[str | None] = mapped_column(
+        UUIDChar(), ForeignKey("seller_verification_applications.id"), nullable=True
+    )
+    document_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(512), unique=True, nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    detected_mime_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    scan_status: Mapped[str] = mapped_column(String(32), default="CLEAN", nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(32), default="ACCEPTED", nullable=False)
+    uploaded_by_user_id: Mapped[str] = mapped_column(UUIDChar(), ForeignKey("users.id"), nullable=False)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(UUIDChar(), ForeignKey("users.id"), nullable=True)
+    review_notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
@@ -219,9 +244,26 @@ class Product(Base):
     slug: Mapped[str] = mapped_column(String(240), unique=True, nullable=False)
     short_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    craft_technique: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    origin_district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    material_composition: Mapped[str | None] = mapped_column(String(255), nullable=True)
     gi_status: Mapped[str] = mapped_column(String(32), default="UNVERIFIED", nullable=False)
     approval_status: Mapped[str] = mapped_column(String(32), default="DRAFT", nullable=False)
+    attributes_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class ProductImage(Base):
+    __tablename__ = "product_images"
+
+    id: Mapped[str] = mapped_column(UUIDChar(), primary_key=True, default=new_uuid)
+    product_id: Mapped[str] = mapped_column(UUIDChar(), ForeignKey("products.id"), nullable=False)
+    product_variant_id: Mapped[str | None] = mapped_column(UUIDChar(), ForeignKey("product_variants.id"), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    alt_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 

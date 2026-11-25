@@ -24,7 +24,7 @@ export function buildThumbnails(product, catalogue) {
     return tight.length >= 2 ? tight : siblings(false);
   };
 
-  if (id === 'hl-waln-001') {
+  if (id === 'hl-waln-001' || product.legacyCode === 'hl-waln-001') {
     return [
       { label: 'Editorial View', img: 'assets/products/walnut_01.jpg' },
       { label: 'Carving Detail', img: 'assets/products/thumb_detail.jpg' },
