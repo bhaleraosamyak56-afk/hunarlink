@@ -458,7 +458,12 @@ export default function AdminPage() {
         <div className="admin-shell" id="admin-shell">
           <aside className={`admin-sidebar${drawerOpen ? ' is-open' : ''}`} id="admin-sidebar">
             <div className="sidebar-brand">
-              <div className="brand-crest">H</div>
+              <img
+                src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+                alt=""
+                className="up-emblem-mark"
+                height="38"
+              />
               <div className="brand-titles">
                 <h3>HunarLink</h3>
                 <span>Master Admin System</span>

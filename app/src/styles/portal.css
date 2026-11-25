@@ -3307,6 +3307,13 @@ button, input, select, textarea {
   border: 1px solid rgba(212, 160, 61, 0.35);
 }
 
+.gate-emblem-mark {
+  height: 58px;
+  width: auto !important;
+  display: block;
+  margin: 0 auto 16px;
+}
+
 .gate-emblem {
   width: 58px;
   height: 58px;

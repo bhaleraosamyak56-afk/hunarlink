@@ -785,7 +785,12 @@ export default function SellerPage() {
         style={{ display: seller ? 'none' : 'flex' }}
       >
         <div className="auth-gate-card">
-          <div className="gate-emblem">H</div>
+          <img
+            src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+            alt=""
+            className="gate-emblem-mark"
+            height="58"
+          />
           <h2 className="gate-title">Artisan Verification Required</h2>
           <p className="gate-desc">
             The HunarLink Seller Workspace is exclusively available to logged-in and verified Kashmiri
@@ -814,7 +819,12 @@ export default function SellerPage() {
         <aside className="portal-sidebar">
           <div>
             <a href={appHref('/')} className="sidebar-brand">
-              <span className="sidebar-emblem">H</span>
+              <img
+                src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+                alt=""
+                className="up-emblem-mark"
+                height="38"
+              />
               <div>
                 <div className="sidebar-brand-title">HunarLink</div>
                 <div className="sidebar-brand-sub">Artisan Seller Portal</div>

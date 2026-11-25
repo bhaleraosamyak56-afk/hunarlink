@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import {
+  clearPendingClerkRole,
   readClerkArtisanProfile,
   saveClerkArtisanProfile,
   useClerkBridge
@@ -59,6 +60,27 @@ export default function AuthPage() {
     setReg((r) => ({ ...r, [key]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
   const [flashMsg, setFlashMsg] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
+
+  /* Reset OAuth button loading state if the user hits Back from Google/Apple
+     and the browser restores this page from bfcache without signing in. */
+  useEffect(() => {
+    const onPageShow = (event) => {
+      setOauthBusy(null);
+      if (event?.persisted) clearPendingClerkRole();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') setOauthBusy(null);
+    };
+    const onFocus = () => setOauthBusy(null);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   /* When an artisan arrives here from Google/Apple Clerk OAuth:
      - Returning verified artisan -> go straight to Artisan Workspace (/seller).
@@ -690,7 +712,13 @@ export default function AuthPage() {
           <div className="auth-hero-content">
             <div className="hero-top-bar">
               <Link to="/" className="hero-brand-logo">
-                HunarLink
+                <img
+                  src={`${import.meta.env.BASE_URL}img/brand/logo.svg`}
+                  alt=""
+                  className="up-emblem-mark"
+                  height="42"
+                />
+                <span>HunarLink</span>
               </Link>
               <div className="hero-badge-pill">
                 <span className="pill-dot">&#10058;</span> AUTHENTIC &bull; TRACEABLE &bull;
