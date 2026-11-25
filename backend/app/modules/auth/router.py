@@ -283,7 +283,7 @@ def submit_artisan_verification(
             craft_specialty=payload.craft_specialty.strip(),
             workshop_district=payload.workshop_district.strip(),
             verification_path=payload.verification_path,
-            profile_status="PENDING_VERIFICATION",
+            profile_status="DRAFT",
             verification_status="SUBMITTED",
             claimed_gi_authorized_user_no=(payload.claimed_gi_code or "").strip() or None,
         )
