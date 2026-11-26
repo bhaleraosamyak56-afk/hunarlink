@@ -67,6 +67,20 @@ export default defineConfig(({ command, mode }) => {
         '/healthz': { target: 'http://127.0.0.1:8000', changeOrigin: true },
         '/readyz': { target: 'http://127.0.0.1:8000', changeOrigin: true }
       }
+    },
+    preview: {
+      host: '0.0.0.0',
+      port: 4173,
+      allowedHosts: true,
+      proxy: {
+        '/api/chat': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/health': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/warmup': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/reset': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+        '/healthz': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+        '/readyz': { target: 'http://127.0.0.1:8000', changeOrigin: true }
+      }
     }
   }
 })

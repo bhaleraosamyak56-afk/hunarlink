@@ -493,3 +493,112 @@ def test_12_retail_order_razorpay_checkout_to_admin_refund_end_to_end(app_and_cl
 
     app.dependency_overrides.pop(get_razorpay_gateway, None)
 
+
+def test_13_sql_seeded_approved_seller_without_role_row_visible_until_revoked(app_and_client, db_session):
+    from app.models.base import new_uuid, utcnow
+    from app.models.core_models import (
+        Category,
+        PlatformRole,
+        Product,
+        ProductVariant,
+        SellerProductListing,
+        SellerProfile,
+        User,
+        UserRoleAssignment,
+    )
+
+    _app, client = app_and_client
+    cat = Category(
+        id=new_uuid(),
+        code="SQL_PASHMINA",
+        name="Pashmina Textiles",
+        slug="sql-pashmina",
+        is_gi_eligible_category=True,
+        is_active=True,
+    )
+    sql_user = User(
+        id=new_uuid(),
+        clerk_user_id="sql_manual_artisan_01",
+        email="sql.artisan@hunarlink.in",
+        email_verified=True,
+        first_name="Noor",
+        last_name="Shah",
+        display_name="Noor Shah",
+        account_status="ACTIVE",
+    )
+    sql_seller = SellerProfile(
+        id=new_uuid(),
+        user_id=sql_user.id,
+        store_name="Noor Shah Looms",
+        store_slug="noor-shah-looms",
+        craft_specialty="Pashmina Textiles",
+        workshop_district="Srinagar",
+        verification_path="GI",
+        profile_status="ACTIVE",
+        verification_status="APPROVED",
+    )
+    sql_prod = Product(
+        id=new_uuid(),
+        category_id=cat.id,
+        created_by_user_id=sql_user.id,
+        sku_root="SQL-PASH-01",
+        name="SQL Seeded Kani Shawl",
+        slug="sql-seeded-kani-shawl",
+        approval_status="APPROVED",
+        is_active=True,
+    )
+    sql_var = ProductVariant(
+        id=new_uuid(),
+        product_id=sql_prod.id,
+        variant_sku="SQL-PASH-01-V1",
+        variant_name="Standard",
+        base_mrp=Decimal("25000.00"),
+        currency_code="INR",
+        is_active=True,
+    )
+    sql_listing = SellerProductListing(
+        id=new_uuid(),
+        seller_profile_id=sql_seller.id,
+        product_id=sql_prod.id,
+        product_variant_id=sql_var.id,
+        seller_sku="SQL-PASH-01",
+        listing_title="SQL Seeded Kani Shawl",
+        selling_price=Decimal("22000.00"),
+        compare_at_mrp=Decimal("25000.00"),
+        currency_code="INR",
+        listing_status="ACTIVE",
+    )
+    db_session.add_all([cat, sql_user, sql_seller, sql_prod, sql_var, sql_listing])
+    db_session.commit()
+
+    # Approved/Active seller + Active listing inserted via SQL without user_role_assignments is visible
+    artisans = client.get("/api/v1/artisans").json()
+    assert any(a["seller_profile_id"] == sql_seller.id for a in artisans)
+
+    products = client.get("/api/v1/catalog/products").json()
+    assert any(p["listing_id"] == sql_listing.id for p in products)
+
+    ready = client.get("/readyz").json()
+    assert ready["public_artisans"] >= 1
+    assert ready["public_listings"] >= 1
+
+    # Explicitly revoking DIRECT_SELLER hides both artisan and listing immediately
+    ds_role = db_session.query(PlatformRole).filter(PlatformRole.code == "DIRECT_SELLER").one()
+    db_session.add(
+        UserRoleAssignment(
+            id=new_uuid(),
+            user_id=sql_user.id,
+            platform_role_id=ds_role.id,
+            assignment_status="REVOKED",
+            granted_at=utcnow(),
+        )
+    )
+    db_session.commit()
+
+    artisans_after = client.get("/api/v1/artisans").json()
+    assert not any(a["seller_profile_id"] == sql_seller.id for a in artisans_after)
+
+    products_after = client.get("/api/v1/catalog/products").json()
+    assert not any(p["listing_id"] == sql_listing.id for p in products_after)
+
+

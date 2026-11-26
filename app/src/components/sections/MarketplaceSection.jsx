@@ -36,7 +36,9 @@ export default function MarketplaceSection() {
     catalogue,
     filteredProducts,
     recentlyViewedItems,
-    clearRecentlyViewed
+    clearRecentlyViewed,
+    dbSyncStatus,
+    loadPublicCatalog
   } = useStore();
   const f = ui.filters;
 
