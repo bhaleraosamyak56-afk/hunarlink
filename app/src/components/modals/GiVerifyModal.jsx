@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../../state/StoreContext.jsx';
 import Modal from '../Modal.jsx';
 import { IconShield } from '../../components/LineIcons.jsx';
+import { lookupPassports } from '../../services/craftproofApi.js';
 
 /* ==========================================================================
    GiVerifyModal — GI registry lookup
@@ -18,11 +20,13 @@ export default function GiVerifyModal() {
   const { giId } = ui.modal?.payload || {};
   const [code, setCode] = useState(giId || 'GI-JK-PASH-8821');
   const [result, setResult] = useState(null);
+  const [dbPassports, setDbPassports] = useState([]);
 
   const lookup = (raw) => {
     const value = String(raw ?? code).trim();
     if (!value) {
       setResult({ kind: 'empty' });
+      setDbPassports([]);
       return;
     }
     const norm = normalise(value);
@@ -30,6 +34,9 @@ export default function GiVerifyModal() {
       (p) => normalise(p.giId) === norm || normalise(p.giId).includes(norm)
     );
     setResult(match ? { kind: 'ok', product: match } : { kind: 'miss', value });
+    lookupPassports(value)
+      .then((res) => setDbPassports(res?.items || []))
+      .catch(() => setDbPassports([]));
   };
 
   useEffect(() => {
@@ -167,6 +174,35 @@ export default function GiVerifyModal() {
             </div>
           )}
         </div>
+
+        {/* Live CraftProof Database Passport Matches (Additive) */}
+        {dbPassports.length > 0 && (
+          <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: '#f8faf7', border: '1px solid rgba(20,56,42,0.18)' }}>
+            <div className="cp-kicker" style={{ marginBottom: 6 }}>
+              Live Database CraftProof Passports ({dbPassports.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {dbPassports.slice(0, 4).map((cp) => (
+                <div key={cp.passport_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '0.8rem' }}>
+                  <div>
+                    <strong>{cp.product?.name}</strong> &middot;{' '}
+                    <span style={{ fontFamily: 'monospace' }}>{cp.passport_code}</span>{' '}
+                    <span className={`cp-badge cp-badge--${cp.overall_trust_level}`}>
+                      {cp.overall_trust_level.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <Link
+                    to={`/passport/${cp.passport_code}`}
+                    className="cp-btn cp-btn-primary cp-btn-sm"
+                    onClick={closeModal}
+                  >
+                    Open Passport &rarr;
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="verify-sample-chips" style={{ marginTop: 14 }}>
           <span className="verify-sample-label">Try sample:</span>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PortalScope from '../components/PortalScope.jsx';
+import DemandBridgePanel from '../components/wholesale/DemandBridgePanel.jsx';
 import { useStore } from '../state/StoreContext';
 import { formatINR, loadStorage, saveStorage } from '../utils/legacy';
 import { appHref } from '../utils/href.js';
@@ -304,6 +305,13 @@ export default function WholesalePage() {
       </nav>
     </div>
   </header>
+
+  {/* Pillar 4 — Demand Bridge + Multi-Artisan Cluster Pooling (Additive) */}
+  <DemandBridgePanel
+    defaultBuyerName={buyer.name}
+    defaultBuyerEmail={buyer.email}
+    toast={toast}
+  />
 
   {/* Hero Banner */}
   <section className="wp-hero">

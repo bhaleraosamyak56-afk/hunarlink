@@ -22,6 +22,9 @@ from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.security import CorrelationAndHeadersMiddleware
 from app.modules.auth.router import router as auth_router
+from app.modules.ai.router import router as ai_router
+from app.modules.craftproof.router import router as craftproof_router
+from app.modules.demand_bridge.router import router as demand_bridge_router
 from app.modules.guardrails.router import router as guardrails_router
 from app.modules.payments.router import router as payments_router
 from app.modules.payments.webhook_router import webhook_router as razorpay_webhook_router
@@ -131,6 +134,9 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     application.include_router(guardrails_router, prefix=settings.api_v1_prefix)
     application.include_router(payments_router, prefix=settings.api_v1_prefix)
     application.include_router(razorpay_webhook_router, prefix=settings.api_v1_prefix)
+    application.include_router(craftproof_router, prefix=settings.api_v1_prefix)
+    application.include_router(ai_router, prefix=settings.api_v1_prefix)
+    application.include_router(demand_bridge_router, prefix=settings.api_v1_prefix)
 
     return application
 

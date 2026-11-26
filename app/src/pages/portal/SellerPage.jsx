@@ -14,6 +14,9 @@ import {
 import { formatINR, asset } from '../../utils/legacy.js';
 import { appHref } from '../../utils/href.js';
 import { IconGrid, IconPlus, IconPalette, IconPackage, IconChat, IconHeart, IconX } from '../../components/LineIcons.jsx';
+import ArtisanCopilotPanel from '../../components/seller/ArtisanCopilotPanel.jsx';
+import ListingPassportModal from '../../components/seller/ListingPassportModal.jsx';
+import ClusterOffersPanel from '../../components/seller/ClusterOffersPanel.jsx';
 
 /* ==========================================================================
    SellerPage — artisan workspace (dashboard.html)
@@ -229,6 +232,7 @@ export default function SellerPage() {
   const [asigsResult, setAsigsResult] = useState(null);
   const [asigsBusy, setAsigsBusy] = useState(false);
   const [docScanResult, setDocScanResult] = useState(null);
+  const [passportModalListing, setPassportModalListing] = useState(null);
   const [tab, setTab] = useState(() => {
     const req = searchParams.get('tab');
     if (req === 'wholesale') return 'responses';
@@ -1110,6 +1114,44 @@ export default function SellerPage() {
                   <span className="status-chip live">● Instant Live Sync</span>
                 </div>
 
+                {/* Pillar 2 & 1B — Vernacular Voice Artisan Copilot + Adversarial Audit (Additive) */}
+                <ArtisanCopilotPanel
+                  clerk={clerk}
+                  currentForm={{
+                    title: newForm.title,
+                    price: newForm.price,
+                    stock: newForm.stock,
+                    desc: newForm.description,
+                    technique: newForm.technique,
+                    origin: seller?.district
+                  }}
+                  sellerDistrict={seller?.district}
+                  sellerCraft={seller?.craft}
+                  sellerVerificationPath={seller?.verificationPath}
+                  onApplyDraft={(draft) => {
+                    const guildMap = {
+                      pashmina: 'pashmina',
+                      'kani-shawls': 'pashmina',
+                      'walnut-wood': 'walnut',
+                      'papier-mache': 'papier-mache',
+                      'kashmiri-carpets': 'silk-rugs'
+                    };
+                    const nextGuild = guildMap[draft.guild_slug] || newForm.guild;
+                    setNewForm((prev) => ({
+                      ...prev,
+                      title: draft.title || prev.title,
+                      guild: nextGuild,
+                      price: draft.selling_price_inr ? String(draft.selling_price_inr) : prev.price,
+                      mrp: draft.selling_price_inr
+                        ? String(Math.round(Number(draft.selling_price_inr) * 1.25))
+                        : prev.mrp,
+                      stock: draft.stock_quantity ? String(draft.stock_quantity) : prev.stock,
+                      description: draft.clean_description || prev.description
+                    }));
+                    toast('Copilot draft applied to listing form! Review and edit freely before publishing.', 'success');
+                  }}
+                />
+
                 <form id="new-product-form" onSubmit={submitPublish}>
                   <div className="form-grid-2">
                     <div className="field-group">
@@ -1496,6 +1538,14 @@ export default function SellerPage() {
                           <div className="sp-actions">
                             <button type="button" className="btn-forest" onClick={() => openEdit(p)}>Customize
                             </button>
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              onClick={() => setPassportModalListing({ listing_id: p.id, title: p.title })}
+                              title="Manage Digital Craft Passport & Upload Proof"
+                            >
+                              Passport &amp; Proof
+                            </button>
                             <a href={appHref(`/product?id=${encodeURIComponent(p.id)}`)} target="_blank" rel="noreferrer" className="btn-outline">
                               Store ↗
                             </a>
@@ -1647,6 +1697,9 @@ export default function SellerPage() {
 
             {/* TAB 5: RESPONSES */}
             <section className={`tab-panel${tab === 'responses' ? ' active' : ''}`} id="tab-responses">
+              {/* Pillar 4 — Live Demand Bridge Bulk & Multi-Artisan Cluster Offers (Additive) */}
+              <ClusterOffersPanel clerk={clerk} toast={toast} />
+
               <div className="section-card">
                 <div className="section-card-head">
                   <div>
@@ -1895,6 +1948,15 @@ export default function SellerPage() {
           </div>
         </div>
       </div>
+
+      {passportModalListing && (
+        <ListingPassportModal
+          listing={passportModalListing}
+          clerk={clerk}
+          toast={toast}
+          onClose={() => setPassportModalListing(null)}
+        />
+      )}
 
       {/* Toast Stack */}
       <div className="portal-toast" id="portal-toast"></div>

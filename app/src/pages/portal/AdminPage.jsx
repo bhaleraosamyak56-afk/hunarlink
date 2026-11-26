@@ -21,6 +21,7 @@ import {
 } from '../../services/apiClient.js';
 import { generateIdempotencyKey } from '../../services/razorpayCheckout.js';
 import AdminLoginPage from './AdminLoginPage.jsx';
+import AdminCraftProofTab from '../../components/craftproof/AdminCraftProofTab.jsx';
 import {
   IconGrid,
   IconUsers,
@@ -48,7 +49,8 @@ const TABS = [
   { id: 'admins', label: 'Admin DB Accounts', icon: <IconShield size={15} /> },
   { id: 'orders', label: 'Retail Orders', icon: <IconPackage size={15} /> },
   { id: 'payments', label: 'Payments & Refunds', icon: <IconReceipt size={15} /> },
-  { id: 'guardrails', label: 'ASIGS Guardrails', icon: <IconShield size={15} /> }
+  { id: 'guardrails', label: 'ASIGS Guardrails', icon: <IconShield size={15} /> },
+  { id: 'craftproof', label: 'CraftProof Claims', icon: <IconShield size={15} /> }
 ];
 
 const inr = (n) =>
@@ -619,6 +621,18 @@ export default function AdminPage() {
                                 {appItem.claimed_gi_code}
                               </div>
                             )}
+                            {appItem.ai_prescreen && (
+                              <div style={{ marginTop: 4 }}>
+                                <span className={`cp-badge cp-badge--${appItem.ai_prescreen.advisory_status}`} style={{ fontSize: '0.64rem' }}>
+                                  AI Pre-Screen: {String(appItem.ai_prescreen.advisory_status || '').replace(/_/g, ' ')}
+                                </span>
+                                {appItem.ai_prescreen.contradictions?.length > 0 && (
+                                  <div style={{ fontSize: '0.7rem', color: '#991b1b', marginTop: 2 }}>
+                                    Flags: {appItem.ai_prescreen.contradictions[0]}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '0.55rem' }}>
                             {appItem.artisan_card_scan_id ? (
@@ -1110,6 +1124,10 @@ export default function AdminPage() {
               </div>
             )}
           </section>
+        )}
+
+        {tab === 'craftproof' && (
+          <AdminCraftProofTab adminToken={adminToken} toast={toast} />
         )}
       </main>
 

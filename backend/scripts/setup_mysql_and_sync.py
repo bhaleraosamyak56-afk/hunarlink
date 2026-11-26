@@ -38,6 +38,7 @@ from app.core.config import get_settings
 from app.models.base import Base
 import app.models.core_models as core_models  # noqa: F401
 import app.models.guardrail_models as guardrail_models  # noqa: F401
+import app.models.craftproof_models as craftproof_models  # noqa: F401
 
 
 def split_mysql_statements(sql_text: str) -> list[str]:

@@ -57,6 +57,15 @@ from app.models.guardrail_models import (
     GuardrailRule,
     InputFingerprint,
 )
+from app.models.craftproof_models import (
+    ArtisanCapability,
+    BuyerDemandRequest,
+    CraftClaimEvidence,
+    CraftPassport,
+    CraftProductClaim,
+    CraftVerificationEvent,
+    DemandArtisanMatch,
+)
 
 __all__ = [
     "Base",
@@ -116,4 +125,11 @@ __all__ = [
     "GuardrailCaseEvent",
     "FileSecurityScan",
     "InputFingerprint",
+    "CraftPassport",
+    "CraftProductClaim",
+    "CraftClaimEvidence",
+    "CraftVerificationEvent",
+    "ArtisanCapability",
+    "BuyerDemandRequest",
+    "DemandArtisanMatch",
 ]
