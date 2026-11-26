@@ -110,7 +110,38 @@ def main() -> None:
                 f"      password_hash={ac.password_hash}"
             )
 
+        product_count = db.scalar(select(func.count(Product.id))) or 0
         listing_count = db.scalar(select(func.count(SellerProductListing.id))) or 0
+        public_sellers_count = (
+            db.scalar(
+                select(func.count(SellerProfile.id))
+                .join(User, User.id == SellerProfile.user_id)
+                .where(
+                    User.account_status == "ACTIVE",
+                    SellerProfile.profile_status == "ACTIVE",
+                    SellerProfile.verification_status == "APPROVED",
+                )
+            )
+            or 0
+        )
+        public_listings_count = (
+            db.scalar(
+                select(func.count(SellerProductListing.id))
+                .join(Product, Product.id == SellerProductListing.product_id)
+                .join(Category, Category.id == Product.category_id)
+                .join(SellerProfile, SellerProfile.id == SellerProductListing.seller_profile_id)
+                .join(User, User.id == SellerProfile.user_id)
+                .where(
+                    SellerProductListing.listing_status == "ACTIVE",
+                    Product.is_active == True,  # noqa: E712
+                    Product.approval_status == "APPROVED",
+                    User.account_status == "ACTIVE",
+                    SellerProfile.profile_status == "ACTIVE",
+                    SellerProfile.verification_status == "APPROVED",
+                )
+            )
+            or 0
+        )
         order_count = db.scalar(select(func.count(RetailOrder.id))) or 0
         try:
             payment_count = db.scalar(select(func.count(Payment.id))) or 0
@@ -121,9 +152,24 @@ def main() -> None:
             payment_count = refund_count = rule_count = case_count = 0
 
         print(
-            f"\nSUMMARY: {len(users)} users | {len(admin_creds)} admins | {len(sellers)} sellers | "
-            f"{listing_count} listings | {order_count} orders | {payment_count} payments | "
-            f"{refund_count} refunds | {rule_count} ASIGS rules | {case_count} guardrail cases"
+            f"\nSTOREFRONT VISIBILITY (/api/v1/artisans & /api/v1/catalog/products):\n"
+            f"  • Verified Public Artisans : {public_sellers_count} of {len(sellers)} seller_profiles\n"
+            f"  • Active Public Listings   : {public_listings_count} of {listing_count} seller_product_listings "
+            f"(products table has {product_count} rows)"
+        )
+        if public_sellers_count == 0 or public_listings_count == 0:
+            print(
+                "  ! WARNING: 0 public items will show on the site from this DB!\n"
+                "    -> Run `python backend/scripts/seed_real_artisans.py` to seed all 53 verified artisans & 96 active listings,\n"
+                "    -> Or approve pending artisans/listings in `/admin` (`SellerProfile.verification_status='APPROVED'`, "
+                "`profile_status='ACTIVE'`, `SellerProductListing.listing_status='ACTIVE'`)."
+            )
+
+        print(
+            f"\nSUMMARY: {len(users)} users | {len(admin_creds)} admins | {len(sellers)} sellers "
+            f"({public_sellers_count} live) | {listing_count} listings ({public_listings_count} live) | "
+            f"{order_count} orders | {payment_count} payments | {refund_count} refunds | "
+            f"{rule_count} ASIGS rules | {case_count} guardrail cases"
         )
         print("=" * 72)
 

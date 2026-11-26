@@ -36,7 +36,9 @@ export default function MarketplaceSection() {
     catalogue,
     filteredProducts,
     recentlyViewedItems,
-    clearRecentlyViewed
+    clearRecentlyViewed,
+    dbSyncStatus,
+    loadPublicCatalog
   } = useStore();
   const f = ui.filters;
 
@@ -379,24 +381,46 @@ export default function MarketplaceSection() {
                     marginBottom: 8
                   }}
                 >
-                  No Matching Heirloom Crafts Found
+                  {dbSyncStatus === 'loading'
+                    ? 'Loading Heritage Catalog\u2026'
+                    : dbSyncStatus === 'error' && total === 0
+                      ? 'Backend Catalog API Offline'
+                      : total === 0
+                        ? 'No Active Crafts Seeded in Database Yet'
+                        : 'No Matching Heirloom Crafts Found'}
                 </h3>
                 <p style={{ fontSize: '0.86rem', color: 'var(--text-500)', marginBottom: 16 }}>
-                  Try broadening your price slider or resetting active guild filters.
+                  {dbSyncStatus === 'loading'
+                    ? 'Connecting to HunarLink database\u2026'
+                    : dbSyncStatus === 'error' && total === 0
+                      ? 'Start the FastAPI backend on port 8000 (uvicorn app.main:app --port 8000) and click Retry.'
+                      : total === 0
+                        ? 'Run python backend/scripts/seed_real_artisans.py against your configured database, then click Refresh Catalog.'
+                        : 'Try broadening your price slider or resetting active guild filters.'}
                 </p>
-                <button
-                  type="button"
-                  className="btn-primary-forest"
-                  onClick={() => {
-                    raiseVeil('Returning to the full collection\u2026');
-                    measure();
-                    clearTimeout(timers.current.hide);
-                    resetFilters();
-                    timers.current.hide = setTimeout(() => lowerVeil(), LOADER_MIN_MS);
-                  }}
-                >
-                  Reset All Filters
-                </button>
+                {total === 0 ? (
+                  <button
+                    type="button"
+                    className="btn-primary-forest"
+                    onClick={() => loadPublicCatalog()}
+                  >
+                    {dbSyncStatus === 'error' ? 'Retry Connection' : 'Refresh Catalog'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-primary-forest"
+                    onClick={() => {
+                      raiseVeil('Returning to the full collection\u2026');
+                      measure();
+                      clearTimeout(timers.current.hide);
+                      resetFilters();
+                      timers.current.hide = setTimeout(() => lowerVeil(), LOADER_MIN_MS);
+                    }}
+                  >
+                    Reset All Filters
+                  </button>
+                )}
               </div>
             ) : (
               filteredProducts.map((p) => <ProductCard key={p.id} product={p} />)
