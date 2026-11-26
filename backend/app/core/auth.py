@@ -19,16 +19,24 @@ from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import (
+    backfill_single_user_if_needed,
+    ensure_separate_account_tables,
+    lookup_clerk_account_by_sub,
+)
 from app.core.admin_security import verify_admin_session_token
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.core_models import (
+    AdminAccount,
     AdminCredential,
     AdminPermission,
     AdminProfile,
     AdminRole,
     AdminRolePermission,
     AdminUserRole,
+    ArtisanAccount,
+    BuyerAccount,
     PlatformRole,
     User,
     UserRoleAssignment,
@@ -46,6 +54,7 @@ class AuthenticatedPrincipal:
     roles: frozenset[str] = field(default_factory=frozenset)
     admin_permissions: frozenset[str] = field(default_factory=frozenset)
     is_active_admin: bool = False
+    account_table: str = "buyer_accounts"
 
     def has_role(self, role_code: str) -> bool:
         return role_code in self.roles
@@ -127,75 +136,81 @@ def get_verified_clerk_claims(
 
 
 def load_principal_by_clerk_id(db: Session, clerk_user_id: str) -> AuthenticatedPrincipal:
-    user = db.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
-    if user is None:
+    ensure_separate_account_tables(db.get_bind())
+    acc_type, acc_row = lookup_clerk_account_by_sub(db, clerk_user_id)
+
+    if acc_row is None:
+        # Backfill seamlessly if an older DB only had a `users` row before upgrading
+        legacy_user = db.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
+        if legacy_user is not None:
+            migrated_type, migrated_row = backfill_single_user_if_needed(db, legacy_user)
+            db.commit()
+            if migrated_type in ("buyer", "artisan"):
+                acc_type = migrated_type  # type: ignore[assignment]
+                acc_row = migrated_row  # type: ignore[assignment]
+
+    if acc_row is None or acc_type not in ("buyer", "artisan"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="HunarLink user account not found for authenticated identity.",
         )
-    if user.account_status != "ACTIVE":
+    if acc_row.account_status != "ACTIVE":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Account is not active (status={user.account_status}).",
+            detail=f"Account is not active (status={acc_row.account_status}).",
         )
 
-    role_rows = db.scalars(
-        select(PlatformRole.code)
-        .join(UserRoleAssignment, UserRoleAssignment.platform_role_id == PlatformRole.id)
-        .where(
-            UserRoleAssignment.user_id == user.id,
-            UserRoleAssignment.assignment_status == "ACTIVE",
-            PlatformRole.is_active == True,  # noqa: E712
-        )
-    ).all()
-
-    admin_profile = db.scalar(
-        select(AdminProfile).where(
-            AdminProfile.user_id == user.id,
-            AdminProfile.admin_status == "ACTIVE",
-        )
+    role_rows = list(
+        db.scalars(
+            select(PlatformRole.code)
+            .join(UserRoleAssignment, UserRoleAssignment.platform_role_id == PlatformRole.id)
+            .where(
+                UserRoleAssignment.user_id == acc_row.id,
+                UserRoleAssignment.assignment_status == "ACTIVE",
+                PlatformRole.is_active == True,  # noqa: E712
+            )
+        ).all()
     )
-    perms: list[str] = []
-    if admin_profile is not None and "ADMIN" in role_rows:
-        perms = list(
-            db.scalars(
-                select(AdminPermission.code)
-                .join(
-                    AdminRolePermission,
-                    AdminRolePermission.admin_permission_id == AdminPermission.id,
-                )
-                .join(AdminRole, AdminRole.id == AdminRolePermission.admin_role_id)
-                .join(AdminUserRole, AdminUserRole.admin_role_id == AdminRole.id)
-                .where(
-                    AdminUserRole.admin_profile_id == admin_profile.id,
-                    AdminUserRole.is_active == True,  # noqa: E712
-                    AdminRole.is_active == True,  # noqa: E712
-                )
-            ).all()
-        )
+    if acc_type == "artisan":
+        effective_roles = set(role_rows) | {"DIRECT_SELLER", "CUSTOMER"}
+        effective_roles.discard("ADMIN")
+        table_name = "artisan_accounts"
+    else:
+        effective_roles = (set(role_rows) | {"CUSTOMER"}) - {"DIRECT_SELLER", "ADMIN"}
+        table_name = "buyer_accounts"
 
     return AuthenticatedPrincipal(
-        user_id=user.id,
-        clerk_user_id=user.clerk_user_id,
-        email=user.email,
-        account_status=user.account_status,
-        roles=frozenset(role_rows),
-        admin_permissions=frozenset(perms),
-        is_active_admin=admin_profile is not None and "ADMIN" in role_rows,
+        user_id=acc_row.id,
+        clerk_user_id=acc_row.clerk_user_id,
+        email=acc_row.email,
+        account_status=acc_row.account_status,
+        roles=frozenset(effective_roles),
+        admin_permissions=frozenset(),
+        is_active_admin=False,
+        account_table=table_name,
     )
 
 
 def load_admin_principal_by_user_id(db: Session, user_id: str) -> AuthenticatedPrincipal:
-    """Load an authenticated Admin strictly from live DB credential & RBAC tables."""
-    user = db.scalar(select(User).where(User.id == user_id))
-    if user is None or user.account_status != "ACTIVE":
+    """Load an authenticated Admin strictly from `admin_accounts` + RBAC tables."""
+    ensure_separate_account_tables(db.get_bind())
+    admin_acc = db.scalar(select(AdminAccount).where(AdminAccount.id == user_id))
+    if admin_acc is None:
+        legacy_user = db.scalar(select(User).where(User.id == user_id))
+        if legacy_user is not None:
+            m_type, m_row = backfill_single_user_if_needed(db, legacy_user)
+            db.commit()
+            if m_type == "admin" and isinstance(m_row, AdminAccount):
+                admin_acc = m_row
+
+    if admin_acc is None or admin_acc.account_status != "ACTIVE" or not admin_acc.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Administrator account is inactive or not found.",
         )
     cred = db.scalar(
         select(AdminCredential).where(
-            AdminCredential.user_id == user.id,
+            AdminCredential.user_id == admin_acc.id,
             AdminCredential.is_active == True,  # noqa: E712
         )
     )
@@ -204,13 +219,44 @@ def load_admin_principal_by_user_id(db: Session, user_id: str) -> AuthenticatedP
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator credential has been revoked.",
         )
-    principal = load_principal_by_clerk_id(db, user.clerk_user_id)
-    if not principal.is_active_admin:
+
+    admin_profile = db.scalar(
+        select(AdminProfile).where(
+            AdminProfile.user_id == admin_acc.id,
+            AdminProfile.admin_status == "ACTIVE",
+        )
+    )
+    if admin_profile is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator privileges are no longer active.",
         )
-    return principal
+    perms = list(
+        db.scalars(
+            select(AdminPermission.code)
+            .join(
+                AdminRolePermission,
+                AdminRolePermission.admin_permission_id == AdminPermission.id,
+            )
+            .join(AdminRole, AdminRole.id == AdminRolePermission.admin_role_id)
+            .join(AdminUserRole, AdminUserRole.admin_role_id == AdminRole.id)
+            .where(
+                AdminUserRole.admin_profile_id == admin_profile.id,
+                AdminUserRole.is_active == True,  # noqa: E712
+                AdminRole.is_active == True,  # noqa: E712
+            )
+        ).all()
+    )
+    return AuthenticatedPrincipal(
+        user_id=admin_acc.id,
+        clerk_user_id=f"hl_admin_{admin_acc.id[:12]}",
+        email=admin_acc.email,
+        account_status=admin_acc.account_status,
+        roles=frozenset({"ADMIN"}),
+        admin_permissions=frozenset(perms),
+        is_active_admin=True,
+        account_table="admin_accounts",
+    )
 
 
 def get_current_principal(

@@ -441,9 +441,18 @@ export default function AuthPage() {
             <Link to="/" className="up-nav-pill">
               Storefront
             </Link>
-            <Link to="/login" className="up-nav-pill">
+            <button
+              type="button"
+              className="up-nav-pill"
+              onClick={async () => {
+                if (signedIn && clerk.signOutClerk) {
+                  await clerk.signOutClerk();
+                }
+                navigate('/login', { replace: true });
+              }}
+            >
               Buyer Sign In
-            </Link>
+            </button>
             {signedIn && (
               <button
                 type="button"

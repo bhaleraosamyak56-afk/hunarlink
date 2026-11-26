@@ -429,14 +429,12 @@ function ClerkBridgeInner({ children }) {
           lastDbSyncKeyRef.current = syncKey;
           syncedAccountIdsRef.current.add(clerkAccount.id);
 
-          const dbHasArtisanRole = Boolean(res?.is_artisan);
+          const dbAccountType = res?.account_type || (res?.is_artisan ? 'artisan' : 'buyer');
+          const dbHasArtisanRole = dbAccountType === 'artisan';
           const dbArtisanVerified = Boolean(res?.artisan_verified);
           const dbVerificationStatus =
             res?.seller_profile?.verification_status || 'UNVERIFIED';
-          // Respect the workspace role the user explicitly selected on /login or /auth:
-          // choosing Buyer enters the buyer storefront even if the same account also
-          // holds an unverified artisan role, while /seller always enforces verification.
-          const effectiveRole = requestedRole === 'artisan' ? 'artisan' : 'buyer';
+          const effectiveRole = dbAccountType === 'artisan' ? 'artisan' : 'buyer';
           saveUserRole(clerkAccount.id, effectiveRole);
 
           if (dbHasArtisanRole || effectiveRole === 'artisan') {
@@ -504,15 +502,10 @@ function ClerkBridgeInner({ children }) {
           const currentPath = getCurrentAppPath();
           const currentSearch = window.location.search || '';
           const isOAuthReturn = currentSearch.includes('oauth_return=1');
-          const isEntryOrAuth =
-            currentPath === '/' ||
-            currentPath === '/index.html' ||
-            currentPath === '/login' ||
-            currentPath === '/sso-callback';
           const isSellerPath = currentPath === '/seller';
 
           if (effectiveRole === 'artisan' && !dbArtisanVerified) {
-            if (isEntryOrAuth || isSellerPath) {
+            if (currentPath === '/login' || currentPath === '/sso-callback' || isSellerPath) {
               navigate('/auth?tab=verify', { replace: true });
             }
           } else if (isSellerPath && !dbArtisanVerified) {
@@ -562,7 +555,7 @@ function ClerkBridgeInner({ children }) {
             navigate(registerDest, { replace: true });
             return null;
           }
-          if (err?.status === 409 && authMode === 'signup') {
+          if (err?.status === 409 && authMode === 'signup' && !String(err?.message || '').includes('_accounts')) {
             conflictSigningOutRef.current = true;
             clearPendingClerkRole();
             clearPendingClerkAuthMode();
@@ -718,8 +711,6 @@ function ClerkBridgeInner({ children }) {
     } else if (resolvedRole === 'artisan' && !synced.artisanVerified) {
       const currentPath = getCurrentAppPath();
       if (
-        currentPath === '/' ||
-        currentPath === '/index.html' ||
         currentPath === '/login' ||
         currentPath === '/sso-callback' ||
         currentPath === '/seller'
@@ -894,11 +885,27 @@ function ClerkBridgeInner({ children }) {
       }
 
       // 1. Live HunarLink DB check BEFORE calling Clerk:
-      //    - Existing DB user/artisan CANNOT register (must log in).
+      //    - Strict 3-table separation (`buyer_accounts`, `artisan_accounts`, `admin_accounts`):
+      //      an email registered under a different account type cannot sign in or register here.
+      //    - Existing DB user/artisan CANNOT register again (must log in).
       //    - Non-existent user on Sign In is directed cleanly to Register.
       if (canAttemptBackend()) {
         try {
           const acct = await checkAuthAccount(cleaned);
+          if (acct?.exists && acct.account_type && acct.account_type !== normalizedRole) {
+            const ownerLabel =
+              acct.account_type === 'admin'
+                ? 'Administrator'
+                : acct.account_type === 'artisan'
+                  ? 'Artisan'
+                  : 'Buyer';
+            const reqLabel = normalizedRole === 'artisan' ? 'Artisan' : 'Buyer';
+            const mismatchErr = new Error(
+              `This email is registered as a ${ownerLabel} account (in \`${acct.account_table || `${acct.account_type}_accounts`}\`) and cannot be used as a ${reqLabel} account.`
+            );
+            mismatchErr.code = 'ROLE_MISMATCH';
+            throw mismatchErr;
+          }
           if (normalizedMode === 'signup' && acct?.exists) {
             const dupErr = new Error(
               'This email already exists in HunarLink. You cannot register again — please Sign In instead.'
@@ -914,7 +921,11 @@ function ClerkBridgeInner({ children }) {
             throw missErr;
           }
         } catch (checkErr) {
-          if (checkErr?.code === 'ALREADY_REGISTERED' || checkErr?.code === 'NOT_REGISTERED') {
+          if (
+            checkErr?.code === 'ALREADY_REGISTERED' ||
+            checkErr?.code === 'NOT_REGISTERED' ||
+            checkErr?.code === 'ROLE_MISMATCH'
+          ) {
             clearPendingClerkRole();
             clearPendingClerkAuthMode();
             throw checkErr;
@@ -1103,6 +1114,20 @@ function ClerkBridgeInner({ children }) {
       if (canAttemptBackend()) {
         try {
           const acct = await checkAuthAccount(cleaned);
+          if (acct?.exists && acct.account_type && acct.account_type !== normalizedRole) {
+            const ownerLabel =
+              acct.account_type === 'admin'
+                ? 'Administrator'
+                : acct.account_type === 'artisan'
+                  ? 'Artisan'
+                  : 'Buyer';
+            const reqLabel = normalizedRole === 'artisan' ? 'Artisan' : 'Buyer';
+            const mismatchErr = new Error(
+              `This email is registered as a ${ownerLabel} account (in \`${acct.account_table || `${acct.account_type}_accounts`}\`) and cannot be used as a ${reqLabel} account.`
+            );
+            mismatchErr.code = 'ROLE_MISMATCH';
+            throw mismatchErr;
+          }
           if (acct && acct.exists === false) {
             const missErr = new Error(
               'No HunarLink account exists for this email yet. Please switch to Register to create one.'
@@ -1111,7 +1136,7 @@ function ClerkBridgeInner({ children }) {
             throw missErr;
           }
         } catch (checkErr) {
-          if (checkErr?.code === 'NOT_REGISTERED') {
+          if (checkErr?.code === 'NOT_REGISTERED' || checkErr?.code === 'ROLE_MISMATCH') {
             clearPendingClerkRole();
             clearPendingClerkAuthMode();
             throw checkErr;
