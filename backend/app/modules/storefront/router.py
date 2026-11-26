@@ -21,6 +21,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import backfill_all_existing_users, ensure_separate_account_tables
 from app.core.audit import record_audit_log
 from app.core.auth import AuthenticatedPrincipal, get_current_principal, require_admin_permission
 from app.core.cache import (
@@ -38,8 +39,11 @@ from app.core.database import get_db
 from app.core.security import SlidingWindowRateLimiter
 from app.models.base import new_uuid, utcnow
 from app.models.core_models import (
+    AdminAccount,
     AdminCredential,
+    ArtisanAccount,
     AuditLog,
+    BuyerAccount,
     Category,
     PlatformRole,
     Product,
@@ -952,6 +956,19 @@ def list_my_retail_orders(
 
 
 def _build_admin_overview_snapshot(db: Session) -> dict:
+    """Strictly admin-only real database snapshot for the Admin Console (with separate Buyer, Artisan & Admin tables)."""
+    ensure_separate_account_tables(db.get_bind())
+    try:
+        migrated = backfill_all_existing_users(db)
+        if any(migrated.values()):
+            db.commit()
+    except Exception:
+        db.rollback()
+
+    buyer_rows = list(db.scalars(select(BuyerAccount).order_by(BuyerAccount.created_at.desc()).limit(200)).all())
+    artisan_rows = list(db.scalars(select(ArtisanAccount).order_by(ArtisanAccount.created_at.desc()).limit(200)).all())
+    admin_rows = list(db.scalars(select(AdminAccount).order_by(AdminAccount.created_at.asc()).limit(100)).all())
+
     users = list(db.scalars(select(User).order_by(User.created_at.desc()).limit(200)).all())
     sellers = list(db.scalars(select(SellerProfile).order_by(SellerProfile.created_at.desc()).limit(200)).all())
     applications = list(
@@ -984,9 +1001,12 @@ def _build_admin_overview_snapshot(db: Session) -> dict:
             roles_by_user_id[uid].append(rcode)
 
     users_by_id = {u.id: u for u in users}
+    artisans_by_id = {a.id: a for a in artisan_rows}
     sellers_by_id = {s.id: s for s in sellers}
     seller_by_user_id = {s.user_id: s for s in sellers}
-    active_admin_user_ids = {ac.user_id for ac in admin_creds if ac.is_active}
+    active_admin_user_ids = {ac.user_id for ac in admin_creds if ac.is_active} | {
+        ad.id for ad in admin_rows if ad.is_active
+    }
     docs_by_app_id: dict[str, list[SellerDocument]] = defaultdict(list)
     for d in seller_docs:
         if d.application_id:
@@ -1009,21 +1029,73 @@ def _build_admin_overview_snapshot(db: Session) -> dict:
         1 for a in applications if a.application_status in {"SUBMITTED", "UNDER_REVIEW", "NEEDS_MORE_INFO"}
     )
     incomplete_artisan_users = [
-        u
-        for u in users
-        if "DIRECT_SELLER" in roles_by_user_id.get(u.id, []) and u.id not in seller_by_user_id
+        a for a in artisan_rows if a.id not in seller_by_user_id
     ]
 
     return {
         "counts": {
-            "users": len(users),
+            "buyers": len(buyer_rows),
+            "artisans": len(artisan_rows),
+            "admins": len(admin_rows) or len(admin_creds),
+            "users": len(buyer_rows) + len(artisan_rows) + len(admin_rows),
             "sellers": len(sellers),
             "pending_applications": pending_apps_count,
             "incomplete_artisan_signups": len(incomplete_artisan_users),
             "listings": len(listings),
             "orders": len(orders),
-            "admins": len(admin_creds),
         },
+        "buyers": [
+            {
+                "id": b.id,
+                "clerk_user_id": b.clerk_user_id,
+                "email": b.email,
+                "name": b.display_name or f"{b.first_name} {b.last_name or ''}".strip(),
+                "phone": b.phone,
+                "account_status": b.account_status,
+                "last_login_at": b.last_login_at.isoformat() if b.last_login_at else None,
+                "created_at": b.created_at.isoformat(),
+            }
+            for b in buyer_rows
+        ],
+        "artisans": [
+            {
+                "id": a.id,
+                "clerk_user_id": a.clerk_user_id,
+                "email": a.email,
+                "name": a.display_name or f"{a.first_name} {a.last_name or ''}".strip(),
+                "phone": a.phone,
+                "store_name": (
+                    seller_by_user_id[a.id].store_name if a.id in seller_by_user_id else a.store_name
+                ),
+                "craft_specialty": (
+                    seller_by_user_id[a.id].craft_specialty if a.id in seller_by_user_id else a.craft_specialty
+                ),
+                "workshop_district": (
+                    seller_by_user_id[a.id].workshop_district if a.id in seller_by_user_id else a.workshop_district
+                ),
+                "verification_status": (
+                    seller_by_user_id[a.id].verification_status
+                    if a.id in seller_by_user_id
+                    else "STEP_1_ONLY_NO_CARD_YET"
+                ),
+                "account_status": a.account_status,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in artisan_rows
+        ],
+        "admins_table": [
+            {
+                "id": ad.id,
+                "email": ad.email,
+                "name": ad.display_name or f"{ad.first_name} {ad.last_name or ''}".strip(),
+                "department": ad.department,
+                "is_active": ad.is_active,
+                "account_status": ad.account_status,
+                "last_login_at": ad.last_login_at.isoformat() if ad.last_login_at else None,
+                "created_at": ad.created_at.isoformat(),
+            }
+            for ad in admin_rows
+        ],
         "incomplete_artisan_signups": [
             {
                 "user_id": u.id,
@@ -1707,6 +1779,14 @@ def admin_decide_artisan_application(
             d.reviewed_by_user_id = admin.user_id
             d.review_notes = notes or "Rejected by HunarLink Admin"
 
+    artisan_acc = db.scalar(select(ArtisanAccount).where(ArtisanAccount.id == seller.user_id))
+    if artisan_acc is not None:
+        artisan_acc.verification_status = seller.verification_status
+        artisan_acc.store_name = seller.store_name
+        artisan_acc.craft_specialty = seller.craft_specialty
+        artisan_acc.workshop_district = seller.workshop_district
+        artisan_acc.updated_at = utcnow()
+
     app_row.reviewed_by_user_id = admin.user_id
     app_row.review_decision_notes = notes or (
         "Verified & promoted to live artisan directory"
@@ -1736,7 +1816,9 @@ def admin_decide_artisan_application(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
-    seller_user = db.scalar(select(User).where(User.id == seller.user_id))
+    seller_user = db.scalar(select(ArtisanAccount).where(ArtisanAccount.id == seller.user_id)) or db.scalar(
+        select(User).where(User.id == seller.user_id)
+    )
     invalidate_principal_cache(
         clerk_user_id=seller_user.clerk_user_id if seller_user else None,
         user_id=seller.user_id,
@@ -1794,7 +1876,9 @@ def admin_verify_seller(
         latest_app.reviewed_by_user_id = admin.user_id
 
     db.commit()
-    seller_user = db.scalar(select(User).where(User.id == seller.user_id))
+    seller_user = db.scalar(select(ArtisanAccount).where(ArtisanAccount.id == seller.user_id)) or db.scalar(
+        select(User).where(User.id == seller.user_id)
+    )
     invalidate_principal_cache(
         clerk_user_id=seller_user.clerk_user_id if seller_user else None,
         user_id=seller.user_id,

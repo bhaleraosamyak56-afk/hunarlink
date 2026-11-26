@@ -26,10 +26,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SQL_DIR = ROOT / "sql"
 
 EXPECTED_96_TABLES = [
-    # A. Identity and Admin access (10)
+    # A. Identity and Admin access (13 — separate buyer_accounts, artisan_accounts, admin_accounts)
     "users", "platform_roles", "user_role_assignments", "user_addresses",
     "admin_profiles", "admin_roles", "admin_permissions", "admin_user_roles",
     "admin_role_permissions", "admin_credentials",
+    "buyer_accounts", "artisan_accounts", "admin_accounts",
     # B. Seller and GI verification (8)
     "seller_profiles", "seller_verification_applications", "seller_documents",
     "seller_verification_history", "gi_reference_records", "product_gi_claims",

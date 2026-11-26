@@ -78,7 +78,20 @@ def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
         engine = get_engine()
         Base.metadata.create_all(bind=engine, checkfirst=True)
         _ensure_missing_orm_columns(engine)
+        from app.core.account_tables import backfill_all_existing_users, ensure_separate_account_tables
+
+        ensure_separate_account_tables(engine)
         with get_session_factory()() as db:
+            migrated = backfill_all_existing_users(db)
+            if any(migrated.values()):
+                db.commit()
+                logger.info(
+                    "Partitioned existing accounts into separate tables: buyers=%d, artisans=%d, admins=%d",
+                    migrated["buyers"],
+                    migrated["artisans"],
+                    migrated["admins"],
+                )
+
             active_count = int(
                 db.scalar(
                     select(func.count(SellerProductListing.id)).where(
@@ -96,6 +109,7 @@ def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
             from app.modules.guardrails.repository import ensure_default_guardrail_rules
 
             stats = seed_artisans_and_catalog(session_override=db)
+            backfill_all_existing_users(db)
             ensure_default_guardrail_rules(db)
             db.commit()
             logger.info(

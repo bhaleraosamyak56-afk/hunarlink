@@ -1,6 +1,6 @@
 # HunarLink MySQL 8.4 LTS — Complete Data Dictionary
 
-Auto-reconciled directly from `sql/01`–`sql/08` (**96 base tables**, **256 foreign keys**, **135 CHECK constraints**, **9 MySQL generated partial-uniqueness columns**).
+Auto-reconciled directly from `sql/01`–`sql/08` (**99 base tables**, **259 foreign keys**, **135 CHECK constraints**, **9 MySQL generated partial-uniqueness columns**).
 
 All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900_ai_ci`, UTC `DATETIME(6)` timestamps, `DECIMAL` monetary/quantity types, and `CHAR(36) CHARACTER SET ascii COLLATE ascii_bin` UUID identifiers.
 
@@ -174,7 +174,72 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_admin_credentials_user`)
 
-## 11. `seller_profiles`
+## 11. `buyer_accounts`
+*Defined in:* `sql/01_identity_and_admin_access.sql`
+
+| Column | MySQL Definition |
+|---|---|
+| `id` | `CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL` |
+| `clerk_user_id` | `VARCHAR(128) NOT NULL` |
+| `email` | `VARCHAR(255) NOT NULL` |
+| `email_verified` | `TINYINT(1) NOT NULL DEFAULT 0` |
+| `phone` | `VARCHAR(32) NULL` |
+| `first_name` | `VARCHAR(100) NOT NULL` |
+| `last_name` | `VARCHAR(100) NULL` |
+| `display_name` | `VARCHAR(160) NULL` |
+| `preferred_currency` | `CHAR(3) NOT NULL DEFAULT 'INR'` |
+| `account_status` | `VARCHAR(32) NOT NULL DEFAULT 'ACTIVE'` |
+| `last_login_at` | `DATETIME(6) NULL` |
+| `created_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)` |
+| `updated_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)` |
+
+**Foreign Keys:** `id` → `users`.`id` (`fk_buyer_accounts_user`)
+
+## 12. `artisan_accounts`
+*Defined in:* `sql/01_identity_and_admin_access.sql`
+
+| Column | MySQL Definition |
+|---|---|
+| `id` | `CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL` |
+| `clerk_user_id` | `VARCHAR(128) NOT NULL` |
+| `email` | `VARCHAR(255) NOT NULL` |
+| `email_verified` | `TINYINT(1) NOT NULL DEFAULT 0` |
+| `phone` | `VARCHAR(32) NULL` |
+| `first_name` | `VARCHAR(100) NOT NULL` |
+| `last_name` | `VARCHAR(100) NULL` |
+| `display_name` | `VARCHAR(160) NULL` |
+| `store_name` | `VARCHAR(160) NULL` |
+| `craft_specialty` | `VARCHAR(160) NULL` |
+| `workshop_district` | `VARCHAR(100) NULL` |
+| `verification_status` | `VARCHAR(32) NOT NULL DEFAULT 'UNVERIFIED'` |
+| `account_status` | `VARCHAR(32) NOT NULL DEFAULT 'ACTIVE'` |
+| `last_login_at` | `DATETIME(6) NULL` |
+| `created_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)` |
+| `updated_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)` |
+
+**Foreign Keys:** `id` → `users`.`id` (`fk_artisan_accounts_user`)
+
+## 13. `admin_accounts`
+*Defined in:* `sql/01_identity_and_admin_access.sql`
+
+| Column | MySQL Definition |
+|---|---|
+| `id` | `CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL` |
+| `email` | `VARCHAR(255) NOT NULL` |
+| `password_hash` | `VARCHAR(255) NOT NULL` |
+| `first_name` | `VARCHAR(100) NOT NULL` |
+| `last_name` | `VARCHAR(100) NULL` |
+| `display_name` | `VARCHAR(160) NULL` |
+| `department` | `VARCHAR(100) NULL DEFAULT 'Platform Administration'` |
+| `account_status` | `VARCHAR(32) NOT NULL DEFAULT 'ACTIVE'` |
+| `is_active` | `TINYINT(1) NOT NULL DEFAULT 1` |
+| `last_login_at` | `DATETIME(6) NULL` |
+| `created_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)` |
+| `updated_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)` |
+
+**Foreign Keys:** `id` → `users`.`id` (`fk_admin_accounts_user`)
+
+## 14. `seller_profiles`
 *Defined in:* `sql/02_sellers_and_verification.sql`
 
 | Column | MySQL Definition |
@@ -203,7 +268,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_seller_profiles_user`)
 
-## 12. `seller_verification_applications`
+## 15. `seller_verification_applications`
 *Defined in:* `sql/02_sellers_and_verification.sql`
 
 | Column | MySQL Definition |
@@ -226,7 +291,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `seller_profile_id` → `seller_profiles`.`id` (`fk_sva_seller`), `assigned_reviewer_user_id` → `users`.`id` (`fk_sva_assigned_reviewer`), `reviewed_by_user_id` → `users`.`id` (`fk_sva_reviewed_by`)
 
-## 13. `seller_documents`
+## 16. `seller_documents`
 *Defined in:* `sql/02_sellers_and_verification.sql`
 
 | Column | MySQL Definition |
@@ -250,7 +315,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `seller_profile_id` → `seller_profiles`.`id` (`fk_seller_docs_seller`), `application_id` → `seller_verification_applications`.`id` (`fk_seller_docs_app`), `uploaded_by_user_id` → `users`.`id` (`fk_seller_docs_uploaded_by`), `reviewed_by_user_id` → `users`.`id` (`fk_seller_docs_reviewed_by`)
 
-## 14. `seller_verification_history`
+## 17. `seller_verification_history`
 *Defined in:* `sql/02_sellers_and_verification.sql`
 
 | Column | MySQL Definition |
@@ -267,7 +332,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `application_id` → `seller_verification_applications`.`id` (`fk_svh_app`), `seller_profile_id` → `seller_profiles`.`id` (`fk_svh_seller`), `actor_user_id` → `users`.`id` (`fk_svh_actor`)
 
-## 15. `gi_reference_records`
+## 18. `gi_reference_records`
 *Defined in:* `sql/02_sellers_and_verification.sql`
 
 | Column | MySQL Definition |
@@ -291,7 +356,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `imported_by_user_id` → `users`.`id` (`fk_gi_ref_imported_by`)
 
-## 16. `categories`
+## 19. `categories`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -310,7 +375,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `parent_id` → `categories`.`id` (`fk_categories_parent`)
 
-## 17. `brands`
+## 20. `brands`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -325,7 +390,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 | `created_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)` |
 | `updated_at` | `DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)` |
 
-## 18. `products`
+## 21. `products`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -351,7 +416,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `category_id` → `categories`.`id` (`fk_products_category`), `brand_id` → `brands`.`id` (`fk_products_brand`), `created_by_user_id` → `users`.`id` (`fk_products_created_by`)
 
-## 19. `product_variants`
+## 22. `product_variants`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -372,7 +437,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `product_id` → `products`.`id` (`fk_product_variants_product`)
 
-## 20. `product_images`
+## 23. `product_images`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -389,7 +454,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `product_id` → `products`.`id` (`fk_product_images_product`), `product_variant_id` → `product_variants`.`id` (`fk_product_images_variant`)
 
-## 21. `product_gi_claims`
+## 24. `product_gi_claims`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -410,7 +475,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `product_id` → `products`.`id` (`fk_pgc_product`), `seller_profile_id` → `seller_profiles`.`id` (`fk_pgc_seller`), `gi_reference_record_id` → `gi_reference_records`.`id` (`fk_pgc_reference`), `reviewed_by_user_id` → `users`.`id` (`fk_pgc_reviewed_by`)
 
-## 22. `gi_claim_documents`
+## 25. `gi_claim_documents`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -429,7 +494,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `product_gi_claim_id` → `product_gi_claims`.`id` (`fk_gcd_claim`), `uploaded_by_user_id` → `users`.`id` (`fk_gcd_uploaded_by`)
 
-## 23. `gi_verification_runs`
+## 26. `gi_verification_runs`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -458,7 +523,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `seller_application_id` → `seller_verification_applications`.`id` (`fk_gvr_seller_app`), `product_gi_claim_id` → `product_gi_claims`.`id` (`fk_gvr_product_claim`), `gi_reference_record_id` → `gi_reference_records`.`id` (`fk_gvr_reference`), `human_reviewed_by_user_id` → `users`.`id` (`fk_gvr_reviewer`)
 
-## 24. `seller_product_listings`
+## 27. `seller_product_listings`
 *Defined in:* `sql/03_catalog_and_gi_products.sql`
 
 | Column | MySQL Definition |
@@ -482,7 +547,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `seller_profile_id` → `seller_profiles`.`id` (`fk_spl_seller`), `product_id` → `products`.`id` (`fk_spl_product`), `product_variant_id` → `product_variants`.`id` (`fk_spl_variant`)
 
-## 25. `supplier_profiles`
+## 28. `supplier_profiles`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -505,7 +570,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_supplier_profiles_user`)
 
-## 26. `supplier_verification_applications`
+## 29. `supplier_verification_applications`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -524,7 +589,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_profile_id` → `supplier_profiles`.`id` (`fk_sup_va_supplier`), `reviewed_by_user_id` → `users`.`id` (`fk_sup_va_reviewed_by`)
 
-## 27. `supplier_documents`
+## 30. `supplier_documents`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -545,7 +610,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_profile_id` → `supplier_profiles`.`id` (`fk_sup_docs_supplier`), `application_id` → `supplier_verification_applications`.`id` (`fk_sup_docs_app`), `uploaded_by_user_id` → `users`.`id` (`fk_sup_docs_uploaded_by`)
 
-## 28. `supplier_verification_history`
+## 31. `supplier_verification_history`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -562,7 +627,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `application_id` → `supplier_verification_applications`.`id` (`fk_sup_vh_app`), `supplier_profile_id` → `supplier_profiles`.`id` (`fk_sup_vh_supplier`), `actor_user_id` → `users`.`id` (`fk_sup_vh_actor`)
 
-## 29. `supplier_lots`
+## 32. `supplier_lots`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -593,7 +658,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_profile_id` → `supplier_profiles`.`id` (`fk_sl_supplier`), `category_id` → `categories`.`id` (`fk_sl_category`), `product_id` → `products`.`id` (`fk_sl_product`), `product_variant_id` → `product_variants`.`id` (`fk_sl_variant`), `reviewed_by_user_id` → `users`.`id` (`fk_sl_reviewed_by`)
 
-## 30. `supplier_lot_documents`
+## 33. `supplier_lot_documents`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -612,7 +677,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_lot_id` → `supplier_lots`.`id` (`fk_sld_lot`), `uploaded_by_user_id` → `users`.`id` (`fk_sld_uploaded_by`)
 
-## 31. `supplier_lot_status_history`
+## 34. `supplier_lot_status_history`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -628,7 +693,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_lot_id` → `supplier_lots`.`id` (`fk_slsh_lot`), `actor_user_id` → `users`.`id` (`fk_slsh_actor`)
 
-## 32. `dealer_profiles`
+## 35. `dealer_profiles`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -653,7 +718,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_dealer_profiles_user`)
 
-## 33. `dealer_documents`
+## 36. `dealer_documents`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -673,7 +738,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_profile_id` → `dealer_profiles`.`id` (`fk_dealer_docs_dealer`), `uploaded_by_user_id` → `users`.`id` (`fk_dealer_docs_uploaded_by`)
 
-## 34. `dealer_categories`
+## 37. `dealer_categories`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -686,7 +751,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_profile_id` → `dealer_profiles`.`id` (`fk_dc_dealer`), `category_id` → `categories`.`id` (`fk_dc_category`)
 
-## 35. `warehouses`
+## 38. `warehouses`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -709,7 +774,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `seller_profile_id` → `seller_profiles`.`id` (`fk_wh_seller`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_wh_dealer`)
 
-## 36. `dealer_assignment_recommendations`
+## 39. `dealer_assignment_recommendations`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -725,7 +790,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_lot_id` → `supplier_lots`.`id` (`fk_dar_lot`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_dar_dealer`), `generated_by_user_id` → `users`.`id` (`fk_dar_generated_by`)
 
-## 37. `dealer_assignments`
+## 40. `dealer_assignments`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -750,7 +815,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_lot_id` → `supplier_lots`.`id` (`fk_da_lot`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_da_dealer`), `recommendation_id` → `dealer_assignment_recommendations`.`id` (`fk_da_recommendation`), `assigned_by_user_id` → `users`.`id` (`fk_da_assigned_by`)
 
-## 38. `dealer_assignment_history`
+## 41. `dealer_assignment_history`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -765,7 +830,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_assignment_id` → `dealer_assignments`.`id` (`fk_dah_assignment`), `actor_user_id` → `users`.`id` (`fk_dah_actor`)
 
-## 39. `supplier_purchase_orders`
+## 42. `supplier_purchase_orders`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -793,7 +858,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_lot_id` → `supplier_lots`.`id` (`fk_spo_lot`), `dealer_assignment_id` → `dealer_assignments`.`id` (`fk_spo_assignment`), `supplier_profile_id` → `supplier_profiles`.`id` (`fk_spo_supplier`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_spo_dealer`), `destination_warehouse_id` → `warehouses`.`id` (`fk_spo_warehouse`), `created_by_user_id` → `users`.`id` (`fk_spo_created_by`)
 
-## 40. `supplier_purchase_order_status_history`
+## 43. `supplier_purchase_order_status_history`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -808,7 +873,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_sposh_po`), `actor_user_id` → `users`.`id` (`fk_sposh_actor`)
 
-## 41. `supplier_purchase_order_items`
+## 44. `supplier_purchase_order_items`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -829,7 +894,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_spoi_po`), `product_id` → `products`.`id` (`fk_spoi_product`), `product_variant_id` → `product_variants`.`id` (`fk_spoi_variant`)
 
-## 42. `goods_receipts`
+## 45. `goods_receipts`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -850,7 +915,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_gr_po`), `warehouse_id` → `warehouses`.`id` (`fk_gr_warehouse`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_gr_dealer`), `received_by_user_id` → `users`.`id` (`fk_gr_received_by`)
 
-## 43. `goods_receipt_items`
+## 46. `goods_receipt_items`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -871,7 +936,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `goods_receipt_id` → `goods_receipts`.`id` (`fk_gri_receipt`), `supplier_po_item_id` → `supplier_purchase_order_items`.`id` (`fk_gri_po_item`), `product_id` → `products`.`id` (`fk_gri_product`), `product_variant_id` → `product_variants`.`id` (`fk_gri_variant`)
 
-## 44. `quality_inspections`
+## 47. `quality_inspections`
 *Defined in:* `sql/04_suppliers_dealers_and_procurement.sql`
 
 | Column | MySQL Definition |
@@ -888,7 +953,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `goods_receipt_id` → `goods_receipts`.`id` (`fk_qi_receipt`), `goods_receipt_item_id` → `goods_receipt_items`.`id` (`fk_qi_receipt_item`), `inspector_user_id` → `users`.`id` (`fk_qi_inspector`)
 
-## 45. `warehouse_stock`
+## 48. `warehouse_stock`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -911,7 +976,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `warehouse_id` → `warehouses`.`id` (`fk_ws_warehouse`), `product_id` → `products`.`id` (`fk_ws_product`), `product_variant_id` → `product_variants`.`id` (`fk_ws_variant`), `seller_profile_id` → `seller_profiles`.`id` (`fk_ws_seller`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_ws_dealer`), `seller_listing_id` → `seller_product_listings`.`id` (`fk_ws_seller_listing`)
 
-## 46. `inventory_transactions`
+## 49. `inventory_transactions`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -935,7 +1000,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `warehouse_stock_id` → `warehouse_stock`.`id` (`fk_inv_tx_stock`), `warehouse_id` → `warehouses`.`id` (`fk_inv_tx_warehouse`), `product_variant_id` → `product_variants`.`id` (`fk_inv_tx_variant`), `goods_receipt_item_id` → `goods_receipt_items`.`id` (`fk_inv_tx_gr_item`), `actor_user_id` → `users`.`id` (`fk_inv_tx_actor`)
 
-## 47. `carts`
+## 50. `carts`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -951,7 +1016,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_carts_user`)
 
-## 48. `cart_items`
+## 51. `cart_items`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -968,7 +1033,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `cart_id` → `carts`.`id` (`fk_ci_cart`), `seller_listing_id` → `seller_product_listings`.`id` (`fk_ci_listing`), `product_variant_id` → `product_variants`.`id` (`fk_ci_variant`)
 
-## 49. `wishlists`
+## 52. `wishlists`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -983,7 +1048,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_wishlists_user`)
 
-## 50. `wishlist_items`
+## 53. `wishlist_items`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -997,7 +1062,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wishlist_id` → `wishlists`.`id` (`fk_wi_wishlist`), `product_id` → `products`.`id` (`fk_wi_product`), `product_variant_id` → `product_variants`.`id` (`fk_wi_variant`), `seller_listing_id` → `seller_product_listings`.`id` (`fk_wi_listing`)
 
-## 51. `retail_orders`
+## 54. `retail_orders`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -1025,7 +1090,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `customer_user_id` → `users`.`id` (`fk_ro_customer`), `shipping_address_id` → `user_addresses`.`id` (`fk_ro_shipping_addr`)
 
-## 52. `seller_fulfilment_groups`
+## 55. `seller_fulfilment_groups`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -1048,7 +1113,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `retail_order_id` → `retail_orders`.`id` (`fk_sfg_order`), `seller_profile_id` → `seller_profiles`.`id` (`fk_sfg_seller`), `warehouse_id` → `warehouses`.`id` (`fk_sfg_warehouse`)
 
-## 53. `retail_order_items`
+## 56. `retail_order_items`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -1072,7 +1137,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `retail_order_id` → `retail_orders`.`id` (`fk_roi_order`), `seller_fulfilment_group_id` → `seller_fulfilment_groups`.`id` (`fk_roi_group`), `seller_listing_id` → `seller_product_listings`.`id` (`fk_roi_listing`), `product_id` → `products`.`id` (`fk_roi_product`), `product_variant_id` → `product_variants`.`id` (`fk_roi_variant`)
 
-## 54. `retail_order_status_history`
+## 57. `retail_order_status_history`
 *Defined in:* `sql/05_inventory_and_retail.sql`
 
 | Column | MySQL Definition |
@@ -1089,7 +1154,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `retail_order_id` → `retail_orders`.`id` (`fk_rosh_order`), `seller_fulfilment_group_id` → `seller_fulfilment_groups`.`id` (`fk_rosh_group`), `actor_user_id` → `users`.`id` (`fk_rosh_actor`)
 
-## 55. `dealer_wholesale_listings`
+## 58. `dealer_wholesale_listings`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1114,7 +1179,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_profile_id` → `dealer_profiles`.`id` (`fk_dwl_dealer`), `product_id` → `products`.`id` (`fk_dwl_product`), `product_variant_id` → `product_variants`.`id` (`fk_dwl_variant`), `warehouse_id` → `warehouses`.`id` (`fk_dwl_warehouse`), `warehouse_stock_id` → `warehouse_stock`.`id` (`fk_dwl_stock`)
 
-## 56. `wholesale_buyer_profiles`
+## 59. `wholesale_buyer_profiles`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1135,7 +1200,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_wbp_user`)
 
-## 57. `wholesale_price_tiers`
+## 60. `wholesale_price_tiers`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1152,7 +1217,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_wholesale_listing_id` → `dealer_wholesale_listings`.`id` (`fk_wpt_listing`)
 
-## 58. `wholesale_carts`
+## 61. `wholesale_carts`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1168,7 +1233,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_buyer_profile_id` → `wholesale_buyer_profiles`.`id` (`fk_wc_buyer`), `user_id` → `users`.`id` (`fk_wc_user`)
 
-## 59. `wholesale_cart_items`
+## 62. `wholesale_cart_items`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1185,7 +1250,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_cart_id` → `wholesale_carts`.`id` (`fk_wci_cart`), `dealer_wholesale_listing_id` → `dealer_wholesale_listings`.`id` (`fk_wci_listing`), `product_variant_id` → `product_variants`.`id` (`fk_wci_variant`)
 
-## 60. `wholesale_rfqs`
+## 63. `wholesale_rfqs`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1206,7 +1271,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_buyer_profile_id` → `wholesale_buyer_profiles`.`id` (`fk_wrfq_buyer`), `buyer_user_id` → `users`.`id` (`fk_wrfq_user`), `delivery_address_id` → `user_addresses`.`id` (`fk_wrfq_delivery_addr`)
 
-## 61. `wholesale_rfq_items`
+## 64. `wholesale_rfq_items`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1225,7 +1290,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_rfq_id` → `wholesale_rfqs`.`id` (`fk_wrfqi_rfq`), `category_id` → `categories`.`id` (`fk_wrfqi_category`), `product_id` → `products`.`id` (`fk_wrfqi_product`), `product_variant_id` → `product_variants`.`id` (`fk_wrfqi_variant`)
 
-## 62. `rfq_dealer_invitations`
+## 65. `rfq_dealer_invitations`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1240,7 +1305,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_rfq_id` → `wholesale_rfqs`.`id` (`fk_rdi_rfq`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_rdi_dealer`), `invited_by_user_id` → `users`.`id` (`fk_rdi_invited_by`)
 
-## 63. `dealer_quotes`
+## 66. `dealer_quotes`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1267,7 +1332,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_rfq_id` → `wholesale_rfqs`.`id` (`fk_dq_rfq`), `rfq_invitation_id` → `rfq_dealer_invitations`.`id` (`fk_dq_invitation`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_dq_dealer`), `submitted_by_user_id` → `users`.`id` (`fk_dq_submitted_by`)
 
-## 64. `dealer_quote_items`
+## 67. `dealer_quote_items`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1287,7 +1352,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_quote_id` → `dealer_quotes`.`id` (`fk_dqi_quote`), `wholesale_rfq_item_id` → `wholesale_rfq_items`.`id` (`fk_dqi_rfq_item`), `dealer_wholesale_listing_id` → `dealer_wholesale_listings`.`id` (`fk_dqi_listing`), `product_variant_id` → `product_variants`.`id` (`fk_dqi_variant`)
 
-## 65. `wholesale_orders`
+## 68. `wholesale_orders`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1317,7 +1382,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_buyer_profile_id` → `wholesale_buyer_profiles`.`id` (`fk_wo_buyer_profile`), `buyer_user_id` → `users`.`id` (`fk_wo_buyer_user`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_wo_dealer`), `wholesale_rfq_id` → `wholesale_rfqs`.`id` (`fk_wo_rfq`), `dealer_quote_id` → `dealer_quotes`.`id` (`fk_wo_quote`), `shipping_address_id` → `user_addresses`.`id` (`fk_wo_shipping_addr`)
 
-## 66. `wholesale_order_items`
+## 69. `wholesale_order_items`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1340,7 +1405,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_order_id` → `wholesale_orders`.`id` (`fk_woi_order`), `dealer_wholesale_listing_id` → `dealer_wholesale_listings`.`id` (`fk_woi_listing`), `dealer_quote_item_id` → `dealer_quote_items`.`id` (`fk_woi_quote_item`), `product_id` → `products`.`id` (`fk_woi_product`), `product_variant_id` → `product_variants`.`id` (`fk_woi_variant`)
 
-## 67. `wholesale_order_status_history`
+## 70. `wholesale_order_status_history`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1356,7 +1421,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `wholesale_order_id` → `wholesale_orders`.`id` (`fk_wosh_order`), `actor_user_id` → `users`.`id` (`fk_wosh_actor`)
 
-## 68. `stock_reservations`
+## 71. `stock_reservations`
 *Defined in:* `sql/06_wholesale_marketplace.sql`
 
 | Column | MySQL Definition |
@@ -1376,7 +1441,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `warehouse_stock_id` → `warehouse_stock`.`id` (`fk_sr_stock`), `retail_order_id` → `retail_orders`.`id` (`fk_sr_retail_order`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_sr_wholesale_order`), `reserved_by_user_id` → `users`.`id` (`fk_sr_user`)
 
-## 69. `payments`
+## 72. `payments`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1408,7 +1473,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `payer_user_id` → `users`.`id` (`fk_payments_payer`), `retail_order_id` → `retail_orders`.`id` (`fk_payments_retail_order`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_payments_wholesale_order`), `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_payments_supplier_po`)
 
-## 70. `payment_attempts`
+## 73. `payment_attempts`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1431,7 +1496,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `payment_id` → `payments`.`id` (`fk_pa_payment`), `payer_user_id` → `users`.`id` (`fk_pa_payer`)
 
-## 71. `payment_status_history`
+## 74. `payment_status_history`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1448,7 +1513,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `payment_id` → `payments`.`id` (`fk_psh_payment`), `actor_user_id` → `users`.`id` (`fk_psh_actor`)
 
-## 72. `payment_webhook_events`
+## 75. `payment_webhook_events`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1469,7 +1534,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `payment_id` → `payments`.`id` (`fk_pwe_payment`)
 
-## 73. `refunds`
+## 76. `refunds`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1493,7 +1558,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `payment_id` → `payments`.`id` (`fk_refunds_payment`), `initiated_by_user_id` → `users`.`id` (`fk_refunds_initiated_by`), `approved_by_user_id` → `users`.`id` (`fk_refunds_approved_by`)
 
-## 74. `payouts`
+## 77. `payouts`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1521,7 +1586,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `recipient_user_id` → `users`.`id` (`fk_payouts_user`), `seller_profile_id` → `seller_profiles`.`id` (`fk_payouts_seller`), `dealer_profile_id` → `dealer_profiles`.`id` (`fk_payouts_dealer`), `supplier_profile_id` → `supplier_profiles`.`id` (`fk_payouts_supplier`), `retail_order_id` → `retail_orders`.`id` (`fk_payouts_retail_order`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_payouts_wholesale_order`), `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_payouts_supplier_po`)
 
-## 75. `shipments`
+## 78. `shipments`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1544,7 +1609,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `retail_order_id` → `retail_orders`.`id` (`fk_shipments_retail`), `seller_fulfilment_group_id` → `seller_fulfilment_groups`.`id` (`fk_shipments_sfg`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_shipments_wholesale`), `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_shipments_po`), `origin_warehouse_id` → `warehouses`.`id` (`fk_shipments_warehouse`)
 
-## 76. `shipment_items`
+## 79. `shipment_items`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1559,7 +1624,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `shipment_id` → `shipments`.`id` (`fk_si_shipment`), `retail_order_item_id` → `retail_order_items`.`id` (`fk_si_retail_item`), `wholesale_order_item_id` → `wholesale_order_items`.`id` (`fk_si_wholesale_item`), `supplier_po_item_id` → `supplier_purchase_order_items`.`id` (`fk_si_po_item`)
 
-## 77. `tracking_events`
+## 80. `tracking_events`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1575,7 +1640,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `shipment_id` → `shipments`.`id` (`fk_te_shipment`)
 
-## 78. `return_requests`
+## 81. `return_requests`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1598,7 +1663,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `requested_by_user_id` → `users`.`id` (`fk_rr_user`), `retail_order_id` → `retail_orders`.`id` (`fk_rr_retail`), `seller_fulfilment_group_id` → `seller_fulfilment_groups`.`id` (`fk_rr_sfg`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_rr_wholesale`), `payment_id` → `payments`.`id` (`fk_rr_payment`)
 
-## 79. `return_status_history`
+## 82. `return_status_history`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1613,7 +1678,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `return_request_id` → `return_requests`.`id` (`fk_rsh_return`), `actor_user_id` → `users`.`id` (`fk_rsh_actor`)
 
-## 80. `return_items`
+## 83. `return_items`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1629,7 +1694,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `return_request_id` → `return_requests`.`id` (`fk_ri_return`), `retail_order_item_id` → `retail_order_items`.`id` (`fk_ri_retail_item`), `wholesale_order_item_id` → `wholesale_order_items`.`id` (`fk_ri_wholesale_item`)
 
-## 81. `product_reviews`
+## 84. `product_reviews`
 *Defined in:* `sql/07_payments_shipping_returns_reviews.sql`
 
 | Column | MySQL Definition |
@@ -1652,7 +1717,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `product_id` → `products`.`id` (`fk_pr_product`), `product_variant_id` → `product_variants`.`id` (`fk_pr_variant`), `seller_profile_id` → `seller_profiles`.`id` (`fk_pr_seller`), `reviewer_user_id` → `users`.`id` (`fk_pr_reviewer`), `retail_order_item_id` → `retail_order_items`.`id` (`fk_pr_order_item`)
 
-## 82. `coupons`
+## 85. `coupons`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1677,7 +1742,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `created_by_user_id` → `users`.`id` (`fk_coupons_created_by`)
 
-## 83. `coupon_usage`
+## 86. `coupon_usage`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1693,7 +1758,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `coupon_id` → `coupons`.`id` (`fk_cu_coupon`), `user_id` → `users`.`id` (`fk_cu_user`), `retail_order_id` → `retail_orders`.`id` (`fk_cu_retail_order`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_cu_wholesale_order`)
 
-## 84. `promotions`
+## 87. `promotions`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1714,7 +1779,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `created_by_user_id` → `users`.`id` (`fk_promotions_created_by`)
 
-## 85. `promotion_products`
+## 88. `promotion_products`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1726,7 +1791,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `promotion_id` → `promotions`.`id` (`fk_pp_promo`), `product_id` → `products`.`id` (`fk_pp_product`)
 
-## 86. `promotion_categories`
+## 89. `promotion_categories`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1738,7 +1803,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `promotion_id` → `promotions`.`id` (`fk_pc_promo`), `category_id` → `categories`.`id` (`fk_pc_category`)
 
-## 87. `notifications`
+## 90. `notifications`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1757,7 +1822,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `user_id` → `users`.`id` (`fk_notif_user`)
 
-## 88. `support_tickets`
+## 91. `support_tickets`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1779,7 +1844,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `requester_user_id` → `users`.`id` (`fk_st_requester`), `assigned_admin_profile_id` → `admin_profiles`.`id` (`fk_st_admin`), `retail_order_id` → `retail_orders`.`id` (`fk_st_retail`), `wholesale_order_id` → `wholesale_orders`.`id` (`fk_st_wholesale`), `supplier_purchase_order_id` → `supplier_purchase_orders`.`id` (`fk_st_po`)
 
-## 89. `support_ticket_messages`
+## 92. `support_ticket_messages`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1794,7 +1859,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `support_ticket_id` → `support_tickets`.`id` (`fk_stm_ticket`), `sender_user_id` → `users`.`id` (`fk_stm_sender`)
 
-## 90. `audit_logs`
+## 93. `audit_logs`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1815,7 +1880,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `actor_user_id` → `users`.`id` (`fk_audit_actor`)
 
-## 91. `admin_action_requests`
+## 94. `admin_action_requests`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1837,7 +1902,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `requested_by_user_id` → `users`.`id` (`fk_aar_requested_by`), `reviewed_by_user_id` → `users`.`id` (`fk_aar_reviewed_by`)
 
-## 92. `platform_settings`
+## 95. `platform_settings`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1854,7 +1919,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `updated_by_user_id` → `users`.`id` (`fk_ps_updated_by`)
 
-## 93. `announcements`
+## 96. `announcements`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1873,7 +1938,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `created_by_user_id` → `users`.`id` (`fk_ann_created_by`)
 
-## 94. `product_approval_history`
+## 97. `product_approval_history`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1890,7 +1955,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `product_id` → `products`.`id` (`fk_pah_product`), `seller_listing_id` → `seller_product_listings`.`id` (`fk_pah_seller_listing`), `dealer_wholesale_listing_id` → `dealer_wholesale_listings`.`id` (`fk_pah_dealer_listing`), `actor_user_id` → `users`.`id` (`fk_pah_actor`)
 
-## 95. `dealer_status_history`
+## 98. `dealer_status_history`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |
@@ -1906,7 +1971,7 @@ All tables use `ENGINE=InnoDB`, `DEFAULT CHARSET=utf8mb4`, `COLLATE=utf8mb4_0900
 
 **Foreign Keys:** `dealer_profile_id` → `dealer_profiles`.`id` (`fk_dsh_dealer`), `actor_user_id` → `users`.`id` (`fk_dsh_actor`)
 
-## 96. `supplier_status_history`
+## 99. `supplier_status_history`
 *Defined in:* `sql/08_promotions_notifications_and_admin_operations.sql`
 
 | Column | MySQL Definition |

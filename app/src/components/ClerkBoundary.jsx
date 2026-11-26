@@ -429,14 +429,15 @@ function ClerkBridgeInner({ children }) {
           lastDbSyncKeyRef.current = syncKey;
           syncedAccountIdsRef.current.add(clerkAccount.id);
 
-          const dbIsArtisan = Boolean(res?.is_artisan) || requestedRole === 'artisan';
+          const dbAccountType = res?.account_type || (res?.is_artisan ? 'artisan' : 'buyer');
+          const dbHasArtisanRole = dbAccountType === 'artisan';
           const dbArtisanVerified = Boolean(res?.artisan_verified);
           const dbVerificationStatus =
             res?.seller_profile?.verification_status || 'UNVERIFIED';
-          const effectiveRole = dbIsArtisan ? 'artisan' : 'buyer';
+          const effectiveRole = dbAccountType === 'artisan' ? 'artisan' : 'buyer';
           saveUserRole(clerkAccount.id, effectiveRole);
 
-          if (dbIsArtisan) {
+          if (dbHasArtisanRole || effectiveRole === 'artisan') {
             const existingLocal = readClerkArtisanProfile(clerkAccount.id) || {};
             const sp = res?.seller_profile || null;
             const mergedArtisan = {
@@ -470,7 +471,7 @@ function ClerkBridgeInner({ children }) {
             {
               ...refreshed.payload,
               role: effectiveRole,
-              artisanVerified: dbIsArtisan ? dbArtisanVerified : false,
+              artisanVerified: dbHasArtisanRole ? dbArtisanVerified : false,
               verificationStatus: dbVerificationStatus,
               sellerProfile: res?.seller_profile || null,
               sellerProfileId: res?.seller_profile?.seller_profile_id || null,
@@ -483,7 +484,7 @@ function ClerkBridgeInner({ children }) {
             { silent: true }
           );
 
-          if (!dbIsArtisan) {
+          if (effectiveRole === 'buyer') {
             setBuyerProfile({
               ...(buyerProfile || {}),
               firstName: syncedMeta.first,
@@ -501,18 +502,15 @@ function ClerkBridgeInner({ children }) {
           const currentPath = getCurrentAppPath();
           const currentSearch = window.location.search || '';
           const isOAuthReturn = currentSearch.includes('oauth_return=1');
-          const isEntryOrAuth =
-            currentPath === '/' ||
-            currentPath === '/index.html' ||
-            currentPath === '/login' ||
-            currentPath === '/sso-callback';
           const isSellerPath = currentPath === '/seller';
 
-          if (dbIsArtisan && !dbArtisanVerified) {
-            if (isEntryOrAuth || isSellerPath) {
+          if (effectiveRole === 'artisan' && !dbArtisanVerified) {
+            if (currentPath === '/login' || currentPath === '/sso-callback' || isSellerPath) {
               navigate('/auth?tab=verify', { replace: true });
             }
-          } else if (dbIsArtisan && dbArtisanVerified) {
+          } else if (isSellerPath && !dbArtisanVerified) {
+            navigate('/auth?tab=verify', { replace: true });
+          } else if (effectiveRole === 'artisan' && dbArtisanVerified) {
             if (
               currentPath === '/login' ||
               currentPath === '/sso-callback' ||
@@ -520,7 +518,7 @@ function ClerkBridgeInner({ children }) {
             ) {
               navigate('/seller', { replace: true });
             }
-          } else if (!dbIsArtisan && (currentPath === '/login' || currentPath === '/sso-callback')) {
+          } else if (effectiveRole === 'buyer' && (currentPath === '/login' || currentPath === '/sso-callback')) {
             navigate(sanitizeBuyerDest(savedNext), { replace: true });
           }
           if (import.meta.env.DEV) {
@@ -557,7 +555,7 @@ function ClerkBridgeInner({ children }) {
             navigate(registerDest, { replace: true });
             return null;
           }
-          if (err?.status === 409 && authMode === 'signup') {
+          if (err?.status === 409 && authMode === 'signup' && !String(err?.message || '').includes('_accounts')) {
             conflictSigningOutRef.current = true;
             clearPendingClerkRole();
             clearPendingClerkAuthMode();
@@ -666,8 +664,8 @@ function ClerkBridgeInner({ children }) {
     const metaRole = clerkUser.publicMetadata?.role;
     const resolvedRole =
       pendingRole ||
-      (metaRole === 'artisan' || metaRole === 'buyer' ? metaRole : null) ||
       roleMap[clerkUser.id] ||
+      (metaRole === 'artisan' || metaRole === 'buyer' ? metaRole : null) ||
       'buyer';
 
     saveUserRole(clerkUser.id, resolvedRole);
@@ -713,8 +711,6 @@ function ClerkBridgeInner({ children }) {
     } else if (resolvedRole === 'artisan' && !synced.artisanVerified) {
       const currentPath = getCurrentAppPath();
       if (
-        currentPath === '/' ||
-        currentPath === '/index.html' ||
         currentPath === '/login' ||
         currentPath === '/sso-callback' ||
         currentPath === '/seller'
@@ -748,9 +744,8 @@ function ClerkBridgeInner({ children }) {
           if (!res) {
             return { redirected: false };
           }
-          const dbIsArtisan = Boolean(res?.is_artisan) || normalizedRole === 'artisan';
           const dbVerified = Boolean(res?.artisan_verified);
-          if (dbIsArtisan) {
+          if (normalizedRole === 'artisan') {
             return {
               alreadySignedIn: true,
               destination: dbVerified ? '/seller' : '/auth?tab=verify',
@@ -890,11 +885,27 @@ function ClerkBridgeInner({ children }) {
       }
 
       // 1. Live HunarLink DB check BEFORE calling Clerk:
-      //    - Existing DB user/artisan CANNOT register (must log in).
+      //    - Strict 3-table separation (`buyer_accounts`, `artisan_accounts`, `admin_accounts`):
+      //      an email registered under a different account type cannot sign in or register here.
+      //    - Existing DB user/artisan CANNOT register again (must log in).
       //    - Non-existent user on Sign In is directed cleanly to Register.
       if (canAttemptBackend()) {
         try {
           const acct = await checkAuthAccount(cleaned);
+          if (acct?.exists && acct.account_type && acct.account_type !== normalizedRole) {
+            const ownerLabel =
+              acct.account_type === 'admin'
+                ? 'Administrator'
+                : acct.account_type === 'artisan'
+                  ? 'Artisan'
+                  : 'Buyer';
+            const reqLabel = normalizedRole === 'artisan' ? 'Artisan' : 'Buyer';
+            const mismatchErr = new Error(
+              `This email is registered as a ${ownerLabel} account (in \`${acct.account_table || `${acct.account_type}_accounts`}\`) and cannot be used as a ${reqLabel} account.`
+            );
+            mismatchErr.code = 'ROLE_MISMATCH';
+            throw mismatchErr;
+          }
           if (normalizedMode === 'signup' && acct?.exists) {
             const dupErr = new Error(
               'This email already exists in HunarLink. You cannot register again — please Sign In instead.'
@@ -910,7 +921,11 @@ function ClerkBridgeInner({ children }) {
             throw missErr;
           }
         } catch (checkErr) {
-          if (checkErr?.code === 'ALREADY_REGISTERED' || checkErr?.code === 'NOT_REGISTERED') {
+          if (
+            checkErr?.code === 'ALREADY_REGISTERED' ||
+            checkErr?.code === 'NOT_REGISTERED' ||
+            checkErr?.code === 'ROLE_MISMATCH'
+          ) {
             clearPendingClerkRole();
             clearPendingClerkAuthMode();
             throw checkErr;
@@ -1099,6 +1114,20 @@ function ClerkBridgeInner({ children }) {
       if (canAttemptBackend()) {
         try {
           const acct = await checkAuthAccount(cleaned);
+          if (acct?.exists && acct.account_type && acct.account_type !== normalizedRole) {
+            const ownerLabel =
+              acct.account_type === 'admin'
+                ? 'Administrator'
+                : acct.account_type === 'artisan'
+                  ? 'Artisan'
+                  : 'Buyer';
+            const reqLabel = normalizedRole === 'artisan' ? 'Artisan' : 'Buyer';
+            const mismatchErr = new Error(
+              `This email is registered as a ${ownerLabel} account (in \`${acct.account_table || `${acct.account_type}_accounts`}\`) and cannot be used as a ${reqLabel} account.`
+            );
+            mismatchErr.code = 'ROLE_MISMATCH';
+            throw mismatchErr;
+          }
           if (acct && acct.exists === false) {
             const missErr = new Error(
               'No HunarLink account exists for this email yet. Please switch to Register to create one.'
@@ -1107,7 +1136,7 @@ function ClerkBridgeInner({ children }) {
             throw missErr;
           }
         } catch (checkErr) {
-          if (checkErr?.code === 'NOT_REGISTERED') {
+          if (checkErr?.code === 'NOT_REGISTERED' || checkErr?.code === 'ROLE_MISMATCH') {
             clearPendingClerkRole();
             clearPendingClerkAuthMode();
             throw checkErr;

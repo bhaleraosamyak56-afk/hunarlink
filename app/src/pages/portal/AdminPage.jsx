@@ -428,12 +428,16 @@ export default function AdminPage() {
           }}
         >
           <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
-            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>AUTHORIZED ADMINS</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.admins ?? 0}</div>
+            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>BUYERS (<code>buyer_accounts</code>)</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.buyers ?? 0}</div>
           </div>
           <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
-            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>USERS IN DB</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.users ?? 0}</div>
+            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>ARTISANS (<code>artisan_accounts</code>)</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.artisans ?? ov.counts?.sellers ?? 0}</div>
+          </div>
+          <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
+            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>ADMINS (<code>admin_accounts</code>)</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.admins ?? 0}</div>
           </div>
           <div
             className="fk-panel-card"
@@ -453,10 +457,6 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
-            <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>ARTISAN PROFILES</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.sellers ?? 0}</div>
-          </div>
-          <div className="fk-panel-card" style={{ padding: '1rem 1.25rem' }}>
             <div style={{ fontSize: '0.78rem', opacity: 0.7 }}>ACTIVE LISTINGS</div>
             <div style={{ fontSize: '1.75rem', fontWeight: 700 }}>{ov.counts?.listings ?? 0}</div>
           </div>
@@ -467,65 +467,107 @@ export default function AdminPage() {
         </div>
 
         {tab === 'overview' && (
-          <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
-            <h2 style={{ marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <IconUsers size={18} /> Registered Users (Live DB)
-            </h2>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-                    <th style={{ padding: '0.55rem' }}>Name</th>
-                    <th style={{ padding: '0.55rem' }}>Email</th>
-                    <th style={{ padding: '0.55rem' }}>Identity ID</th>
-                    <th style={{ padding: '0.55rem' }}>Onboarding Stage</th>
-                    <th style={{ padding: '0.55rem' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(ov.users || []).map((u) => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                      <td style={{ padding: '0.55rem', fontWeight: 600 }}>{u.name}</td>
-                      <td style={{ padding: '0.55rem' }}>{u.email}</td>
-                      <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>{u.clerk_user_id}</td>
-                      <td style={{ padding: '0.55rem', fontSize: '0.78rem' }}>
-                        {u.onboarding_state === 'ADMIN' ? (
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              padding: '0.16rem 0.52rem',
-                              borderRadius: '999px',
-                              background: 'rgba(20, 62, 48, 0.12)',
-                              color: '#143e30',
-                              fontWeight: 700,
-                              letterSpacing: '0.03em'
-                            }}
-                          >
-                            ADMIN
-                          </span>
-                        ) : u.onboarding_state === 'STEP_1_ONLY_NO_CARD_YET' ? (
-                          <span style={{ color: '#8a5300', fontWeight: 600 }}>
-                            Step 1 Signed In (Awaiting Card Upload on /auth?tab=verify)
-                          </span>
-                        ) : u.onboarding_state === 'SUBMITTED' ? (
-                          <span style={{ color: '#a34121', fontWeight: 600 }}>
-                            Pending Admin Review
-                          </span>
-                        ) : u.onboarding_state === 'APPROVED' ? (
-                          <span style={{ color: '#1b6d3f', fontWeight: 600 }}>
-                            Verified Artisan
-                          </span>
-                        ) : (
-                          <span style={{ opacity: 0.7 }}>{u.onboarding_state || 'BUYER'}</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '0.55rem' }}>{u.account_status}</td>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
+              <h2 style={{ marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <IconUsers size={18} /> Regular Buyers Table (<code>buyer_accounts</code> — {(ov.buyers || []).length})
+              </h2>
+              {(ov.buyers || []).length === 0 ? (
+                <p style={{ opacity: 0.7, fontSize: '0.86rem' }}>No regular buyer accounts registered yet.</p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                        <th style={{ padding: '0.55rem' }}>Buyer Name</th>
+                        <th style={{ padding: '0.55rem' }}>Email</th>
+                        <th style={{ padding: '0.55rem' }}>Phone</th>
+                        <th style={{ padding: '0.55rem' }}>Clerk ID</th>
+                        <th style={{ padding: '0.55rem' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(ov.buyers || []).map((b) => (
+                        <tr key={b.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                          <td style={{ padding: '0.55rem', fontWeight: 600 }}>{b.name}</td>
+                          <td style={{ padding: '0.55rem' }}>{b.email}</td>
+                          <td style={{ padding: '0.55rem' }}>{b.phone || '—'}</td>
+                          <td style={{ padding: '0.55rem', fontFamily: 'monospace', fontSize: '0.78rem' }}>{b.clerk_user_id}</td>
+                          <td style={{ padding: '0.55rem' }}>{b.account_status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
+              <h2 style={{ marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <IconPalette size={18} /> Artisans Table (<code>artisan_accounts</code> — {(ov.artisans || []).length})
+              </h2>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                      <th style={{ padding: '0.55rem' }}>Artisan Name</th>
+                      <th style={{ padding: '0.55rem' }}>Email</th>
+                      <th style={{ padding: '0.55rem' }}>Workshop</th>
+                      <th style={{ padding: '0.55rem' }}>Verification Stage</th>
+                      <th style={{ padding: '0.55rem' }}>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                  </thead>
+                  <tbody>
+                    {(ov.artisans || []).map((a) => (
+                      <tr key={a.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                        <td style={{ padding: '0.55rem', fontWeight: 600 }}>{a.name}</td>
+                        <td style={{ padding: '0.55rem' }}>{a.email}</td>
+                        <td style={{ padding: '0.55rem' }}>{a.store_name || '—'}</td>
+                        <td style={{ padding: '0.55rem', fontSize: '0.78rem' }}>
+                          {a.verification_status === 'APPROVED' ? (
+                            <span style={{ color: '#1b6d3f', fontWeight: 600 }}>Verified Artisan</span>
+                          ) : a.verification_status === 'SUBMITTED' ? (
+                            <span style={{ color: '#a34121', fontWeight: 600 }}>Pending Admin Review</span>
+                          ) : (
+                            <span style={{ color: '#8a5300', fontWeight: 600 }}>Awaiting Card Upload</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.55rem' }}>{a.account_status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="fk-panel-card" style={{ padding: '1.25rem' }}>
+              <h2 style={{ marginBottom: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <IconShield size={18} /> Administrators Table (<code>admin_accounts</code> — {(ov.admins_table || []).length})
+              </h2>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                      <th style={{ padding: '0.55rem' }}>Admin Name</th>
+                      <th style={{ padding: '0.55rem' }}>Email</th>
+                      <th style={{ padding: '0.55rem' }}>Department</th>
+                      <th style={{ padding: '0.55rem' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(ov.admins_table || []).map((ad) => (
+                      <tr key={ad.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                        <td style={{ padding: '0.55rem', fontWeight: 600 }}>{ad.name}</td>
+                        <td style={{ padding: '0.55rem' }}>{ad.email}</td>
+                        <td style={{ padding: '0.55rem' }}>{ad.department || 'Platform Administration'}</td>
+                        <td style={{ padding: '0.55rem' }}>{ad.is_active ? 'ACTIVE' : 'REVOKED'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         )}
 
         {tab === 'applications' && (

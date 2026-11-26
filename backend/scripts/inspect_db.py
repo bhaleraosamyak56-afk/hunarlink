@@ -15,10 +15,14 @@ if str(BACKEND_ROOT) not in sys.path:
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import backfill_all_existing_users, ensure_separate_account_tables
 from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.models.core_models import (
+    AdminAccount,
     AdminCredential,
+    ArtisanAccount,
+    BuyerAccount,
     Category,
     Payment,
     PlatformRole,
@@ -47,28 +51,42 @@ def main() -> None:
         print(f"MySQL target: {settings.mysql_host}:{settings.mysql_port}/{settings.mysql_database}")
     print("=" * 72)
 
+    ensure_separate_account_tables(engine)
     with Session(engine) as db:
-        users = db.scalars(select(User).order_by(User.created_at.desc())).all()
-        print(f"\nUSERS ({len(users)} total):")
-        if not users:
-            print("  (no users yet)")
-        for u in users:
-            roles = db.scalars(
-                select(PlatformRole.code)
-                .join(
-                    UserRoleAssignment,
-                    UserRoleAssignment.platform_role_id == PlatformRole.id,
-                )
-                .where(
-                    UserRoleAssignment.user_id == u.id,
-                    UserRoleAssignment.assignment_status == "ACTIVE",
-                )
-            ).all()
-            role_str = ", ".join(sorted(set(roles))) or "NO_ROLE"
+        migrated = backfill_all_existing_users(db)
+        if any(migrated.values()):
+            db.commit()
+
+        buyers = db.scalars(select(BuyerAccount).order_by(BuyerAccount.created_at.desc())).all()
+        print(f"\n1. BUYER ACCOUNTS (`buyer_accounts` — {len(buyers)} total):")
+        if not buyers:
+            print("  (no regular buyers yet)")
+        for b in buyers:
             print(
-                f"  • {u.display_name or u.first_name} <{u.email}>\n"
-                f"      id={u.id} | clerk_id={u.clerk_user_id} | status={u.account_status}\n"
-                f"      roles=[{role_str}] | created={u.created_at}"
+                f"  • {b.display_name or b.first_name} <{b.email}>\n"
+                f"      id={b.id} | clerk_id={b.clerk_user_id} | status={b.account_status} | created={b.created_at}"
+            )
+
+        artisans = db.scalars(select(ArtisanAccount).order_by(ArtisanAccount.created_at.desc())).all()
+        print(f"\n2. ARTISAN ACCOUNTS (`artisan_accounts` — {len(artisans)} total):")
+        if not artisans:
+            print("  (no artisans yet)")
+        for a in artisans[:20]:
+            print(
+                f"  • {a.display_name or a.first_name} <{a.email}> | workshop={a.store_name or '-'}\n"
+                f"      id={a.id} | verify={a.verification_status} | status={a.account_status}"
+            )
+        if len(artisans) > 20:
+            print(f"  ... and {len(artisans) - 20} more verified artisans")
+
+        admins = db.scalars(select(AdminAccount).order_by(AdminAccount.created_at.asc())).all()
+        print(f"\n3. ADMIN ACCOUNTS (`admin_accounts` — {len(admins)} total):")
+        if not admins:
+            print("  (no admins provisioned yet)")
+        for ad in admins:
+            print(
+                f"  • {ad.display_name or ad.first_name} <{ad.email}> | dept={ad.department or '-'}\n"
+                f"      id={ad.id} | active={ad.is_active} | status={ad.account_status}"
             )
 
         sellers = db.scalars(select(SellerProfile).order_by(SellerProfile.created_at.desc())).all()

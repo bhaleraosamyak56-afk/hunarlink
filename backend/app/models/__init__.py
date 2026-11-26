@@ -1,12 +1,16 @@
 """SQLAlchemy 2.x models aligned with HunarLink MySQL 8.4 LTS schema."""
 from app.models.base import Base, UUIDChar, new_uuid, utcnow
 from app.models.core_models import (
+    AdminAccount,
+    AdminCredential,
     AdminPermission,
     AdminProfile,
     AdminRole,
     AdminRolePermission,
     AdminUserRole,
+    ArtisanAccount,
     AuditLog,
+    BuyerAccount,
     Category,
     DealerAssignment,
     DealerProfile,
@@ -74,6 +78,10 @@ __all__ = [
     "new_uuid",
     "utcnow",
     "User",
+    "BuyerAccount",
+    "ArtisanAccount",
+    "AdminAccount",
+    "AdminCredential",
     "PlatformRole",
     "UserRoleAssignment",
     "AdminProfile",
