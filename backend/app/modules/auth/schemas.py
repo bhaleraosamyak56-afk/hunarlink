@@ -37,6 +37,8 @@ class AccountCheckRequest(BaseModel):
 
 class AccountCheckResponse(BaseModel):
     exists: bool
+    account_type: Literal["buyer", "artisan", "admin"] | None = None
+    account_table: str | None = None
     roles: list[str] = Field(default_factory=list)
     is_artisan: bool = False
     artisan_verified: bool = False
@@ -63,6 +65,8 @@ class SellerProfileBrief(BaseModel):
 class AuthUserProfileResponse(BaseModel):
     synced: bool = True
     is_new_user: bool = False
+    account_type: Literal["buyer", "artisan", "admin"] = "buyer"
+    account_table: str = "buyer_accounts"
     user_id: str
     clerk_user_id: str
     email: str

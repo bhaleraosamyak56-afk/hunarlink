@@ -42,6 +42,87 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     preferred_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)
     account_status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class BuyerAccount(Base):
+    """Dedicated database table strictly for Regular Buyers (retail collectors).
+
+    Separated from `artisan_accounts` and `admin_accounts` so Buyer, Artisan,
+    and Admin records each reside in their own dedicated identity table, with
+    strict 1-account-type-per-email isolation.
+    """
+
+    __tablename__ = "buyer_accounts"
+
+    id: Mapped[str] = mapped_column(
+        UUIDChar(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, default=new_uuid
+    )
+    clerk_user_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    preferred_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)
+    account_status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class ArtisanAccount(Base):
+    """Dedicated database table strictly for Kashmiri Artisans (workshops & guilds).
+
+    Separated from `buyer_accounts` and `admin_accounts` so Artisan onboarding,
+    GI/Artisan Card verification, and workshop status never mix with regular Buyers.
+    """
+
+    __tablename__ = "artisan_accounts"
+
+    id: Mapped[str] = mapped_column(
+        UUIDChar(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, default=new_uuid
+    )
+    clerk_user_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    store_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    craft_specialty: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    workshop_district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(32), default="UNVERIFIED", nullable=False)
+    account_status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class AdminAccount(Base):
+    """Dedicated database table strictly for DB-provisioned Platform Administrators.
+
+    Separated from `buyer_accounts` and `artisan_accounts` — never self-registrable.
+    """
+
+    __tablename__ = "admin_accounts"
+
+    id: Mapped[str] = mapped_column(
+        UUIDChar(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, default=new_uuid
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(100), default="Platform Administration", nullable=True)
+    account_status: Mapped[str] = mapped_column(String(32), default="ACTIVE", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 

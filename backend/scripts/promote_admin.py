@@ -17,15 +17,20 @@ if str(BACKEND_ROOT) not in sys.path:
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import ensure_separate_account_tables, lookup_account_type_by_email
 from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.models.base import Base, new_uuid, utcnow
 from app.models.core_models import (
+    AdminAccount,
+    AdminCredential,
     AdminPermission,
     AdminProfile,
     AdminRole,
     AdminRolePermission,
     AdminUserRole,
+    ArtisanAccount,
+    BuyerAccount,
     PlatformRole,
     User,
     UserRoleAssignment,
@@ -46,12 +51,35 @@ def promote_admin(email: str) -> None:
     engine = create_db_engine(settings)
     if engine.dialect.name == "sqlite":
         Base.metadata.create_all(bind=engine)
+    ensure_separate_account_tables(engine)
 
     with Session(engine) as db:
         user = db.scalar(select(User).where(User.email == cleaned))
         if user is None:
-            print(f"ERROR: No user found with email '{cleaned}'. Sign in once via Clerk first.")
+            print(f"ERROR: No user found with email '{cleaned}'.")
             sys.exit(1)
+
+        # Strict 1-table-per-email: move from buyer_accounts/artisan_accounts into admin_accounts
+        db.query(BuyerAccount).filter(BuyerAccount.id == user.id).delete()
+        db.query(ArtisanAccount).filter(ArtisanAccount.id == user.id).delete()
+        cred = db.scalar(select(AdminCredential).where(AdminCredential.user_id == user.id))
+        admin_acc = db.scalar(select(AdminAccount).where(AdminAccount.id == user.id))
+        if admin_acc is None:
+            admin_acc = AdminAccount(
+                id=user.id,
+                email=cleaned,
+                password_hash=cred.password_hash if cred else "PROMOTED_ADMIN",
+                first_name=user.first_name,
+                last_name=user.last_name,
+                display_name=user.display_name,
+                department="Platform Governance",
+                account_status="ACTIVE",
+                is_active=True,
+            )
+            db.add(admin_acc)
+        else:
+            admin_acc.account_status = "ACTIVE"
+            admin_acc.is_active = True
 
         # 1. Ensure ADMIN platform role assignment
         plat_role = db.scalar(select(PlatformRole).where(PlatformRole.code == "ADMIN"))

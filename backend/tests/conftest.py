@@ -253,6 +253,12 @@ def create_user_with_roles(
                 assignment_status="ACTIVE",
             )
         )
+    db.flush()
+
+    from app.core.account_tables import backfill_single_user_if_needed, ensure_separate_account_tables
+
+    ensure_separate_account_tables(db.get_bind())
+    acc_type, _ = backfill_single_user_if_needed(db, user)
 
     db.commit()
     principal = AuthenticatedPrincipal(
@@ -263,6 +269,7 @@ def create_user_with_roles(
         roles=frozenset(roles),
         admin_permissions=frozenset(permissions or set()),
         is_active_admin="ADMIN" in roles,
+        account_table=f"{acc_type}_accounts",
     )
     return user, principal
 

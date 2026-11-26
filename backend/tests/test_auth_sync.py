@@ -265,26 +265,63 @@ def test_06_admin_overview_blocks_guests_and_normal_users_but_allows_db_admin(ap
     assert client.get("/api/v1/auth/me").json()["is_admin"] is False
     assert client.get("/api/v1/admin/overview").status_code == 403
 
-    # 3. Promote to active DB Admin (ADMIN platform role + AdminProfile + permissions)
+    # 3. Provision a separate dedicated DB Admin in `admin_accounts` + `admin_credentials` + RBAC
     from sqlalchemy import select
-    from app.models.core_models import PlatformRole, UserRoleAssignment
+    from app.core.auth import load_admin_principal_by_user_id
+    from app.models.core_models import (
+        AdminAccount,
+        AdminCredential,
+        PlatformRole,
+        User,
+        UserRoleAssignment,
+    )
 
     adm_plat = db_session.scalar(select(PlatformRole).where(PlatformRole.code == "ADMIN"))
     if adm_plat is None:
         adm_plat = PlatformRole(id=new_uuid(), code="ADMIN", name="Admin", is_active=True)
         db_session.add(adm_plat)
-    ap = AdminProfile(id=new_uuid(), user_id=buyer_principal.user_id, admin_status="ACTIVE")
+
+    dedicated_admin_id = new_uuid()
+    adm_anchor = User(
+        id=dedicated_admin_id,
+        clerk_user_id=f"hl_admin_{dedicated_admin_id[:12]}",
+        email="ops.admin@hunarlink.in",
+        email_verified=True,
+        first_name="Ops",
+        last_name="Admin",
+        display_name="Ops Admin",
+        account_status="ACTIVE",
+    )
+    adm_account = AdminAccount(
+        id=dedicated_admin_id,
+        email="ops.admin@hunarlink.in",
+        password_hash="PBKDF2_TEST_HASH",
+        first_name="Ops",
+        last_name="Admin",
+        display_name="Ops Admin",
+        department="Platform Governance",
+        account_status="ACTIVE",
+        is_active=True,
+    )
+    adm_cred = AdminCredential(
+        id=new_uuid(),
+        user_id=dedicated_admin_id,
+        email="ops.admin@hunarlink.in",
+        password_hash="PBKDF2_TEST_HASH",
+        is_active=True,
+    )
+    ap = AdminProfile(id=new_uuid(), user_id=dedicated_admin_id, admin_status="ACTIVE")
     ar = AdminRole(id=new_uuid(), code="SUPER_ADMIN_TEST", name="Super Admin", is_active=True)
     perm = db_session.scalar(select(AdminPermission).where(AdminPermission.code == "payments.read"))
     if perm is None:
         perm = AdminPermission(id=new_uuid(), code="payments.read", module_name="payments", is_high_risk=False)
         db_session.add(perm)
-    db_session.add_all([ap, ar])
+    db_session.add_all([adm_anchor, adm_account, adm_cred, ap, ar])
     db_session.flush()
     db_session.add_all([
         UserRoleAssignment(
             id=new_uuid(),
-            user_id=buyer_principal.user_id,
+            user_id=dedicated_admin_id,
             platform_role_id=adm_plat.id,
             assignment_status="ACTIVE",
         ),
@@ -293,15 +330,19 @@ def test_06_admin_overview_blocks_guests_and_normal_users_but_allows_db_admin(ap
     ])
     db_session.commit()
 
-    admin_principal = load_principal_by_clerk_id(db_session, "user_2normalBuyer99")
+    admin_principal = load_admin_principal_by_user_id(db_session, dedicated_admin_id)
     set_authenticated_principal(app, admin_principal)
     me = client.get("/api/v1/auth/me").json()
     assert me["is_admin"] is True
+    assert me["account_type"] == "admin"
+    assert me["account_table"] == "admin_accounts"
     assert "payments.read" in me["admin_permissions"]
 
     overview = client.get("/api/v1/admin/overview")
     assert overview.status_code == 200
-    assert overview.json()["counts"]["users"] >= 1
+    ov_json = overview.json()
+    assert ov_json["counts"]["buyers"] >= 1
+    assert ov_json["counts"]["admins"] >= 1
 
     _set_clerk_claims(app, None)
     app.dependency_overrides.pop(get_current_principal, None)
@@ -728,5 +769,111 @@ def test_09_unregistered_oauth_user_or_artisan_blocked_on_signin_with_404(app_an
     assert r_login.json()["is_new_user"] is False
     assert r_login.json()["is_artisan"] is True
     assert r_login.json()["artisan_verified"] is False
+
+    _set_clerk_claims(app, None)
+
+
+def test_10_three_separate_account_tables_and_strict_one_account_type_per_email(
+    app_and_client, db_session
+):
+    """Verify:
+    1) Buyers are stored in `buyer_accounts` (never in `artisan_accounts` or `admin_accounts`).
+    2) Artisans are stored in `artisan_accounts` (never in `buyer_accounts` or `admin_accounts`).
+    3) Strict 1-account-type-per-email: a Buyer email cannot sign in or register as an Artisan (409),
+       and an Artisan email cannot sign in or register as a Buyer (409).
+    4) Buyer login NEVER returns `is_artisan=True` or triggers Artisan verification redirect.
+    """
+    from sqlalchemy import select
+    from app.models.core_models import AdminAccount, ArtisanAccount, BuyerAccount
+
+    app, client = app_and_client
+    app.dependency_overrides.pop(get_current_principal, None)
+
+    # 1. Register a Regular Buyer -> lands ONLY in `buyer_accounts`
+    _set_clerk_claims(app, {"sub": "clerk_strict_buyer_01", "email": "buyer.only@example.com"})
+    reg_buyer = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "buyer.only@example.com",
+            "email_verified": True,
+            "first_name": "Samyak",
+            "last_name": "Buyer",
+            "requested_role": "buyer",
+            "auth_mode": "signup",
+        },
+    )
+    assert reg_buyer.status_code == 200
+    b_body = reg_buyer.json()
+    assert b_body["account_type"] == "buyer"
+    assert b_body["account_table"] == "buyer_accounts"
+    assert b_body["is_artisan"] is False
+    assert b_body["artisan_verified"] is False
+
+    assert db_session.scalar(select(BuyerAccount).where(BuyerAccount.email == "buyer.only@example.com")) is not None
+    assert db_session.scalar(select(ArtisanAccount).where(ArtisanAccount.email == "buyer.only@example.com")) is None
+    assert db_session.scalar(select(AdminAccount).where(AdminAccount.email == "buyer.only@example.com")) is None
+
+    # 2. Buyer trying to log in or register as Artisan with the same email -> 409 Conflict!
+    cross_to_artisan = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "buyer.only@example.com",
+            "email_verified": True,
+            "first_name": "Samyak",
+            "requested_role": "artisan",
+            "auth_mode": "signin",
+        },
+    )
+    assert cross_to_artisan.status_code == 409
+    assert "buyer_accounts" in cross_to_artisan.json()["detail"]
+
+    # 3. Register an Artisan with a separate email -> lands ONLY in `artisan_accounts`
+    _set_clerk_claims(app, {"sub": "clerk_strict_artisan_01", "email": "artisan.only@example.com"})
+    reg_artisan = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "artisan.only@example.com",
+            "email_verified": True,
+            "first_name": "Bilal",
+            "last_name": "Karigar",
+            "requested_role": "artisan",
+            "auth_mode": "signup",
+        },
+    )
+    assert reg_artisan.status_code == 200
+    a_body = reg_artisan.json()
+    assert a_body["account_type"] == "artisan"
+    assert a_body["account_table"] == "artisan_accounts"
+    assert a_body["is_artisan"] is True
+    assert a_body["artisan_verified"] is False
+
+    assert db_session.scalar(select(ArtisanAccount).where(ArtisanAccount.email == "artisan.only@example.com")) is not None
+    assert db_session.scalar(select(BuyerAccount).where(BuyerAccount.email == "artisan.only@example.com")) is None
+    assert db_session.scalar(select(AdminAccount).where(AdminAccount.email == "artisan.only@example.com")) is None
+
+    # 4. Artisan trying to log in as Buyer with the same email -> 409 Conflict!
+    cross_to_buyer = client.post(
+        "/api/v1/auth/sync",
+        json={
+            "email": "artisan.only@example.com",
+            "email_verified": True,
+            "first_name": "Bilal",
+            "requested_role": "buyer",
+            "auth_mode": "signin",
+        },
+    )
+    assert cross_to_buyer.status_code == 409
+    assert "artisan_accounts" in cross_to_buyer.json()["detail"]
+
+    # 5. `/api/v1/auth/check-account` reports the exact owning table for each email
+    chk_b = client.post("/api/v1/auth/check-account", json={"email": "buyer.only@example.com"}).json()
+    assert chk_b["exists"] is True
+    assert chk_b["account_type"] == "buyer"
+    assert chk_b["account_table"] == "buyer_accounts"
+
+    chk_a = client.post("/api/v1/auth/check-account", json={"email": "artisan.only@example.com"}).json()
+    assert chk_a["exists"] is True
+    assert chk_a["account_type"] == "artisan"
+    assert chk_a["account_table"] == "artisan_accounts"
 
     _set_clerk_claims(app, None)

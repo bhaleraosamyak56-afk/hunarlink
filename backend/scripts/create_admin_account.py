@@ -32,11 +32,13 @@ if str(BACKEND_ROOT) not in sys.path:
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import ensure_separate_account_tables, lookup_account_type_by_email
 from app.core.admin_security import hash_admin_password
 from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.models.base import Base, new_uuid, utcnow
 from app.models.core_models import (
+    AdminAccount,
     AdminCredential,
     AdminPermission,
     AdminProfile,
@@ -61,9 +63,8 @@ def _ensure_tables(engine) -> None:
     if engine.dialect.name == "sqlite":
         Base.metadata.create_all(bind=engine)
     else:
-        # On MySQL 8.4, core tables come from hunarlink_mysql_full_install.sql;
-        # create `admin_credentials` automatically if Alembic 0003 hasn't run yet.
         AdminCredential.__table__.create(bind=engine, checkfirst=True)
+    ensure_separate_account_tables(engine)
 
 
 def list_admins(db: Session, dialect: str) -> None:
@@ -89,6 +90,10 @@ def revoke_admin(db: Session, email: str) -> None:
         print(f"ERROR: No admin credential found for '{cleaned}'.")
         sys.exit(1)
     cred.is_active = False
+    admin_acc = db.scalar(select(AdminAccount).where(AdminAccount.id == cred.user_id))
+    if admin_acc is not None:
+        admin_acc.is_active = False
+        admin_acc.account_status = "SUSPENDED"
     ap = db.scalar(select(AdminProfile).where(AdminProfile.user_id == cred.user_id))
     if ap is not None:
         ap.admin_status = "REVOKED"
@@ -103,6 +108,14 @@ def upsert_admin(db: Session, email: str, password: str, display_name: str, dial
         sys.exit(1)
     if len(password) < 8:
         print("ERROR: Admin password must be at least 8 characters.")
+        sys.exit(1)
+
+    existing_type, _ = lookup_account_type_by_email(db, cleaned)
+    if existing_type in ("buyer", "artisan"):
+        print(
+            f"ERROR: '{cleaned}' is already registered in `{existing_type}_accounts`. "
+            "Use a dedicated administrator email address."
+        )
         sys.exit(1)
 
     pw_hash = hash_admin_password(password)
@@ -221,7 +234,7 @@ def upsert_admin(db: Session, email: str, password: str, display_name: str, dial
     else:
         aur.is_active = True
 
-    # 4. Dedicated admin_credentials row (salted PBKDF2-HMAC-SHA256 hash)
+    # 4. Dedicated admin_credentials + admin_accounts rows (salted PBKDF2-HMAC-SHA256 hash)
     cred = db.scalar(select(AdminCredential).where(AdminCredential.user_id == user.id))
     if cred is None:
         cred = AdminCredential(
@@ -237,8 +250,29 @@ def upsert_admin(db: Session, email: str, password: str, display_name: str, dial
         cred.password_hash = pw_hash
         cred.is_active = True
 
+    admin_acc = db.scalar(select(AdminAccount).where(AdminAccount.id == user.id))
+    if admin_acc is None:
+        admin_acc = AdminAccount(
+            id=user.id,
+            email=cleaned,
+            password_hash=pw_hash,
+            first_name=first_name,
+            last_name=last_name,
+            display_name=display_name.strip() or cleaned,
+            department="Platform Administration",
+            account_status="ACTIVE",
+            is_active=True,
+        )
+        db.add(admin_acc)
+    else:
+        admin_acc.email = cleaned
+        admin_acc.password_hash = pw_hash
+        admin_acc.display_name = display_name.strip() or cleaned
+        admin_acc.account_status = "ACTIVE"
+        admin_acc.is_active = True
+
     db.commit()
-    print(f"SUCCESS ({dialect.upper()}): Authorized admin '{cleaned}' saved to admin_credentials.")
+    print(f"SUCCESS ({dialect.upper()}): Authorized admin '{cleaned}' saved to `admin_accounts` + `admin_credentials`.")
     print(f"  user_id       = {user.id}")
     print(f"  password_hash = {pw_hash}")
 

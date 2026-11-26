@@ -17,6 +17,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import (
+    backfill_single_user_if_needed,
+    ensure_separate_account_tables,
+    lookup_account_type_by_email,
+    lookup_account_type_by_id,
+    lookup_clerk_account_by_sub,
+)
 from app.core.admin_security import create_admin_session_token, verify_admin_password
 from app.core.audit import record_audit_log
 from app.core.auth import (
@@ -30,12 +37,15 @@ from app.core.database import get_db
 from app.core.security import SlidingWindowRateLimiter
 from app.models.base import new_uuid, utcnow
 from app.models.core_models import (
+    AdminAccount,
     AdminCredential,
     AdminPermission,
     AdminProfile,
     AdminRole,
     AdminRolePermission,
     AdminUserRole,
+    ArtisanAccount,
+    BuyerAccount,
     PlatformRole,
     RetailOrder,
     SellerDocument,
@@ -172,54 +182,94 @@ def _build_seller_brief(db: Session, seller: SellerProfile | None) -> SellerProf
     )
 
 
-def _build_user_response(
-    db: Session, user: User, *, is_new_user: bool = False
+def _build_account_response(
+    db: Session,
+    acc_type: str,
+    account: BuyerAccount | ArtisanAccount | AdminAccount,
+    *,
+    is_new_user: bool = False,
 ) -> AuthUserProfileResponse:
-    role_codes = sorted(
-        set(
-            db.scalars(
-                select(PlatformRole.code)
-                .join(
-                    UserRoleAssignment,
-                    UserRoleAssignment.platform_role_id == PlatformRole.id,
-                )
-                .where(
-                    UserRoleAssignment.user_id == user.id,
-                    UserRoleAssignment.assignment_status == "ACTIVE",
-                    PlatformRole.is_active == True,  # noqa: E712
-                )
-            ).all()
+    if acc_type == "admin" and isinstance(account, AdminAccount):
+        is_admin, admin_permissions = _load_admin_access(db, account.id, ["ADMIN"])
+        return AuthUserProfileResponse(
+            synced=True,
+            is_new_user=is_new_user,
+            account_type="admin",
+            account_table="admin_accounts",
+            user_id=account.id,
+            clerk_user_id=f"hl_admin_{account.id[:12]}",
+            email=account.email,
+            email_verified=True,
+            first_name=account.first_name,
+            last_name=account.last_name,
+            display_name=account.display_name,
+            phone=None,
+            account_status=account.account_status,
+            roles=["ADMIN"],
+            is_artisan=False,
+            artisan_verified=False,
+            is_admin=is_admin,
+            admin_permissions=admin_permissions,
+            seller_profile=None,
+            created_at=account.created_at,
+            updated_at=account.updated_at,
         )
-    )
-    is_admin, admin_permissions = _load_admin_access(db, user.id, role_codes)
-    seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
-    seller_brief = _build_seller_brief(db, seller)
-    is_artisan = ("DIRECT_SELLER" in role_codes) or (seller is not None)
-    artisan_verified = bool(
-        seller is not None
-        and seller.verification_status == "APPROVED"
-        and seller.profile_status == "ACTIVE"
-    )
+
+    if acc_type == "artisan" and isinstance(account, ArtisanAccount):
+        seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == account.id))
+        seller_brief = _build_seller_brief(db, seller)
+        artisan_verified = bool(
+            seller is not None
+            and seller.verification_status == "APPROVED"
+            and seller.profile_status == "ACTIVE"
+        )
+        return AuthUserProfileResponse(
+            synced=True,
+            is_new_user=is_new_user,
+            account_type="artisan",
+            account_table="artisan_accounts",
+            user_id=account.id,
+            clerk_user_id=account.clerk_user_id,
+            email=account.email,
+            email_verified=account.email_verified,
+            first_name=account.first_name,
+            last_name=account.last_name,
+            display_name=account.display_name,
+            phone=account.phone,
+            account_status=account.account_status,
+            roles=["CUSTOMER", "DIRECT_SELLER"],
+            is_artisan=True,
+            artisan_verified=artisan_verified,
+            is_admin=False,
+            admin_permissions=[],
+            seller_profile=seller_brief,
+            created_at=account.created_at,
+            updated_at=account.updated_at,
+        )
+
+    assert isinstance(account, BuyerAccount)
     return AuthUserProfileResponse(
         synced=True,
         is_new_user=is_new_user,
-        user_id=user.id,
-        clerk_user_id=user.clerk_user_id,
-        email=user.email,
-        email_verified=user.email_verified,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        display_name=user.display_name,
-        phone=user.phone,
-        account_status=user.account_status,
-        roles=role_codes,
-        is_artisan=is_artisan,
-        artisan_verified=artisan_verified,
-        is_admin=is_admin,
-        admin_permissions=admin_permissions,
-        seller_profile=seller_brief,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
+        account_type="buyer",
+        account_table="buyer_accounts",
+        user_id=account.id,
+        clerk_user_id=account.clerk_user_id,
+        email=account.email,
+        email_verified=account.email_verified,
+        first_name=account.first_name,
+        last_name=account.last_name,
+        display_name=account.display_name,
+        phone=account.phone,
+        account_status=account.account_status,
+        roles=["CUSTOMER"],
+        is_artisan=False,
+        artisan_verified=False,
+        is_admin=False,
+        admin_permissions=[],
+        seller_profile=None,
+        created_at=account.created_at,
+        updated_at=account.updated_at,
     )
 
 
@@ -232,7 +282,7 @@ def check_existing_account(
     request: Request,
     db: Session = Depends(get_db),
 ) -> AccountCheckResponse:
-    """Check whether an email already exists in the HunarLink DB before registration/login."""
+    """Check which dedicated account table (`buyer_accounts`, `artisan_accounts`, `admin_accounts`) owns `email`."""
     client_ip = request.client.host if request.client else "unknown"
     allowed, retry_after = _account_check_limiter.allow(f"check-account:{client_ip}")
     if not allowed:
@@ -241,34 +291,50 @@ def check_existing_account(
             detail=f"Too many account check requests. Retry in {retry_after}s.",
         )
 
+    ensure_separate_account_tables(db.get_bind())
     clean_email = payload.email.strip().lower()
-    user = db.scalar(select(User).where(User.email == clean_email))
-    if user is None:
+    acc_type, acc_row = lookup_account_type_by_email(db, clean_email)
+
+    if acc_row is None:
+        legacy_user = db.scalar(select(User).where(User.email == clean_email))
+        if legacy_user is not None:
+            acc_type, acc_row = backfill_single_user_if_needed(db, legacy_user)
+            db.commit()
+
+    if acc_row is None or acc_type is None:
         return AccountCheckResponse(exists=False)
 
-    role_codes = sorted(
-        set(
-            db.scalars(
-                select(PlatformRole.code)
-                .join(
-                    UserRoleAssignment,
-                    UserRoleAssignment.platform_role_id == PlatformRole.id,
-                )
-                .where(
-                    UserRoleAssignment.user_id == user.id,
-                    UserRoleAssignment.assignment_status == "ACTIVE",
-                    PlatformRole.is_active == True,  # noqa: E712
-                )
-            ).all()
+    if acc_type == "admin":
+        return AccountCheckResponse(
+            exists=True,
+            account_type="admin",
+            account_table="admin_accounts",
+            roles=["ADMIN"],
+            is_artisan=False,
+            artisan_verified=False,
+            artisan_verification_status=None,
         )
-    )
-    seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
+
+    if acc_type == "artisan":
+        seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == acc_row.id))
+        return AccountCheckResponse(
+            exists=True,
+            account_type="artisan",
+            account_table="artisan_accounts",
+            roles=["CUSTOMER", "DIRECT_SELLER"],
+            is_artisan=True,
+            artisan_verified=bool(seller is not None and seller.verification_status == "APPROVED"),
+            artisan_verification_status=seller.verification_status if seller is not None else "UNVERIFIED",
+        )
+
     return AccountCheckResponse(
         exists=True,
-        roles=role_codes,
-        is_artisan=("DIRECT_SELLER" in role_codes) or (seller is not None),
-        artisan_verified=bool(seller is not None and seller.verification_status == "APPROVED"),
-        artisan_verification_status=seller.verification_status if seller is not None else "UNVERIFIED",
+        account_type="buyer",
+        account_table="buyer_accounts",
+        roles=["CUSTOMER"],
+        is_artisan=False,
+        artisan_verified=False,
+        artisan_verification_status=None,
     )
 
 
@@ -279,11 +345,14 @@ def sync_authenticated_user(
     claims: dict = Depends(get_verified_clerk_claims),
     db: Session = Depends(get_db),
 ) -> AuthUserProfileResponse:
-    """Upsert a Clerk-authenticated user into HunarLink's database (`users` + roles).
+    """Upsert a Clerk-authenticated Buyer or Artisan into its dedicated DB table (`buyer_accounts` or `artisan_accounts`).
 
-    Called automatically by the frontend right after Clerk sign-in / sign-up so
-    every new Google/Apple/email user exists immediately in MySQL/SQLite.
+    Strict 3-table separation (`buyer_accounts`, `artisan_accounts`, `admin_accounts`) + 1 account type per email:
+      - Buyer registrations/logins operate strictly on `buyer_accounts`.
+      - Artisan registrations/logins operate strictly on `artisan_accounts`.
+      - Attempting to sign in or register an email under a different account type is rejected with HTTP 409 Conflict.
     """
+    ensure_separate_account_tables(db.get_bind())
     clerk_user_id = str(claims["sub"]).strip()
     clean_email = payload.email.strip().lower()
     if "@" not in clean_email:
@@ -292,12 +361,47 @@ def sync_authenticated_user(
             detail="A valid email address is required.",
         )
 
-    user = db.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
-    is_new_user = False
+    target_type = "artisan" if payload.requested_role == "artisan" else "buyer"
+    target_table_name = "artisan_accounts" if target_type == "artisan" else "buyer_accounts"
 
-    if user is None:
-        existing_by_email = db.scalar(select(User).where(User.email == clean_email))
-        if existing_by_email is not None:
+    # Backfill if upgrading from an older DB where `users` existed without dedicated account rows
+    acc_by_sub_type, acc_by_sub = lookup_clerk_account_by_sub(db, clerk_user_id)
+    if acc_by_sub is None:
+        legacy_by_sub = db.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
+        if legacy_by_sub is not None:
+            m_type, m_row = backfill_single_user_if_needed(db, legacy_by_sub)
+            db.flush()
+            if m_type in ("buyer", "artisan"):
+                acc_by_sub_type = m_type  # type: ignore[assignment]
+                acc_by_sub = m_row  # type: ignore[assignment]
+
+    acc_by_email_type, acc_by_email = lookup_account_type_by_email(db, clean_email)
+    if acc_by_email is None:
+        legacy_by_email = db.scalar(select(User).where(User.email == clean_email))
+        if legacy_by_email is not None:
+            acc_by_email_type, acc_by_email = backfill_single_user_if_needed(db, legacy_by_email)
+            db.flush()
+
+    # 1. Strict cross-table isolation: an email or Clerk identity owned by Admin/Artisan/Buyer
+    #    CANNOT register or log in as a different account type!
+    existing_type = acc_by_sub_type or acc_by_email_type
+    if existing_type is not None and existing_type != target_type:
+        label_map = {"buyer": "Buyer", "artisan": "Artisan", "admin": "Administrator"}
+        owner_label = label_map.get(existing_type, existing_type)
+        req_label = label_map.get(target_type, target_type)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"This email is registered as an {owner_label} account (stored in `{existing_type}_accounts`) "
+                f"and cannot be used as a {req_label} account. Please sign in to the {owner_label} portal or use a separate email."
+            ),
+        )
+
+    is_new_user = False
+    account_row: BuyerAccount | ArtisanAccount
+
+    if acc_by_sub is None:
+        if acc_by_email is not None:
             if payload.auth_mode == "signup":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -310,27 +414,64 @@ def sync_authenticated_user(
         if payload.auth_mode == "signin":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No registered HunarLink account found for this email. Please register first.",
+                detail=f"No registered HunarLink {target_type.capitalize()} account found for this email. Please register first.",
             )
+
         is_new_user = True
         first_name = payload.first_name.strip() or clean_email.split("@")[0][:100]
         last_name = (payload.last_name or "").strip() or None
         display_name = (payload.display_name or "").strip() or (
             f"{first_name} {last_name}".strip() if last_name else first_name
         )
-        user = User(
-            id=new_uuid(),
+        phone_val = (payload.phone or "").strip()[:32] or None
+        new_id = new_uuid()
+
+        # Anchor row for downstream foreign keys (`retail_orders`, `seller_profiles`, `audit_logs`, etc.)
+        anchor_user = User(
+            id=new_id,
             clerk_user_id=clerk_user_id,
             email=clean_email,
             email_verified=bool(payload.email_verified),
-            phone=(payload.phone or "").strip() or None,
+            phone=phone_val,
             first_name=first_name[:100],
             last_name=last_name[:100] if last_name else None,
             display_name=display_name[:160],
             preferred_currency="INR",
             account_status="ACTIVE",
+            last_login_at=utcnow(),
         )
-        db.add(user)
+        db.add(anchor_user)
+        db.flush()
+
+        if target_type == "artisan":
+            account_row = ArtisanAccount(
+                id=new_id,
+                clerk_user_id=clerk_user_id,
+                email=clean_email,
+                email_verified=bool(payload.email_verified),
+                phone=phone_val,
+                first_name=first_name[:100],
+                last_name=last_name[:100] if last_name else None,
+                display_name=display_name[:160],
+                verification_status="UNVERIFIED",
+                account_status="ACTIVE",
+                last_login_at=utcnow(),
+            )
+        else:
+            account_row = BuyerAccount(
+                id=new_id,
+                clerk_user_id=clerk_user_id,
+                email=clean_email,
+                email_verified=bool(payload.email_verified),
+                phone=phone_val,
+                first_name=first_name[:100],
+                last_name=last_name[:100] if last_name else None,
+                display_name=display_name[:160],
+                preferred_currency="INR",
+                account_status="ACTIVE",
+                last_login_at=utcnow(),
+            )
+        db.add(account_row)
         db.flush()
     else:
         if payload.auth_mode == "signup":
@@ -338,41 +479,57 @@ def sync_authenticated_user(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This account already exists in HunarLink. You cannot register again — please log in instead.",
             )
-        if user.account_status != "ACTIVE":
+        if acc_by_sub.account_status != "ACTIVE":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Account is not active (status={user.account_status}).",
+                detail=f"Account is not active (status={acc_by_sub.account_status}).",
             )
-        if payload.first_name.strip():
-            user.first_name = payload.first_name.strip()[:100]
-        if payload.last_name is not None:
-            user.last_name = payload.last_name.strip()[:100] or None
-        if payload.display_name is not None and payload.display_name.strip():
-            user.display_name = payload.display_name.strip()[:160]
-        if payload.phone is not None and payload.phone.strip():
-            user.phone = payload.phone.strip()[:32]
-        if payload.email_verified:
-            user.email_verified = True
-        user.updated_at = utcnow()
+        account_row = acc_by_sub
+        anchor_user = db.scalar(select(User).where(User.id == account_row.id))
 
-    role_code, role_name = ROLE_CODE_MAP[payload.requested_role]
-    # Only grant/upgrade roles on registration or explicit sync — never mutate roles on plain sign-in
+        if payload.first_name.strip():
+            account_row.first_name = payload.first_name.strip()[:100]
+            if anchor_user:
+                anchor_user.first_name = account_row.first_name
+        if payload.last_name is not None:
+            account_row.last_name = payload.last_name.strip()[:100] or None
+            if anchor_user:
+                anchor_user.last_name = account_row.last_name
+        if payload.display_name is not None and payload.display_name.strip():
+            account_row.display_name = payload.display_name.strip()[:160]
+            if anchor_user:
+                anchor_user.display_name = account_row.display_name
+        if payload.phone is not None and payload.phone.strip():
+            account_row.phone = payload.phone.strip()[:32]
+            if anchor_user:
+                anchor_user.phone = account_row.phone
+        if payload.email_verified:
+            account_row.email_verified = True
+            if anchor_user:
+                anchor_user.email_verified = True
+        account_row.last_login_at = utcnow()
+        account_row.updated_at = utcnow()
+        if anchor_user:
+            anchor_user.last_login_at = account_row.last_login_at
+            anchor_user.updated_at = account_row.updated_at
+
+    role_code, role_name = ROLE_CODE_MAP[target_type]
     if is_new_user or payload.auth_mode != "signin":
-        _ensure_user_role(db, user.id, role_code, role_name)
-        # Artisans can also browse/purchase as customers, while buyers only get CUSTOMER.
-        if payload.requested_role == "artisan":
-            _ensure_user_role(db, user.id, "CUSTOMER", "Retail Customer")
+        _ensure_user_role(db, account_row.id, role_code, role_name)
+        if target_type == "artisan":
+            _ensure_user_role(db, account_row.id, "CUSTOMER", "Retail Customer")
 
     record_audit_log(
         db,
-        actor_user_id=user.id,
+        actor_user_id=account_row.id,
         actor_role=role_code,
         action="USER_SYNC_CREATED" if is_new_user else "USER_SYNC_UPDATED",
-        target_type="users",
-        target_id=user.id,
+        target_type=target_table_name,
+        target_id=account_row.id,
         correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
         new_values={
-            "requested_role": payload.requested_role,
+            "requested_role": target_type,
+            "account_table": target_table_name,
             "is_new_user": is_new_user,
         },
         ip_address=request.client.host if request.client else None,
@@ -380,8 +537,8 @@ def sync_authenticated_user(
     )
 
     db.commit()
-    db.refresh(user)
-    return _build_user_response(db, user, is_new_user=is_new_user)
+    db.refresh(account_row)
+    return _build_account_response(db, target_type, account_row, is_new_user=is_new_user)
 
 
 @router.get("/me", response_model=AuthUserProfileResponse)
@@ -389,11 +546,17 @@ def get_my_profile(
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ) -> AuthUserProfileResponse:
-    """Return the authenticated caller's DB profile, roles, and seller status."""
-    user = db.scalar(select(User).where(User.id == principal.user_id))
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-    return _build_user_response(db, user, is_new_user=False)
+    """Return the authenticated caller's DB profile strictly from its dedicated account table."""
+    ensure_separate_account_tables(db.get_bind())
+    acc_type, acc_row = lookup_account_type_by_id(db, principal.user_id)
+    if acc_row is None:
+        legacy_user = db.scalar(select(User).where(User.id == principal.user_id))
+        if legacy_user is not None:
+            acc_type, acc_row = backfill_single_user_if_needed(db, legacy_user)
+            db.commit()
+    if acc_row is None or acc_type is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    return _build_account_response(db, acc_type, acc_row, is_new_user=False)
 
 
 @router.post(
@@ -417,9 +580,29 @@ def submit_artisan_verification(
       (excluded from public `/api/v1/artisans`) until an Admin approves them in `/admin`,
       which promotes the record straight into the live verified artisans table.
     """
-    user = db.scalar(select(User).where(User.id == principal.user_id))
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    ensure_separate_account_tables(db.get_bind())
+    artisan_acc = db.scalar(select(ArtisanAccount).where(ArtisanAccount.id == principal.user_id))
+    if artisan_acc is None:
+        # Check if registered as a Buyer or Admin instead
+        other_type, _ = lookup_account_type_by_id(db, principal.user_id)
+        if other_type in ("buyer", "admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"Artisan verification is only available for accounts in `artisan_accounts` "
+                    f"(your account is stored in `{other_type}_accounts`)."
+                ),
+            )
+        legacy_user = db.scalar(select(User).where(User.id == principal.user_id))
+        if legacy_user is not None:
+            m_type, m_row = backfill_single_user_if_needed(db, legacy_user)
+            db.flush()
+            if m_type == "artisan" and isinstance(m_row, ArtisanAccount):
+                artisan_acc = m_row
+    if artisan_acc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artisan account not found.")
+
+    user = db.scalar(select(User).where(User.id == artisan_acc.id))
 
     normalized_path = "GI" if payload.verification_path == "GI" else "NON_GI"
     claimed_gi = (payload.claimed_gi_code or "").strip() or None
@@ -436,7 +619,7 @@ def submit_artisan_verification(
         scan_row = db.scalar(
             select(FileSecurityScan).where(FileSecurityScan.id == card_scan_id)
         )
-        if scan_row is None or scan_row.uploader_user_id != user.id:
+        if scan_row is None or scan_row.uploader_user_id != artisan_acc.id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Uploaded Artisan Card document was not found for your account. Please upload it again.",
@@ -453,16 +636,23 @@ def submit_artisan_verification(
         )
 
     if payload.phone and payload.phone.strip():
-        user.phone = payload.phone.strip()[:32]
-        user.updated_at = utcnow()
+        artisan_acc.phone = payload.phone.strip()[:32]
+        if user is not None:
+            user.phone = artisan_acc.phone
+            user.updated_at = utcnow()
 
-    _ensure_user_role(db, user.id, "DIRECT_SELLER", "Direct Artisan Seller")
+    artisan_acc.store_name = payload.store_name.strip()[:160]
+    artisan_acc.craft_specialty = payload.craft_specialty.strip()[:160]
+    artisan_acc.workshop_district = payload.workshop_district.strip()[:100]
+    artisan_acc.updated_at = utcnow()
 
-    seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == user.id))
+    _ensure_user_role(db, artisan_acc.id, "DIRECT_SELLER", "Direct Artisan Seller")
+
+    seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == artisan_acc.id))
     if seller is None:
         seller = SellerProfile(
             id=new_uuid(),
-            user_id=user.id,
+            user_id=artisan_acc.id,
             store_name=payload.store_name.strip(),
             store_slug=_slugify_store(payload.store_name.strip()),
             craft_specialty=payload.craft_specialty.strip(),
@@ -487,6 +677,8 @@ def submit_artisan_verification(
             seller.verification_status = "SUBMITTED"
             seller.profile_status = "DRAFT"
 
+    artisan_acc.verification_status = seller.verification_status
+
     app_number = f"HL-VER-{utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
     application = SellerVerificationApplication(
         id=new_uuid(),
@@ -502,7 +694,7 @@ def submit_artisan_verification(
             "artisan_card_scan_id": scan_row.id if scan_row else None,
             "artisan_card_filename": scan_row.original_filename if scan_row else None,
             "artisan_card_mime": scan_row.detected_mime_type if scan_row else None,
-            "phone": (payload.phone or user.phone or "").strip(),
+            "phone": (payload.phone or artisan_acc.phone or "").strip(),
         },
     )
     db.add(application)
@@ -527,7 +719,7 @@ def submit_artisan_verification(
                     sha256_hash=scan_row.sha256_hash,
                     scan_status=scan_row.scan_status if scan_row.scan_status in {"PENDING_SCAN", "CLEAN", "INFECTED", "SCAN_ERROR"} else "CLEAN",
                     verification_status="PENDING",
-                    uploaded_by_user_id=user.id,
+                    uploaded_by_user_id=artisan_acc.id,
                 )
             )
         else:
@@ -536,7 +728,7 @@ def submit_artisan_verification(
 
     record_audit_log(
         db,
-        actor_user_id=user.id,
+        actor_user_id=artisan_acc.id,
         actor_role="DIRECT_SELLER",
         action="ARTISAN_VERIFICATION_SUBMITTED",
         target_type="seller_verification_applications",
@@ -683,8 +875,9 @@ def admin_password_login(
             detail=f"Too many failed admin sign-in attempts. Retry in {retry_after}s.",
         )
 
-    # Ensure table exists seamlessly if backend starts before Alembic 0003 ran.
+    # Ensure dedicated tables exist seamlessly
     AdminCredential.__table__.create(bind=db.get_bind(), checkfirst=True)
+    ensure_separate_account_tables(db.get_bind())
 
     cred = db.scalar(
         select(AdminCredential).where(
@@ -698,7 +891,7 @@ def admin_password_login(
             actor_user_id=None,
             actor_role="ANONYMOUS",
             action="ADMIN_LOGIN_FAILED",
-            target_type="admin_credentials",
+            target_type="admin_accounts",
             target_id=normalized_email,
             correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
             new_values={"ip": client_ip},
@@ -709,52 +902,46 @@ def admin_password_login(
             detail="Invalid administrator email or password.",
         )
 
+    admin_acc = db.scalar(select(AdminAccount).where(AdminAccount.id == cred.user_id))
     user = db.scalar(select(User).where(User.id == cred.user_id))
-    if user is None or user.account_status != "ACTIVE":
+    if admin_acc is None and user is not None:
+        m_type, m_row = backfill_single_user_if_needed(db, user)
+        db.flush()
+        if m_type == "admin" and isinstance(m_row, AdminAccount):
+            admin_acc = m_row
+
+    if admin_acc is None or admin_acc.account_status != "ACTIVE" or not admin_acc.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator account is not active.",
         )
 
-    role_codes = sorted(
-        set(
-            db.scalars(
-                select(PlatformRole.code)
-                .join(
-                    UserRoleAssignment,
-                    UserRoleAssignment.platform_role_id == PlatformRole.id,
-                )
-                .where(
-                    UserRoleAssignment.user_id == user.id,
-                    UserRoleAssignment.assignment_status == "ACTIVE",
-                    PlatformRole.is_active == True,  # noqa: E712
-                )
-            ).all()
-        )
-    )
-    is_admin, admin_permissions = _load_admin_access(db, user.id, role_codes)
+    is_admin, admin_permissions = _load_admin_access(db, admin_acc.id, ["ADMIN"])
     if not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator privileges have been revoked for this account.",
         )
 
-    cred.last_login_at = utcnow()
-    user.last_login_at = utcnow()
+    now_ts = utcnow()
+    cred.last_login_at = now_ts
+    admin_acc.last_login_at = now_ts
+    if user is not None:
+        user.last_login_at = now_ts
     record_audit_log(
         db,
-        actor_user_id=user.id,
+        actor_user_id=admin_acc.id,
         actor_role="ADMIN",
         action="ADMIN_LOGIN_SUCCESS",
-        target_type="admin_credentials",
-        target_id=cred.id,
+        target_type="admin_accounts",
+        target_id=admin_acc.id,
         correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
         new_values={"email": cred.email, "ip": client_ip},
     )
     db.commit()
 
     token, ttl = create_admin_session_token(
-        user_id=user.id,
+        user_id=admin_acc.id,
         email=cred.email,
         settings=settings,
     )
@@ -762,8 +949,8 @@ def admin_password_login(
         access_token=token,
         token_type="bearer",
         expires_in=ttl,
-        user_id=user.id,
+        user_id=admin_acc.id,
         email=cred.email,
-        display_name=user.display_name or f"{user.first_name} {user.last_name or ''}".strip(),
+        display_name=admin_acc.display_name or f"{admin_acc.first_name} {admin_acc.last_name or ''}".strip(),
         admin_permissions=admin_permissions,
     )

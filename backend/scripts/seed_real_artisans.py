@@ -31,10 +31,12 @@ if str(BACKEND_ROOT) not in sys.path:
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.account_tables import ensure_separate_account_tables
 from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.models.base import Base, utcnow
 from app.models.core_models import (
+    ArtisanAccount,
     Category,
     PlatformRole,
     Product,
@@ -124,6 +126,7 @@ def seed_artisans_and_catalog(*, session_override: Session | None = None) -> dic
         dialect_label = "SESSION"
 
     def _run(db: Session) -> dict[str, int]:
+        ensure_separate_account_tables(db.get_bind())
         # 1. Platform Roles
         role_map: dict[str, PlatformRole] = {}
         for idx, (code, name) in enumerate(
@@ -342,6 +345,36 @@ def seed_artisans_and_catalog(*, session_override: Session | None = None) -> dic
                 seller.bio = bio_text
                 seller.average_rating = avg_rating
                 seller.total_reviews = total_rev_count
+                db.flush()
+
+            artisan_acc = (
+                db.scalar(select(ArtisanAccount).where(ArtisanAccount.id == user.id))
+                or db.scalar(select(ArtisanAccount).where(ArtisanAccount.email == email))
+            )
+            if artisan_acc is None:
+                artisan_acc = ArtisanAccount(
+                    id=user.id,
+                    clerk_user_id=clerk_id,
+                    email=email,
+                    email_verified=True,
+                    first_name=first_name,
+                    last_name=last_name or None,
+                    display_name=display_name,
+                    store_name=store_name,
+                    craft_specialty=craft_specialty[:160],
+                    workshop_district=main_district[:100],
+                    verification_status="APPROVED",
+                    account_status="ACTIVE",
+                )
+                db.add(artisan_acc)
+                db.flush()
+            else:
+                artisan_acc.display_name = display_name
+                artisan_acc.store_name = store_name
+                artisan_acc.craft_specialty = craft_specialty[:160]
+                artisan_acc.workshop_district = main_district[:100]
+                artisan_acc.verification_status = "APPROVED"
+                artisan_acc.account_status = "ACTIVE"
                 db.flush()
 
             app_num = f"HL-VER-{art_slug[:36].upper()}"
