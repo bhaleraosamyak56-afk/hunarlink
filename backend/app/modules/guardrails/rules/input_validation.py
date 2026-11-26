@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.guardrails.rules.content_safety import validate_no_prohibited_content
 from app.modules.guardrails.schemas import FieldIssue, GuardrailOutcome
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -70,6 +71,8 @@ def validate_safe_text(
                 message=f"Field '{field}' cannot include embedded script or HTML event handlers.",
             )
         )
+
+    issues.extend(validate_no_prohibited_content(field, value))
 
     return issues
 

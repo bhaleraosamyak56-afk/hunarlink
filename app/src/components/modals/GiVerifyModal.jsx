@@ -4,6 +4,7 @@ import { useStore } from '../../state/StoreContext.jsx';
 import Modal from '../Modal.jsx';
 import { IconShield } from '../../components/LineIcons.jsx';
 import { lookupPassports } from '../../services/craftproofApi.js';
+import { checkProhibitedQuery } from '../../utils/contentSafety.js';
 
 /* ==========================================================================
    GiVerifyModal — GI registry lookup
@@ -29,13 +30,26 @@ export default function GiVerifyModal() {
       setDbPassports([]);
       return;
     }
+    const blocked = checkProhibitedQuery(value);
+    if (blocked) {
+      setResult({ kind: 'blocked', message: blocked.message });
+      setDbPassports([]);
+      return;
+    }
     const norm = normalise(value);
     const match = catalogue.find(
       (p) => normalise(p.giId) === norm || normalise(p.giId).includes(norm)
     );
     setResult(match ? { kind: 'ok', product: match } : { kind: 'miss', value });
     lookupPassports(value)
-      .then((res) => setDbPassports(res?.items || []))
+      .then((res) => {
+        if (res?.safety_blocked) {
+          setResult({ kind: 'blocked', message: res.safety_message });
+          setDbPassports([]);
+        } else {
+          setDbPassports(res?.items || []);
+        }
+      })
       .catch(() => setDbPassports([]));
   };
 
@@ -77,6 +91,25 @@ export default function GiVerifyModal() {
         </div>
 
         <div id="gi-lookup-result" aria-live="polite">
+          {result?.kind === 'blocked' && (
+            <div
+              role="alert"
+              style={{
+                background: '#FDF2F0',
+                border: '1px solid #E5B7B0',
+                borderLeft: '4px solid #9E2F25',
+                borderRadius: 8,
+                padding: '12px 14px',
+                marginTop: 12,
+                color: '#7F231B',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                lineHeight: 1.5
+              }}
+            >
+              &#9888; {result.message}
+            </div>
+          )}
           {result?.kind === 'empty' && (
             <div
               style={{

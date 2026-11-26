@@ -42,6 +42,7 @@ from app.modules.craftproof.service import (
     resolve_passport_by_code_or_slug,
     serialize_passport_public,
 )
+from app.modules.guardrails.rules.content_safety import check_prohibited_content
 
 # ---------------------------------------------------------------------------
 # Deterministic Craft-Economics Plausibility Floors (Adversarial Fraud Signals)
@@ -193,6 +194,43 @@ def prescreen_artisan_document(
     actor_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Extract PDF/image document signals, cross-check against form + GI registry, and run advisory AI."""
+    safety_hit = check_prohibited_content(
+        " ".join(
+            part
+            for part in (
+                payload.store_name,
+                payload.craft_specialty,
+                payload.workshop_district,
+                payload.claimed_gi_code or "",
+                payload.document_text_snippet or "",
+            )
+            if part
+        )
+    )
+    if safety_hit is not None:
+        log_id = record_ai_interaction(
+            db,
+            workflow_type="ARTISAN_DOC_PRESCREEN",
+            provider_used="safety_guardrail",
+            model_used=safety_hit.rule_code,
+            latency_ms=0,
+            input_text=f"{payload.store_name} | {payload.craft_specialty}",
+            output_summary=safety_hit.message,
+            output_json={
+                "blocked": True,
+                "category": safety_hit.category,
+                "rule_code": safety_hit.rule_code,
+            },
+            actor_user_id=actor_user_id,
+            target_type="SELLER_APPLICATION",
+            target_ref=payload.application_id or payload.store_name,
+            overclaim_guard_triggered=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{safety_hit.message} (Audit ID: {log_id or 'logged'})",
+        )
+
     scan: FileSecurityScan | None = None
     file_path = None
     if payload.file_scan_id:
@@ -449,6 +487,46 @@ def audit_craft_listing(
         )
         if part
     )
+    safety_hit = check_prohibited_content(combined)
+    if safety_hit is not None:
+        log_id = record_ai_interaction(
+            db,
+            workflow_type="ADVERSARIAL_CRAFT_AUDIT",
+            provider_used="safety_guardrail",
+            model_used=safety_hit.rule_code,
+            latency_ms=0,
+            input_text=combined[:2000],
+            output_summary=safety_hit.message,
+            output_json={
+                "risk_level": "HIGH",
+                "blocked": True,
+                "category": safety_hit.category,
+                "rule_code": safety_hit.rule_code,
+            },
+            actor_user_id=actor_user_id,
+            target_type="CRAFT_LISTING_AUDIT",
+            target_ref=payload.passport_id or payload.title[:100],
+            overclaim_guard_triggered=True,
+        )
+        return {
+            "risk_level": "HIGH",
+            "is_legal_proof": False,
+            "human_verification_required": True,
+            "safety_blocked": True,
+            "skeptical_assessment": safety_hit.message,
+            "red_flags": [safety_hit.message],
+            "warnings": ["Submission blocked prior to LLM evaluation by HunarLink Contraband & Safety Guardrail."],
+            "decomposed_claims": [],
+            "prescribed_evidence_types": [],
+            "reviewer_questions": ["Confirm prohibited item policy compliance; listing cannot be published."],
+            "fair_craft_preview": None,
+            "ai_meta": {
+                "provider_used": "safety_guardrail",
+                "model_used": safety_hit.rule_code,
+                "latency_ms": 0,
+                "interaction_log_id": log_id,
+            },
+        }
     low = combined.lower()
 
     red_flags: list[dict[str, str]] = []
@@ -812,6 +890,31 @@ def draft_artisan_listing(
       - Any GI code returned by LLM MUST appear verbatim in `raw_note` or is deterministically stripped.
       - All extracted claims are strictly tagged `SELLER_DECLARED`.
     """
+    safety_hit = check_prohibited_content(payload.raw_note)
+    if safety_hit is not None:
+        record_ai_interaction(
+            db,
+            workflow_type="ARTISAN_COPILOT_DRAFT",
+            provider_used="safety_guardrail",
+            model_used=safety_hit.rule_code,
+            latency_ms=0,
+            input_text=payload.raw_note[:2000],
+            output_summary=safety_hit.message,
+            output_json={
+                "blocked": True,
+                "category": safety_hit.category,
+                "rule_code": safety_hit.rule_code,
+            },
+            actor_user_id=actor_user_id,
+            target_type="LISTING_DRAFT",
+            target_ref=safety_hit.category,
+            overclaim_guard_triggered=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=safety_hit.message,
+        )
+
     baseline = _deterministic_parse_artisan_note(payload)
     gateway = LocalAIGateway(settings)
 
@@ -1098,6 +1201,51 @@ def answer_buyer_passport_question(
     passport_data = serialize_passport_public(db, passport, api_prefix=settings.api_v1_prefix)
     verified = passport_data["verified_claims"]
     unverified = passport_data["unverified_claims"]
+
+    safety_hit = check_prohibited_content(payload.question)
+    if safety_hit is not None:
+        refusal_text = (
+            f"{safety_hit.message} "
+            "I can only answer verified provenance, craft technique, material, care, and Fair-Craft questions "
+            f"about this Craft Passport ({passport_data['passport_code']})."
+        )
+        log_id = record_ai_interaction(
+            db,
+            workflow_type="BUYER_ASSISTANT_QA",
+            provider_used="safety_guardrail",
+            model_used=safety_hit.rule_code,
+            latency_ms=0,
+            input_text=payload.question[:2000],
+            output_summary=refusal_text,
+            output_json={
+                "passport_code": passport_data["passport_code"],
+                "blocked": True,
+                "category": safety_hit.category,
+                "rule_code": safety_hit.rule_code,
+            },
+            actor_user_id=actor_user_id,
+            target_type="CRAFT_PASSPORT",
+            target_ref=passport_data["passport_code"],
+            overclaim_guard_triggered=True,
+        )
+        return {
+            "passport_code": passport_data["passport_code"],
+            "overall_trust_level": passport_data["overall_trust_level"],
+            "answer": refusal_text,
+            "verified_claims_count": len(verified),
+            "unverified_claims_count": len(unverified),
+            "cited_claims": [],
+            "physical_inspection_guide": [],
+            "overclaim_guard_triggered": True,
+            "safety_blocked": True,
+            "is_legal_proof": False,
+            "ai_meta": {
+                "provider_used": "safety_guardrail",
+                "model_used": safety_hit.rule_code,
+                "latency_ms": 0,
+                "interaction_log_id": log_id,
+            },
+        }
 
     # Build tight factual context bundle (zero ungrounded marketing fluff)
     context_bundle = {

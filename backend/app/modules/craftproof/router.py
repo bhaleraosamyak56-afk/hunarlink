@@ -34,6 +34,7 @@ from app.modules.craftproof.service import (
     resolve_passport_by_code_or_slug,
     serialize_passport_public,
 )
+from app.modules.guardrails.rules.content_safety import check_prohibited_content
 
 router = APIRouter(tags=["CraftProof Passports"])
 
@@ -49,6 +50,17 @@ def lookup_passports(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Live DB search across Craft Passports by passport code, GI code, product name, or artisan."""
+    safety_hit = check_prohibited_content(q)
+    if safety_hit is not None:
+        return {
+            "query": q,
+            "count": 0,
+            "items": [],
+            "safety_blocked": True,
+            "safety_category": safety_hit.category,
+            "safety_message": safety_hit.message,
+        }
+
     needle = f"%{q.strip()}%"
     passports = list(
         db.scalars(

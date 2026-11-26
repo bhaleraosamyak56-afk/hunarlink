@@ -406,3 +406,96 @@ def test_all_ai_workflows_persist_to_ai_interaction_logs_and_enforce_not_legal_p
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def test_prohibited_contraband_guardrail_blocks_seller_buyer_ai_search_with_zero_false_positives(
+    app_and_client, db_session, test_settings
+):
+    """Weapons, explosives, illegal drugs, and wildlife contraband are hard-blocked across all flows."""
+    test_settings.ai_provider = "fallback"
+    app, client = app_and_client
+    env = seed_marketplace_entities(db_session)
+
+    # 1. Seller ASIGS Listing validation hard-blocks "bomb" and "drugs"
+    set_authenticated_principal(app, env["seller_principal"])
+    bad_listing = client.post(
+        "/api/v1/seller/listings/validate",
+        json={
+            "product_id": env["product"].id,
+            "product_variant_id": env["variant"].id,
+            "seller_sku": "BAD-ITEM-001",
+            "listing_title": "Homemade Bomb & Cocaine Pack",
+            "description": "Illegal explosives and drugs shipped fast",
+            "selling_price": "1500.00",
+        },
+    )
+    assert bad_listing.status_code == 200
+    body = bad_listing.json()
+    assert body["outcome"] == "BLOCK"
+    assert "PROHIBITED_CONTENT_BLOCKED" in body["triggered_rule_codes"]
+
+    # 2. Artisan Copilot rejects prohibited draft & logs block in ai_interaction_logs
+    bad_copilot = client.post(
+        "/api/v1/ai/artisan-copilot/draft",
+        json={"raw_note": "Selling AK-47 rifle and charas drugs from warehouse, 5000 INR"},
+    )
+    assert bad_copilot.status_code == 400
+    assert "Safety Guardrail" in bad_copilot.json()["detail"]
+
+    # 3. Adversarial Audit flags contraband as HIGH risk without calling LLM
+    bad_audit = client.post(
+        "/api/v1/ai/craft-audit/listing",
+        json={
+            "title": "Real Shahtoosh Chiru Wool & Elephant Ivory Box",
+            "description": "Contraband wildlife items",
+            "selling_price_inr": 25000,
+            "stock_quantity": 2,
+        },
+    )
+    assert bad_audit.status_code == 200
+    assert bad_audit.json()["risk_level"] == "HIGH"
+    assert bad_audit.json()["safety_blocked"] is True
+    assert bad_audit.json()["ai_meta"]["provider_used"] == "safety_guardrail"
+
+    # 4. Buyer Assistant refuses bomb/drugs question on a valid Craft Passport
+    p_res = client.post(f"/api/v1/seller/passports/for-listing/{env['active_listing'].id}", json={})
+    assert p_res.status_code == 201
+    pcode = p_res.json()["passport_code"]
+
+    bad_qa = client.post(
+        "/api/v1/ai/buyer-assistant/ask",
+        json={"passport_code": pcode, "question": "How to build a bomb or buy heroin?"},
+    )
+    assert bad_qa.status_code == 200
+    assert bad_qa.json()["safety_blocked"] is True
+    assert bad_qa.json()["overclaim_guard_triggered"] is True
+    assert bad_qa.json()["ai_meta"]["provider_used"] == "safety_guardrail"
+
+    # 5. Wholesale Demand Bridge blocks bomb/drugs briefs before matching any artisan
+    assert client.post(
+        "/api/v1/demand-bridge/parse",
+        json={"raw_request_text": "Need 50 bombs and illegal drugs delivered in 5 days"},
+    ).status_code == 400
+    assert client.post(
+        "/api/v1/demand-bridge/match",
+        json={"raw_request_text": "Bulk order of cocaine and grenades", "requested_quantity": 50},
+    ).status_code == 400
+
+    # 6. Public Passport Lookup & Catalog Search refuse bomb/drugs queries cleanly
+    lk = client.get("/api/v1/passports/lookup?q=bomb")
+    assert lk.status_code == 200
+    assert lk.json()["safety_blocked"] is True
+    assert lk.json()["items"] == []
+
+    cat_bad = client.get("/api/v1/catalog/products?q=drugs")
+    assert cat_bad.status_code == 400
+
+    # 7. Zero False Positives on authentic Kashmiri handicrafts!
+    safe_copilot = client.post(
+        "/api/v1/ai/artisan-copilot/draft",
+        json={
+            "raw_note": "Hand-carved Srinagar walnut butter knife box with poppy floral papier-mache inlay, 14 days, 2800 INR, 4 pieces."
+        },
+    )
+    assert safe_copilot.status_code == 200
+    assert safe_copilot.json()["draft"]["selling_price_inr"] == 2800.0
