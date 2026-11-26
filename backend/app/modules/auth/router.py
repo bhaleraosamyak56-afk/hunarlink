@@ -14,6 +14,7 @@ import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,13 +25,25 @@ from app.core.account_tables import (
     lookup_account_type_by_id,
     lookup_clerk_account_by_sub,
 )
-from app.core.admin_security import create_admin_session_token, verify_admin_password
+from app.core.admin_security import (
+    create_admin_session_token,
+    verify_admin_password,
+    verify_admin_session_token,
+)
 from app.core.audit import record_audit_log
 from app.core.auth import (
     AuthenticatedPrincipal,
+    bearer_scheme,
     get_current_principal,
     get_verified_clerk_claims,
     require_admin_permission,
+)
+from app.core.cache import (
+    invalidate_admin_overview_cache,
+    invalidate_artisan_cache,
+    invalidate_principal_cache,
+    is_admin_token_revoked,
+    revoke_admin_token_jti,
 )
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
@@ -72,7 +85,12 @@ from app.modules.auth.schemas import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication & User Sync"])
-_admin_login_limiter = SlidingWindowRateLimiter(max_requests=5, window_seconds=60)
+_admin_login_limiter = SlidingWindowRateLimiter(
+    max_requests=5, window_seconds=60, scope="admin_login"
+)
+_auth_sync_limiter = SlidingWindowRateLimiter(
+    max_requests=20, window_seconds=60, scope="auth_sync"
+)
 
 ROLE_CODE_MAP = {
     "buyer": ("CUSTOMER", "Retail Customer"),
@@ -273,7 +291,9 @@ def _build_account_response(
     )
 
 
-_account_check_limiter = SlidingWindowRateLimiter(max_requests=30, window_seconds=60)
+_account_check_limiter = SlidingWindowRateLimiter(
+    max_requests=30, window_seconds=60, scope="check_account"
+)
 
 
 @router.post("/check-account", response_model=AccountCheckResponse)
@@ -344,6 +364,7 @@ def sync_authenticated_user(
     request: Request,
     claims: dict = Depends(get_verified_clerk_claims),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> AuthUserProfileResponse:
     """Upsert a Clerk-authenticated Buyer or Artisan into its dedicated DB table (`buyer_accounts` or `artisan_accounts`).
 
@@ -352,6 +373,15 @@ def sync_authenticated_user(
       - Artisan registrations/logins operate strictly on `artisan_accounts`.
       - Attempting to sign in or register an email under a different account type is rejected with HTTP 409 Conflict.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, retry_after = _auth_sync_limiter.allow(f"sync:{client_ip}")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many account sync requests. Retry in {retry_after}s.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     ensure_separate_account_tables(db.get_bind())
     clerk_user_id = str(claims["sub"]).strip()
     clean_email = payload.email.strip().lower()
@@ -538,6 +568,12 @@ def sync_authenticated_user(
 
     db.commit()
     db.refresh(account_row)
+    invalidate_principal_cache(
+        clerk_user_id=account_row.clerk_user_id,
+        user_id=account_row.id,
+        settings=settings,
+    )
+    invalidate_admin_overview_cache(settings=settings)
     return _build_account_response(db, target_type, account_row, is_new_user=is_new_user)
 
 
@@ -569,6 +605,7 @@ def submit_artisan_verification(
     request: Request,
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> ArtisanVerificationSubmitResponse:
     """Persist an authenticated artisan's GI or Standard verification application.
 
@@ -747,6 +784,12 @@ def submit_artisan_verification(
     db.commit()
     db.refresh(seller)
     db.refresh(application)
+    invalidate_principal_cache(
+        clerk_user_id=artisan_acc.clerk_user_id,
+        user_id=artisan_acc.id,
+        settings=settings,
+    )
+    invalidate_artisan_cache(settings=settings)
 
     brief = _build_seller_brief(db, seller)
     assert brief is not None
@@ -954,3 +997,47 @@ def admin_password_login(
         display_name=admin_acc.display_name or f"{admin_acc.first_name} {admin_acc.last_name or ''}".strip(),
         admin_permissions=admin_permissions,
     )
+
+
+@router.post("/admin-logout")
+def admin_logout(
+    request: Request,
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Revoke the caller's Admin HS256 JWT `jti` immediately in Redis & audit sign-out."""
+    if creds is None or creds.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Bearer authentication token.",
+        )
+    admin_claims = verify_admin_session_token(creds.credentials, settings)
+    if admin_claims is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired Administrator token.",
+        )
+    jti = admin_claims.get("jti")
+    user_id = str(admin_claims["sub"])
+    if not is_admin_token_revoked(jti, settings=settings):
+        revoke_admin_token_jti(
+            jti,
+            int(admin_claims["exp"]) if admin_claims.get("exp") else None,
+            settings=settings,
+        )
+        invalidate_principal_cache(user_id=user_id, settings=settings)
+        record_audit_log(
+            db,
+            actor_user_id=user_id,
+            actor_role="ADMIN",
+            action="ADMIN_LOGOUT",
+            target_type="admin_credentials",
+            target_id=user_id,
+            correlation_id=getattr(request.state, "correlation_id", "") or str(uuid.uuid4()),
+            new_values={"revoked_jti": bool(jti)},
+            ip_address=request.client.host if request.client else None,
+        )
+        db.commit()
+
+    return {"status": "logged_out", "revoked": True, "user_id": user_id}

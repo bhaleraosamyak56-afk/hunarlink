@@ -12,8 +12,10 @@ from app.core.auth import (
     require_admin_permission,
     require_platform_role,
 )
+from app.core.cache import invalidate_artisan_cache
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.core.security import SlidingWindowRateLimiter
 from app.models.core_models import SupplierLot, SupplierProfile
 from app.modules.guardrails import repository, service
 from app.modules.guardrails.providers.gi_llm_base import BaseGILLMProvider
@@ -33,6 +35,9 @@ from app.modules.guardrails.schemas import (
 )
 
 router = APIRouter(tags=["ASIGS Guardrails"])
+document_upload_rate_limiter = SlidingWindowRateLimiter(
+    max_requests=15, window_seconds=60, scope="doc_upload"
+)
 
 
 def get_optional_gi_llm_provider() -> BaseGILLMProvider | None:
@@ -69,6 +74,7 @@ def create_seller_listing(
     request: Request,
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> GuardrailResponse:
     res = service.evaluate_seller_listing(
         db,
@@ -82,6 +88,7 @@ def create_seller_listing(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=res.model_dump(mode="json"),
         )
+    invalidate_artisan_cache(settings=settings)
     return res
 
 
@@ -215,6 +222,13 @@ async def upload_document(
     settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ) -> FileUploadResponse:
+    allowed, retry_after = document_upload_rate_limiter.allow(f"upload:{principal.user_id}")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Document upload rate limit exceeded. Retry in {retry_after}s.",
+            headers={"Retry-After": str(retry_after)},
+        )
     raw_bytes = await file.read()
     return service.upload_private_document(
         db,
@@ -335,6 +349,7 @@ def decide_case(
     request: Request,
     admin: AuthenticatedPrincipal = Depends(require_admin_permission("guardrails.decide")),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> GuardrailCaseSummary:
     r = service.decide_guardrail_case(
         db,
@@ -344,6 +359,7 @@ def decide_case(
         correlation_id=_corr_id(request),
         ip_address=request.client.host if request.client else None,
     )
+    invalidate_artisan_cache(settings=settings)
     return GuardrailCaseSummary(
         id=r.id,
         case_number=r.case_number,

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -80,6 +81,7 @@ def create_admin_session_token(
         "email": email,
         "iss": ADMIN_JWT_ISSUER,
         "token_type": ADMIN_TOKEN_TYPE,
+        "jti": uuid.uuid4().hex,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=ttl)).timestamp()),
     }

@@ -24,10 +24,13 @@ backend/
 ├── app/
 │   ├── main.py                                # FastAPI app, CORS allowlist, headers, routers
 │   ├── core/
-│   │   ├── config.py                          # Pydantic-settings + safe SQLAlchemy URL.create()
+│   │   ├── config.py                          # Pydantic-settings + MySQL & Redis env config
 │   │   ├── database.py                        # Sync SQLAlchemy 2.x engine + SessionLocal
-│   │   ├── auth.py                            # Clerk RS256 JWKS auth + MySQL RBAC lookup
-│   │   ├── security.py                        # Correlation IDs, headers, redaction, rate limiter
+│   │   ├── redis_client.py                    # Redis connection pool, health check & 15s circuit breaker
+│   │   ├── cache.py                           # Read-through cache, O(1) version invalidation, stampede lock, jti revocation
+│   │   ├── auth.py                            # Clerk RS256 JWKS auth + short-TTL RBAC cache + MySQL lookup
+│   │   ├── admin_security.py                  # PBKDF2-HMAC-SHA256 + HS256 Admin JWT (`jti` revocation support)
+│   │   ├── security.py                        # Correlation IDs, headers, redaction, Redis ZSET rate limiter
 │   │   └── audit.py                           # Append-only audit_logs writer
 │   ├── models/
 │   │   ├── base.py                            # UUIDChar (CHAR(36) ascii_bin), UTCDateTime
@@ -49,12 +52,14 @@ backend/
 │       └── payments/                          # Checkout, Verify, Webhook, Refunds, Admin Ops
 ├── docs/
 │   ├── asigs_guardrails_architecture.md
+│   ├── redis_setup_windows.md                 # Windows & local Redis setup, keys, TTLs & fallback guide
 │   └── payments/                              # 8 Razorpay engineering & go-live docs
 ├── tests/
 │   ├── conftest.py
 │   ├── test_auth_sync.py                      # Auth, RBAC, Artisan Card staging & Admin approval tests
 │   ├── test_storefront_integration.py         # Live catalog, UUID security & retail checkout tests
 │   ├── test_craftproof_ai_demand_bridge.py    # CraftProof Passports, AI & B2B Demand Bridge tests
+│   ├── test_redis_integration.py              # Redis caching, invalidation, rate limiting, jti & fallback tests
 │   ├── test_asigs_guardrails.py               # 21 ASIGS automated tests
 │   └── test_razorpay_payments.py              # 30 Razorpay automated tests
 ├── .env.example
@@ -73,11 +78,12 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### Run Automated Test Suite (80 Tests)
+### Run Automated Test Suite (91 Tests)
 ```bash
 cd backend
 pytest -v
 ```
+- **Redis Setup (Windows / WSL2 / Docker / Memurai):** See [`docs/redis_setup_windows.md`](docs/redis_setup_windows.md). FastAPI automatically falls back to MySQL and in-process rate limiting when Redis is not running.
 - **Exported API Collection:** See `../docs/api/HunarLink_Round3.postman_collection.json` and `../docs/api/openapi.json` (plus live Swagger UI at `http://localhost:8000/docs`).
 
 ### Verify MySQL 8.4 LTS Alembic DDL Offline (No Live DB Needed)

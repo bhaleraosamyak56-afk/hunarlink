@@ -85,6 +85,32 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr = Field(default=SecretStr(""))
     gemini_model: str = Field(default="gemini-2.0-flash-lite")
 
+    # Redis Cache, Admin Session Revocation & Distributed Rate Limiting
+    # MySQL is always authoritative; Redis degrades gracefully when unavailable.
+    redis_enabled: bool = Field(default=True)
+    redis_url: str = Field(default="")
+    redis_host: str = Field(default="127.0.0.1")
+    redis_port: int = Field(default=6379, ge=1, le=65535)
+    redis_db: int = Field(default=0, ge=0, le=15)
+    redis_password: SecretStr = Field(default=SecretStr(""))
+    redis_ssl: bool = Field(default=False)
+    redis_key_prefix: str = Field(default="hl")
+    redis_socket_timeout_seconds: float = Field(default=0.5, ge=0.05, le=10.0)
+    redis_circuit_cooldown_seconds: float = Field(default=15.0, ge=1.0, le=300.0)
+
+    # Redis domain TTLs (seconds)
+    redis_ttl_catalog_list_seconds: int = Field(default=300, ge=5)
+    redis_ttl_catalog_detail_seconds: int = Field(default=600, ge=5)
+    redis_ttl_artisans_list_seconds: int = Field(default=300, ge=5)
+    redis_ttl_artisan_detail_seconds: int = Field(default=600, ge=5)
+    redis_ttl_passport_seconds: int = Field(default=600, ge=5)
+    redis_ttl_passport_lookup_seconds: int = Field(default=180, ge=5)
+    redis_ttl_passport_qr_seconds: int = Field(default=86400, ge=60)
+    redis_ttl_principal_seconds: int = Field(default=45, ge=5, le=300)
+    redis_ttl_readyz_counts_seconds: int = Field(default=30, ge=5)
+    redis_ttl_ai_status_seconds: int = Field(default=30, ge=5)
+    redis_ttl_admin_overview_seconds: int = Field(default=15, ge=5)
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
