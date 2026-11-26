@@ -184,8 +184,9 @@ def main() -> None:
             )
 
         print(
-            f"\nSUMMARY: {len(users)} users | {len(admin_creds)} admins | {len(sellers)} sellers "
-            f"({public_sellers_count} live) | {listing_count} listings ({public_listings_count} live) | "
+            f"\nSUMMARY: {len(buyers)} buyers (`buyer_accounts`) | {len(artisans)} artisans (`artisan_accounts`) | "
+            f"{len(admins)} admins (`admin_accounts`) | {len(sellers)} seller_profiles ({public_sellers_count} live) | "
+            f"{listing_count} listings ({public_listings_count} live) | "
             f"{order_count} orders | {payment_count} payments | {refund_count} refunds | "
             f"{rule_count} ASIGS rules | {case_count} guardrail cases"
         )
