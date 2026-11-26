@@ -99,7 +99,7 @@
       return "Dry-clean **Pashmina, Kani & Sozni** gently and store in breathable cotton/muslin. Wipe **Walnut Woodcarving & Papier-Mâché** with a soft dry cloth away from moisture.";
     }
     if (/seller|artisan|register|portal|dashboard/i.test(q)) {
-      return "J&K artisans can register via the **Artisan Portal** with GI Certification (GI ID, live certificate photo, workshop video & passport photo) or as a Standard Artisan to manage listings, retail orders, and wholesale requests.";
+      return "J&K artisans can register via `/login?role=artisan` (Step 1 identity) and complete Workshop & Credential Verification on `/auth?tab=verify` (Step 2) using either **GI Certification** or a **Government J&K Handicrafts / Pehchan Artisan Card** upload — staged in MySQL until verified live by Admin.";
     }
     return "On HunarLink, you can shop GI-certified Kashmiri crafts directly from 2,400+ verified J&K artisans with zero middleman cut. Ask me about Pashmina or Papier-Mâché prices, GI verification, Walnut/Silk Rugs, Wholesale bulk orders, escrow payments, or order tracking!";
   }
