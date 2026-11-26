@@ -10,6 +10,18 @@ from app.core.auth import (
     get_current_principal,
     require_platform_role,
 )
+from app.core.cache import (
+    build_key,
+    cache_get_or_set,
+    cache_get_raw,
+    cache_set_raw,
+    deserialize_value,
+    get_namespace_version,
+    hash_query_fragment,
+    invalidate_catalog_cache,
+    invalidate_passport_cache,
+    serialize_value,
+)
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.core_models import Product, SellerProductListing, SellerProfile
@@ -61,50 +73,69 @@ def lookup_passports(
             "safety_message": safety_hit.message,
         }
 
-    needle = f"%{q.strip()}%"
-    passports = list(
-        db.scalars(
-            select(CraftPassport)
-            .join(Product, Product.id == CraftPassport.product_id)
-            .join(SellerProfile, SellerProfile.id == CraftPassport.seller_profile_id)
-            .where(
-                CraftPassport.is_public == True,  # noqa: E712
-                or_(
-                    CraftPassport.passport_code.ilike(needle),
-                    CraftPassport.public_slug.ilike(needle),
-                    Product.name.ilike(needle),
-                    Product.slug.ilike(needle),
-                    Product.sku_root.ilike(needle),
-                    SellerProfile.store_name.ilike(needle),
-                    SellerProfile.claimed_gi_authorized_user_no.ilike(needle),
-                ),
-            )
-            .limit(limit)
-        ).all()
+    ver = get_namespace_version("passports", settings)
+    lookup_key = build_key(
+        "cache",
+        "passports",
+        f"v{ver}",
+        "lookup",
+        hash_query_fragment(q),
+        f"lim{limit}",
+        settings=settings,
     )
 
-    # Also match claim values (e.g., GI registration code typed in GiVerifyModal)
-    if len(passports) < limit:
-        claim_passport_ids = list(
+    def _load_lookup() -> dict:
+        needle = f"%{q.strip()}%"
+        passports = list(
             db.scalars(
-                select(CraftProductClaim.passport_id)
-                .where(CraftProductClaim.claim_value.ilike(needle))
+                select(CraftPassport)
+                .join(Product, Product.id == CraftPassport.product_id)
+                .join(SellerProfile, SellerProfile.id == CraftPassport.seller_profile_id)
+                .where(
+                    CraftPassport.is_public == True,  # noqa: E712
+                    or_(
+                        CraftPassport.passport_code.ilike(needle),
+                        CraftPassport.public_slug.ilike(needle),
+                        Product.name.ilike(needle),
+                        Product.slug.ilike(needle),
+                        Product.sku_root.ilike(needle),
+                        SellerProfile.store_name.ilike(needle),
+                        SellerProfile.claimed_gi_authorized_user_no.ilike(needle),
+                    ),
+                )
                 .limit(limit)
             ).all()
         )
-        seen = {p.id for p in passports}
-        for pid in claim_passport_ids:
-            if pid not in seen:
-                p = db.scalar(select(CraftPassport).where(CraftPassport.id == pid))
-                if p and p.is_public:
-                    passports.append(p)
-                    seen.add(pid)
 
-    items = [
-        serialize_passport_public(db, p, api_prefix=settings.api_v1_prefix)
-        for p in passports[:limit]
-    ]
-    return {"query": q.strip(), "count": len(items), "items": items}
+        # Also match claim values (e.g., GI registration code typed in GiVerifyModal)
+        if len(passports) < limit:
+            claim_passport_ids = list(
+                db.scalars(
+                    select(CraftProductClaim.passport_id)
+                    .where(CraftProductClaim.claim_value.ilike(needle))
+                    .limit(limit)
+                ).all()
+            )
+            seen = {p.id for p in passports}
+            for pid in claim_passport_ids:
+                if pid not in seen:
+                    p = db.scalar(select(CraftPassport).where(CraftPassport.id == pid))
+                    if p and p.is_public:
+                        passports.append(p)
+                        seen.add(pid)
+
+        items = [
+            serialize_passport_public(db, p, api_prefix=settings.api_v1_prefix)
+            for p in passports[:limit]
+        ]
+        return {"query": q.strip(), "count": len(items), "items": items}
+
+    return cache_get_or_set(
+        lookup_key,
+        ttl_seconds=settings.redis_ttl_passport_lookup_seconds,
+        loader=_load_lookup,
+        settings=settings,
+    )
 
 
 @router.get("/passports/by-product/{product_ref}")
@@ -114,13 +145,48 @@ def get_passport_by_product(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Resolve (or lazily initialize) the public Craft Passport for any product or listing."""
+    clean_ref = product_ref.strip().lower()
+    ver = get_namespace_version("passports", settings)
+    alias_key = build_key(
+        "cache", "passports", f"v{ver}", "prod_ref", clean_ref, settings=settings
+    )
+    cached_code = cache_get_raw(alias_key, settings=settings)
+    if cached_code:
+        code_key = build_key(
+            "cache", "passports", f"v{ver}", "code", cached_code.lower(), settings=settings
+        )
+        cached_payload = cache_get_raw(code_key, settings=settings)
+        if cached_payload:
+            try:
+                return deserialize_value(cached_payload)
+            except Exception:
+                pass
+
     passport = resolve_or_create_passport_by_product(db, product_ref)
     if passport is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No product or Craft Passport found for this identifier.",
         )
-    return serialize_passport_public(db, passport, api_prefix=settings.api_v1_prefix)
+    serialized = serialize_passport_public(db, passport, api_prefix=settings.api_v1_prefix)
+    code_key = build_key(
+        "cache", "passports", f"v{ver}", "code", passport.passport_code.lower(), settings=settings
+    )
+    cache_set_raw(
+        code_key,
+        serialize_value(serialized),
+        ttl_seconds=settings.redis_ttl_passport_seconds,
+        jitter_ratio=0.10,
+        settings=settings,
+    )
+    cache_set_raw(
+        alias_key,
+        passport.passport_code,
+        ttl_seconds=settings.redis_ttl_passport_seconds,
+        jitter_ratio=0.10,
+        settings=settings,
+    )
+    return serialized
 
 
 @router.get("/passports/{code_or_slug}/qr.svg")
@@ -130,13 +196,31 @@ def get_passport_qr_svg(
     settings: Settings = Depends(get_settings),
 ) -> Response:
     """Return a scannable SVG QR code linking straight to the public Craft Passport page."""
+    base = (settings.frontend_base_url or "http://localhost:5173").rstrip("/")
+    base_hash = hash_query_fragment(base)[:12]
+    qr_key = build_key(
+        "cache", "qr", "v1", code_or_slug.strip().lower(), base_hash, settings=settings
+    )
+    cached_svg = cache_get_raw(qr_key, settings=settings)
+    if cached_svg is not None:
+        return Response(
+            content=cached_svg.encode("utf-8"),
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+
     passport = resolve_passport_by_code_or_slug(db, code_or_slug)
     if passport is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Craft Passport not found.")
 
-    base = (settings.frontend_base_url or "http://localhost:5173").rstrip("/")
     passport_url = f"{base}/passport/{passport.passport_code}"
     svg_bytes = generate_passport_qr_svg(passport_url)
+    cache_set_raw(
+        qr_key,
+        svg_bytes.decode("utf-8"),
+        ttl_seconds=settings.redis_ttl_passport_qr_seconds,
+        settings=settings,
+    )
     return Response(
         content=svg_bytes,
         media_type="image/svg+xml",
@@ -151,13 +235,31 @@ def get_passport_public(
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Public Craft Passport endpoint separating verified facts from artisan declarations."""
-    passport = resolve_passport_by_code_or_slug(db, code_or_slug)
-    if passport is None or not passport.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Craft Passport not found.",
-        )
-    return serialize_passport_public(db, passport, api_prefix=settings.api_v1_prefix)
+    ver = get_namespace_version("passports", settings)
+    cache_key = build_key(
+        "cache",
+        "passports",
+        f"v{ver}",
+        "code",
+        code_or_slug.strip().lower(),
+        settings=settings,
+    )
+
+    def _load_passport() -> dict:
+        passport = resolve_passport_by_code_or_slug(db, code_or_slug)
+        if passport is None or not passport.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Craft Passport not found.",
+            )
+        return serialize_passport_public(db, passport, api_prefix=settings.api_v1_prefix)
+
+    return cache_get_or_set(
+        cache_key,
+        ttl_seconds=settings.redis_ttl_passport_seconds,
+        loader=_load_passport,
+        settings=settings,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +296,7 @@ def create_or_get_seller_passport(
         preserve_existing_gi_verification=False,
     )
     db.commit()
+    invalidate_passport_cache(settings=settings)
     return serialize_passport_public(db, passport, api_prefix=settings.api_v1_prefix)
 
 
@@ -222,6 +325,7 @@ def create_seller_claim(
         payload=payload,
     )
     db.commit()
+    invalidate_passport_cache(settings=settings)
     return {
         "claim_id": claim.id,
         "verification_status": claim.verification_status,
@@ -261,6 +365,7 @@ def upload_seller_claim_evidence(
         payload=payload,
     )
     db.commit()
+    invalidate_passport_cache(settings=settings)
     return {
         "evidence_id": ev.id,
         "claim_id": claim.id,
@@ -366,6 +471,8 @@ def admin_decide_craft_claim(
         payload=payload,
     )
     db.commit()
+    invalidate_passport_cache(settings=settings)
+    invalidate_catalog_cache(settings=settings)
     return {
         "claim_id": updated_claim.id,
         "verification_status": updated_claim.verification_status,

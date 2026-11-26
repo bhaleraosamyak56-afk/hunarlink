@@ -20,6 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.admin_security import verify_admin_session_token
+from app.core.cache import (
+    get_cached_principal_dict,
+    is_admin_token_revoked,
+    set_cached_principal_dict,
+)
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.core_models import (
@@ -52,6 +57,29 @@ class AuthenticatedPrincipal:
 
     def has_permission(self, permission_code: str) -> bool:
         return self.is_active_admin and permission_code in self.admin_permissions
+
+    def to_cache_dict(self) -> dict:
+        return {
+            "user_id": self.user_id,
+            "clerk_user_id": self.clerk_user_id,
+            "email": self.email,
+            "account_status": self.account_status,
+            "roles": sorted(self.roles),
+            "admin_permissions": sorted(self.admin_permissions),
+            "is_active_admin": bool(self.is_active_admin),
+        }
+
+    @classmethod
+    def from_cache_dict(cls, data: dict) -> AuthenticatedPrincipal:
+        return cls(
+            user_id=str(data["user_id"]),
+            clerk_user_id=str(data["clerk_user_id"]),
+            email=str(data["email"]),
+            account_status=str(data["account_status"]),
+            roles=frozenset(data.get("roles") or ()),
+            admin_permissions=frozenset(data.get("admin_permissions") or ()),
+            is_active_admin=bool(data.get("is_active_admin", False)),
+        )
 
 
 _JWKS_CLIENT_CACHE: dict[str, PyJWKClient] = {}
@@ -225,16 +253,43 @@ def get_current_principal(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Bearer authentication token.",
         )
-    # 1. Dedicated HunarLink Admin Email+Password HS256 JWT (strictly verified against DB)
+    # 1. Dedicated HunarLink Admin Email+Password HS256 JWT (strictly verified against DB + jti denylist)
     admin_claims = verify_admin_session_token(creds.credentials, settings)
     if admin_claims is not None:
-        principal = load_admin_principal_by_user_id(db, str(admin_claims["sub"]))
+        if is_admin_token_revoked(admin_claims.get("jti"), settings=settings):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Administrator session has been signed out or revoked.",
+            )
+        admin_user_id = str(admin_claims["sub"])
+        cached_admin = get_cached_principal_dict("admin", admin_user_id, settings=settings)
+        if cached_admin is not None:
+            principal = AuthenticatedPrincipal.from_cache_dict(cached_admin)
+        else:
+            principal = load_admin_principal_by_user_id(db, admin_user_id)
+            set_cached_principal_dict(
+                "admin",
+                admin_user_id,
+                principal.to_cache_dict(),
+                settings=settings,
+            )
         request.state.actor_user_id = principal.user_id
         return principal
 
     # 2. Standard Buyer / Artisan Clerk RS256 JWKS JWT
     claims = verifier.verify(creds.credentials)
-    principal = load_principal_by_clerk_id(db, str(claims["sub"]))
+    clerk_id = str(claims["sub"])
+    cached_principal = get_cached_principal_dict("clerk", clerk_id, settings=settings)
+    if cached_principal is not None:
+        principal = AuthenticatedPrincipal.from_cache_dict(cached_principal)
+    else:
+        principal = load_principal_by_clerk_id(db, clerk_id)
+        set_cached_principal_dict(
+            "clerk",
+            clerk_id,
+            principal.to_cache_dict(),
+            settings=settings,
+        )
     request.state.actor_user_id = principal.user_id
     return principal
 

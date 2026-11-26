@@ -22,8 +22,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.auth import AuthenticatedPrincipal, get_current_principal
+from app.core.cache import clear_local_revoked_jtis
 from app.core.config import Settings
 from app.core.database import get_db
+from app.core.redis_client import reset_redis_state
 from app.integrations.razorpay.exceptions import RazorpayGatewayError, RazorpayTimeoutError
 from app.integrations.razorpay.schemas import (
     RazorpayOrderDTO,
@@ -57,6 +59,14 @@ from app.models.core_models import (
     WholesaleRFQ,
 )
 from app.models.guardrail_models import GuardrailRule
+from app.modules.ai.router import ai_rate_limiter
+from app.modules.auth.router import (
+    _account_check_limiter,
+    _admin_login_limiter,
+    _auth_sync_limiter,
+)
+from app.modules.demand_bridge.router import demand_bridge_rate_limiter
+from app.modules.guardrails.router import document_upload_rate_limiter
 from app.modules.payments.router import get_razorpay_gateway, payment_rate_limiter
 from app.modules.storefront.router import artisan_lookup_rate_limiter, product_lookup_rate_limiter
 
@@ -136,6 +146,7 @@ def test_settings(tmp_path: Path) -> Settings:
     return Settings(
         app_env="testing",
         database_url="sqlite+pysqlite:///:memory:",
+        redis_enabled=False,
         private_storage_dir=str(tmp_path / "private_uploads"),
         max_upload_size_bytes=512_000,
         malware_scanner_mode="pending_only",
@@ -198,9 +209,17 @@ def app_and_client(
     db_session: Session,
     fake_razorpay: FakeRazorpayGateway,
 ):
+    reset_redis_state()
+    clear_local_revoked_jtis()
     payment_rate_limiter._hits.clear()
     artisan_lookup_rate_limiter._hits.clear()
     product_lookup_rate_limiter._hits.clear()
+    _admin_login_limiter._hits.clear()
+    _account_check_limiter._hits.clear()
+    _auth_sync_limiter._hits.clear()
+    document_upload_rate_limiter._hits.clear()
+    ai_rate_limiter._hits.clear()
+    demand_bridge_rate_limiter._hits.clear()
     app = create_app(settings_override=test_settings)
 
     def _override_db():
@@ -212,6 +231,8 @@ def app_and_client(
     client = TestClient(app)
     yield app, client
     app.dependency_overrides.clear()
+    reset_redis_state()
+    clear_local_revoked_jtis()
 
 
 def set_authenticated_principal(app, principal: AuthenticatedPrincipal | None) -> None:

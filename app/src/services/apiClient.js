@@ -361,6 +361,13 @@ export function adminPasswordLogin({ email, password }) {
   });
 }
 
+export function adminLogout(token) {
+  return apiRequest('/api/v1/auth/admin-logout', {
+    method: 'POST',
+    token
+  });
+}
+
 export function fetchAdminOverview(token) {
   return apiRequest('/api/v1/admin/overview', { token });
 }

@@ -5,13 +5,15 @@ Connects verified Kashmiri artisan workshops directly with retail collectors and
 
 ---
 
-## Architecture Overview (Full-Stack React + FastAPI + MySQL 8)
+## Architecture Overview (Full-Stack React + FastAPI + MySQL 8 + Redis)
 
-HunarLink is a production-structured monorepo connecting a **React 18 + Vite** SPA to a **FastAPI + SQLAlchemy 2.x + Alembic** backend backed by **MySQL 8.0/8.4** (with SQLite test isolation for CI):
+HunarLink is a production-structured monorepo connecting a **React 18 + Vite** SPA to a **FastAPI + SQLAlchemy 2.x + Alembic** backend backed by **MySQL 8.0/8.4** as the primary source of truth and **Redis** for read-through caching, distributed sliding-window rate limiting, stampede protection, and Admin session revocation (with automatic fallback when Redis is offline):
 
 ```text
 [React 18 SPA (:5173)]  ──(Vite Proxy /api/* + Bearer JWT)──▶  [FastAPI v1 (:8000)]  ──(SQLAlchemy 2.x)──▶  [MySQL 8.0/8.4 DB]
-   │                                                               │
+   │                                                               │                                         ▲ (Source of Truth)
+   │                                                               ├──▶ [Redis (:6379)] (Read-Through Cache, ZSET Rate Limiter,
+   │                                                               │                     Single-Flight Locks & Admin jti Denylist)
    ├── Clerk Identity (Google/Apple OAuth, Password, OTP)          ├── Auth & RBAC (`modules/auth/`) — Clerk RS256 JWKS + PBKDF2 Admin Auth
    ├── Dual-Track Artisan Onboarding (`/auth?tab=verify`)          ├── Storefront & Admin (`modules/storefront/`) — Catalog, Orders, Live Approval
    ├── Seller Studio + Artisan AI Copilot (`/seller`)              ├── ASIGS 10-Layer Guardrails (`modules/guardrails/`) — Anti-Counterfeit & File Scan
@@ -39,13 +41,14 @@ hunarlink/
 ├── backend/                      # FastAPI + SQLAlchemy 2.x + Alembic backend (70 REST endpoints)
 │   ├── alembic/                  # Migrations 0001 -> 0005 (95+ baseline tables + ASIGS + CraftProof + AI logs)
 │   ├── app/
-│   │   ├── core/                 # config.py, database.py, auth.py (JWKS + RBAC), security.py, audit.py
+│   │   ├── core/                 # config.py, database.py, redis_client.py, cache.py, auth.py, security.py
 │   │   ├── integrations/         # razorpay/ (Decimal<->paise, constant-time HMAC SHA-256)
 │   │   ├── models/               # core_models.py, guardrail_models.py, craftproof_models.py
 │   │   └── modules/              # auth, storefront, guardrails, craftproof, ai, demand_bridge, payments
+│   ├── docs/                     # ASIGS, Razorpay, and Windows Redis setup guides
 │   ├── scripts/                  # setup_mysql_and_sync.py, seed_real_artisans.py, seed_dev_preview.py
-│   ├── tests/                    # 80 automated pytest integration & security tests
-│   └── .env.example              # Backend environment template (MySQL, Clerk, Razorpay, Gemini)
+│   ├── tests/                    # 91 automated pytest integration, Redis & security tests
+│   └── .env.example              # Backend environment template (MySQL, Redis, Clerk, Razorpay, Gemini)
 ├── hunarlink-database/           # MySQL 8.0/8.4 full DDL (`hunarlink_mysql_full_install.sql`) & modular SQL
 ├── hunarsathi-chatbot/           # Dedicated streaming Gemini Flash buyer assistant (:5050) + instant fallback
 ├── docs/
@@ -66,7 +69,7 @@ cp backend/.env.example backend/.env
 cp app/.env.example app/.env.local
 cp hunarsathi-chatbot/.env.example hunarsathi-chatbot/.env   # optional for live Gemini streaming
 ```
-Fill in your local MySQL credentials, Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY` in `app/.env.local`, `CLERK_ISSUER` & `CLERK_JWKS_URL` in `backend/.env`), and Razorpay Test keys (`rzp_test_*`).
+Fill in your local MySQL credentials, Redis settings (`REDIS_HOST=127.0.0.1`, `REDIS_PORT=6379` — see [`backend/docs/redis_setup_windows.md`](backend/docs/redis_setup_windows.md) for Windows setup; FastAPI falls back automatically if Redis is not running), Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY` in `app/.env.local`, `CLERK_ISSUER` & `CLERK_JWKS_URL` in `backend/.env`), and Razorpay Test keys (`rzp_test_*`).
 
 ### 2. Provision MySQL Schema & Seed Authentic J&K Catalog
 ```bash
@@ -103,7 +106,7 @@ Open **`http://localhost:5173`**.
 
 - **Postman Collection (Ready to Import):** [`docs/api/HunarLink_Round3.postman_collection.json`](docs/api/HunarLink_Round3.postman_collection.json) (72 pre-configured requests grouped across all 9 backend domains with `{{baseUrl}}`, `{{clerkBearerToken}}`, and `{{adminToken}}` variables).
 - **OpenAPI 3.1 Specification:** [`docs/api/openapi.json`](docs/api/openapi.json) or live at `http://localhost:8000/docs`.
-- **Run Automated Backend Test Suite (`80 passed`):**
+- **Run Automated Backend Test Suite (`91 passed`):**
   ```bash
   backend/.venv/bin/pytest -v backend/tests
   ```

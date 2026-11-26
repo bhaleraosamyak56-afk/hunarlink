@@ -17,11 +17,22 @@ from collections import defaultdict
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import TypeAdapter
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_log
 from app.core.auth import AuthenticatedPrincipal, get_current_principal, require_admin_permission
+from app.core.cache import (
+    build_key,
+    cache_get_or_set,
+    get_namespace_version,
+    invalidate_admin_overview_cache,
+    invalidate_artisan_cache,
+    invalidate_catalog_cache,
+    invalidate_passport_cache,
+    invalidate_principal_cache,
+)
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.security import SlidingWindowRateLimiter
@@ -69,8 +80,17 @@ from app.modules.storefront.schemas import (
 router = APIRouter(tags=["Storefront, Artisans & Retail Orders"])
 
 # Rate limiters for public lookup endpoints against UUID/slug enumeration
-artisan_lookup_rate_limiter = SlidingWindowRateLimiter(max_requests=120, window_seconds=60)
-product_lookup_rate_limiter = SlidingWindowRateLimiter(max_requests=180, window_seconds=60)
+artisan_lookup_rate_limiter = SlidingWindowRateLimiter(
+    max_requests=120, window_seconds=60, scope="artisan_lookup"
+)
+product_lookup_rate_limiter = SlidingWindowRateLimiter(
+    max_requests=180, window_seconds=60, scope="product_lookup"
+)
+
+_CATALOG_LIST_ADAPTER = TypeAdapter(list[CatalogProductItem])
+_CATALOG_ITEM_ADAPTER = TypeAdapter(CatalogProductItem)
+_ARTISAN_LIST_ADAPTER = TypeAdapter(list[ArtisanSummaryItem])
+_ARTISAN_DETAIL_ADAPTER = TypeAdapter(ArtisanDetailResponse)
 
 _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,178}[a-z0-9])?$")
@@ -155,6 +175,34 @@ def _has_active_direct_seller_role(db: Session, user_id: str) -> bool:
     if not assignments:
         return True
     return any(status_val == "ACTIVE" and bool(role_active) for status_val, role_active in assignments)
+
+
+def _filter_users_with_active_direct_seller_role(db: Session, user_ids: list[str]) -> set[str]:
+    """Batch equivalent of `_has_active_direct_seller_role` (1 SQL query instead of N)."""
+    unique_ids = list(dict.fromkeys(uid for uid in user_ids if uid))
+    if not unique_ids:
+        return set()
+    rows = db.execute(
+        select(
+            UserRoleAssignment.user_id,
+            UserRoleAssignment.assignment_status,
+            PlatformRole.is_active,
+        )
+        .join(PlatformRole, PlatformRole.id == UserRoleAssignment.platform_role_id)
+        .where(
+            UserRoleAssignment.user_id.in_(unique_ids),
+            PlatformRole.code == "DIRECT_SELLER",
+        )
+    ).all()
+    grouped: dict[str, list[tuple[str, bool]]] = defaultdict(list)
+    for uid, status_val, role_active in rows:
+        grouped[uid].append((status_val, bool(role_active)))
+    return {
+        uid
+        for uid in unique_ids
+        if uid not in grouped
+        or any(status_val == "ACTIVE" and role_active for status_val, role_active in grouped[uid])
+    }
 
 
 def _load_product_images_map(db: Session, product_ids: list[str]) -> dict[str, list[str]]:
@@ -346,6 +394,7 @@ def list_active_catalog_products(
     q: str | None = None,
     limit: int = 200,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> list[CatalogProductItem]:
     """Return active, approved marketplace listings from the DB for public browsing."""
     if q:
@@ -356,48 +405,65 @@ def list_active_catalog_products(
                 detail=safety_hit.message,
             )
     safe_limit = max(1, min(limit, 250))
-    stmt = (
-        select(SellerProductListing, Product, Category, SellerProfile, User)
-        .join(Product, Product.id == SellerProductListing.product_id)
-        .join(Category, Category.id == Product.category_id)
-        .join(SellerProfile, SellerProfile.id == SellerProductListing.seller_profile_id)
-        .join(User, User.id == SellerProfile.user_id)
-        .where(
-            SellerProductListing.listing_status == "ACTIVE",
-            Product.is_active == True,  # noqa: E712
-            Product.approval_status == "APPROVED",
-            *_verified_seller_conditions(),
-        )
-        .order_by(Product.sku_root.asc(), SellerProductListing.created_at.desc())
-        .limit(safe_limit)
+    normalized_cat = category_slug.strip() if category_slug and category_slug.strip() else None
+    cat_key = normalized_cat.lower() if normalized_cat else "all"
+    ver = get_namespace_version("catalog", settings)
+    cache_key = build_key(
+        "cache", "catalog", f"v{ver}", "list", cat_key, f"lim{safe_limit}", settings=settings
     )
-    if category_slug:
-        stmt = stmt.where(Category.slug == category_slug.strip())
 
-    rows = [
-        row
-        for row in db.execute(stmt).all()
-        if _has_active_direct_seller_role(db, row[4].id)
-    ]
-
-    product_ids = list({product.id for _, product, _, _, _ in rows})
-    seller_ids = list({seller.id for _, _, _, seller, _ in rows})
-    images_map = _load_product_images_map(db, product_ids)
-    portraits_map = _load_seller_portraits_map(db, seller_ids)
-    meta_map = _load_seller_metadata_map(db, seller_ids)
-
-    return [
-        _serialize_catalog_row(
-            listing,
-            product,
-            category,
-            seller,
-            artisan_user,
-            images=images_map.get(product.id),
-            artisan_portrait_url=portraits_map.get(seller.id) or (meta_map.get(seller.id) or {}).get("portrait_url"),
+    def _load_catalog() -> list[CatalogProductItem]:
+        stmt = (
+            select(SellerProductListing, Product, Category, SellerProfile, User)
+            .join(Product, Product.id == SellerProductListing.product_id)
+            .join(Category, Category.id == Product.category_id)
+            .join(SellerProfile, SellerProfile.id == SellerProductListing.seller_profile_id)
+            .join(User, User.id == SellerProfile.user_id)
+            .where(
+                SellerProductListing.listing_status == "ACTIVE",
+                Product.is_active == True,  # noqa: E712
+                Product.approval_status == "APPROVED",
+                *_verified_seller_conditions(),
+            )
+            .order_by(Product.sku_root.asc(), SellerProductListing.created_at.desc())
+            .limit(safe_limit)
         )
-        for listing, product, category, seller, artisan_user in rows
-    ]
+        if normalized_cat:
+            stmt = stmt.where(Category.slug == normalized_cat)
+
+        raw_rows = db.execute(stmt).all()
+        allowed_uids = _filter_users_with_active_direct_seller_role(
+            db, [row[4].id for row in raw_rows]
+        )
+        rows = [row for row in raw_rows if row[4].id in allowed_uids]
+
+        product_ids = list({product.id for _, product, _, _, _ in rows})
+        seller_ids = list({seller.id for _, _, _, seller, _ in rows})
+        images_map = _load_product_images_map(db, product_ids)
+        portraits_map = _load_seller_portraits_map(db, seller_ids)
+        meta_map = _load_seller_metadata_map(db, seller_ids)
+
+        return [
+            _serialize_catalog_row(
+                listing,
+                product,
+                category,
+                seller,
+                artisan_user,
+                images=images_map.get(product.id),
+                artisan_portrait_url=portraits_map.get(seller.id)
+                or (meta_map.get(seller.id) or {}).get("portrait_url"),
+            )
+            for listing, product, category, seller, artisan_user in rows
+        ]
+
+    return cache_get_or_set(
+        cache_key,
+        ttl_seconds=settings.redis_ttl_catalog_list_seconds,
+        loader=_load_catalog,
+        type_adapter=_CATALOG_LIST_ADAPTER,
+        settings=settings,
+    )
 
 
 @router.get("/catalog/product", response_model=CatalogProductItem)
@@ -406,9 +472,10 @@ def get_active_catalog_product_by_query_id(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> CatalogProductItem:
     """Return a single active, approved product listing via `?id=<uuid>`."""
-    return get_active_catalog_product(id, request, response, db)
+    return get_active_catalog_product(id, request, response, db, settings)
 
 
 @router.get("/catalog/products/{identifier}", response_model=CatalogProductItem)
@@ -417,84 +484,200 @@ def get_active_catalog_product(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> CatalogProductItem:
     """Return a single active, approved product listing by its unique DB UUID (or slug)."""
     _check_lookup_rate_limit(product_lookup_rate_limiter, request, response)
     clean_id, is_uuid = _validate_identifier(identifier, label="product ID")
+    ver = get_namespace_version("catalog", settings)
+    cache_key = build_key("cache", "catalog", f"v{ver}", "item", clean_id, settings=settings)
 
-    stmt = (
-        select(SellerProductListing, Product, Category, SellerProfile, User)
-        .join(Product, Product.id == SellerProductListing.product_id)
-        .join(Category, Category.id == Product.category_id)
-        .join(SellerProfile, SellerProfile.id == SellerProductListing.seller_profile_id)
-        .join(User, User.id == SellerProfile.user_id)
-        .where(
-            SellerProductListing.listing_status == "ACTIVE",
-            Product.is_active == True,  # noqa: E712
-            Product.approval_status == "APPROVED",
-            *_verified_seller_conditions(),
-        )
-    )
-    if is_uuid:
-        stmt = stmt.where(
-            or_(
-                SellerProductListing.id == clean_id,
-                Product.id == clean_id,
+    def _load_product_detail() -> CatalogProductItem:
+        stmt = (
+            select(SellerProductListing, Product, Category, SellerProfile, User)
+            .join(Product, Product.id == SellerProductListing.product_id)
+            .join(Category, Category.id == Product.category_id)
+            .join(SellerProfile, SellerProfile.id == SellerProductListing.seller_profile_id)
+            .join(User, User.id == SellerProfile.user_id)
+            .where(
+                SellerProductListing.listing_status == "ACTIVE",
+                Product.is_active == True,  # noqa: E712
+                Product.approval_status == "APPROVED",
+                *_verified_seller_conditions(),
             )
         )
-    else:
-        stmt = stmt.where(
-            or_(
-                Product.slug == clean_id,
-                Product.sku_root == clean_id.upper(),
-                SellerProductListing.seller_sku == clean_id.upper(),
+        if is_uuid:
+            stmt = stmt.where(
+                or_(
+                    SellerProductListing.id == clean_id,
+                    Product.id == clean_id,
+                )
             )
+        else:
+            stmt = stmt.where(
+                or_(
+                    Product.slug == clean_id,
+                    Product.sku_root == clean_id.upper(),
+                    SellerProductListing.seller_sku == clean_id.upper(),
+                )
+            )
+
+        row = db.execute(stmt).first()
+        if row is None or not _has_active_direct_seller_role(db, row[4].id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Craft listing not found."
+            )
+
+        listing, product, category, seller, artisan_user = row
+        images_map = _load_product_images_map(db, [product.id])
+        portraits_map = _load_seller_portraits_map(db, [seller.id])
+        meta_map = _load_seller_metadata_map(db, [seller.id])
+
+        return _serialize_catalog_row(
+            listing,
+            product,
+            category,
+            seller,
+            artisan_user,
+            images=images_map.get(product.id),
+            artisan_portrait_url=portraits_map.get(seller.id)
+            or (meta_map.get(seller.id) or {}).get("portrait_url"),
         )
 
-    row = db.execute(stmt).first()
-    if row is None or not _has_active_direct_seller_role(db, row[4].id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Craft listing not found.")
-
-    listing, product, category, seller, artisan_user = row
-    images_map = _load_product_images_map(db, [product.id])
-    portraits_map = _load_seller_portraits_map(db, [seller.id])
-    meta_map = _load_seller_metadata_map(db, [seller.id])
-
-    return _serialize_catalog_row(
-        listing,
-        product,
-        category,
-        seller,
-        artisan_user,
-        images=images_map.get(product.id),
-        artisan_portrait_url=portraits_map.get(seller.id) or (meta_map.get(seller.id) or {}).get("portrait_url"),
+    return cache_get_or_set(
+        cache_key,
+        ttl_seconds=settings.redis_ttl_catalog_detail_seconds,
+        loader=_load_product_detail,
+        type_adapter=_CATALOG_ITEM_ADAPTER,
+        settings=settings,
     )
 
 
 @router.get("/artisans", response_model=list[ArtisanSummaryItem])
 def list_verified_artisans(
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> list[ArtisanSummaryItem]:
     """Return verified/active artisans strictly from the database for public browsing."""
-    sellers = [
-        (seller, artisan_user)
-        for seller, artisan_user in db.execute(
+    ver = get_namespace_version("artisans", settings)
+    cache_key = build_key("cache", "artisans", f"v{ver}", "list", settings=settings)
+
+    def _load_artisans() -> list[ArtisanSummaryItem]:
+        raw_sellers = db.execute(
             select(SellerProfile, User)
             .join(User, User.id == SellerProfile.user_id)
             .where(*_verified_seller_conditions())
             .order_by(SellerProfile.created_at.asc())
         ).all()
-        if _has_active_direct_seller_role(db, artisan_user.id)
-    ]
+        allowed_uids = _filter_users_with_active_direct_seller_role(
+            db, [u.id for _, u in raw_sellers]
+        )
+        sellers = [(s, u) for s, u in raw_sellers if u.id in allowed_uids]
 
-    seller_ids = [s.id for s, _ in sellers]
-    portraits_map = _load_seller_portraits_map(db, seller_ids)
-    meta_map = _load_seller_metadata_map(db, seller_ids)
+        seller_ids = [s.id for s, _ in sellers]
+        portraits_map = _load_seller_portraits_map(db, seller_ids)
+        meta_map = _load_seller_metadata_map(db, seller_ids)
 
-    results: list[ArtisanSummaryItem] = []
-    for seller, artisan_user in sellers:
+        listings_by_seller: dict[str, list[tuple[SellerProductListing, Category]]] = defaultdict(
+            list
+        )
+        if seller_ids:
+            all_listing_rows = db.execute(
+                select(SellerProductListing, Category)
+                .join(Product, Product.id == SellerProductListing.product_id)
+                .join(Category, Category.id == Product.category_id)
+                .where(
+                    SellerProductListing.seller_profile_id.in_(seller_ids),
+                    SellerProductListing.listing_status == "ACTIVE",
+                    Product.is_active == True,  # noqa: E712
+                    Product.approval_status == "APPROVED",
+                )
+            ).all()
+            for listing_obj, category_obj in all_listing_rows:
+                listings_by_seller[listing_obj.seller_profile_id].append(
+                    (listing_obj, category_obj)
+                )
+
+        results: list[ArtisanSummaryItem] = [
+            _serialize_artisan_summary(
+                seller,
+                artisan_user,
+                listings_by_seller.get(seller.id, []),
+                portrait_url=portraits_map.get(seller.id),
+                meta=meta_map.get(seller.id),
+            )
+            for seller, artisan_user in sellers
+        ]
+        results.sort(key=lambda a: (a.featured_order, a.name.lower()))
+        return results
+
+    return cache_get_or_set(
+        cache_key,
+        ttl_seconds=settings.redis_ttl_artisans_list_seconds,
+        loader=_load_artisans,
+        type_adapter=_ARTISAN_LIST_ADAPTER,
+        settings=settings,
+    )
+
+
+def _resolve_verified_artisan_detail(
+    identifier: str,
+    request: Request,
+    response: Response,
+    db: Session,
+    settings: Settings,
+) -> ArtisanDetailResponse:
+    _check_lookup_rate_limit(artisan_lookup_rate_limiter, request, response)
+    clean_id, is_uuid = _validate_identifier(identifier, label="artisan ID")
+    ver = get_namespace_version("artisans", settings)
+    cache_key = build_key(
+        "cache", "artisans", f"v{ver}", "detail", clean_id, settings=settings
+    )
+
+    def _load_artisan_detail() -> ArtisanDetailResponse:
+        probe_cond = (
+            SellerProfile.id == clean_id if is_uuid else SellerProfile.store_slug == clean_id
+        )
+        raw_seller_row = db.execute(
+            select(SellerProfile, User)
+            .join(User, User.id == SellerProfile.user_id)
+            .where(probe_cond)
+        ).first()
+
+        if raw_seller_row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Artisan not found."
+            )
+
+        seller, artisan_user = raw_seller_row
+        is_verified = (
+            artisan_user.account_status == "ACTIVE"
+            and seller.profile_status == "ACTIVE"
+            and seller.verification_status == "APPROVED"
+            and _has_active_direct_seller_role(db, artisan_user.id)
+        )
+        if not is_verified:
+            corr_id = getattr(request.state, "correlation_id", str(uuid.uuid4()))
+            db.add(
+                AuditLog(
+                    id=new_uuid(),
+                    actor_user_id=None,
+                    actor_role="PUBLIC",
+                    action="ARTISAN_ENDPOINT_BLOCKED_UNVERIFIED_ID",
+                    target_type="seller_profile",
+                    target_id=seller.id,
+                    reason=f"Blocked public access to unverified/inactive artisan ({clean_id}).",
+                    correlation_id=corr_id,
+                    ip_address=request.client.host if request.client else None,
+                )
+            )
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Artisan not found."
+            )
+
         listing_rows = db.execute(
-            select(SellerProductListing, Category)
+            select(SellerProductListing, Product, Category)
             .join(Product, Product.id == SellerProductListing.product_id)
             .join(Category, Category.id == Product.category_id)
             .where(
@@ -503,107 +686,48 @@ def list_verified_artisans(
                 Product.is_active == True,  # noqa: E712
                 Product.approval_status == "APPROVED",
             )
+            .order_by(Product.sku_root.asc(), SellerProductListing.created_at.desc())
         ).all()
-        results.append(
-            _serialize_artisan_summary(
+
+        product_ids = [prod.id for _, prod, _ in listing_rows]
+        images_map = _load_product_images_map(db, product_ids)
+        portraits_map = _load_seller_portraits_map(db, [seller.id])
+        meta_map = _load_seller_metadata_map(db, [seller.id])
+        portrait_url = portraits_map.get(seller.id) or (meta_map.get(seller.id) or {}).get(
+            "portrait_url"
+        )
+
+        serialized_listings = [
+            _serialize_catalog_row(
+                listing,
+                product,
+                category,
                 seller,
                 artisan_user,
-                listing_rows,
-                portrait_url=portraits_map.get(seller.id),
-                meta=meta_map.get(seller.id),
+                images=images_map.get(product.id),
+                artisan_portrait_url=portrait_url,
             )
-        )
-
-    results.sort(key=lambda a: (a.featured_order, a.name.lower()))
-    return results
-
-
-def _resolve_verified_artisan_detail(
-    identifier: str,
-    request: Request,
-    response: Response,
-    db: Session,
-) -> ArtisanDetailResponse:
-    _check_lookup_rate_limit(artisan_lookup_rate_limiter, request, response)
-    clean_id, is_uuid = _validate_identifier(identifier, label="artisan ID")
-
-    probe_cond = SellerProfile.id == clean_id if is_uuid else SellerProfile.store_slug == clean_id
-    raw_seller_row = db.execute(
-        select(SellerProfile, User)
-        .join(User, User.id == SellerProfile.user_id)
-        .where(probe_cond)
-    ).first()
-
-    if raw_seller_row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artisan not found.")
-
-    seller, artisan_user = raw_seller_row
-    is_verified = (
-        artisan_user.account_status == "ACTIVE"
-        and seller.profile_status == "ACTIVE"
-        and seller.verification_status == "APPROVED"
-        and _has_active_direct_seller_role(db, artisan_user.id)
-    )
-    if not is_verified:
-        corr_id = getattr(request.state, "correlation_id", str(uuid.uuid4()))
-        db.add(
-            AuditLog(
-                id=new_uuid(),
-                actor_user_id=None,
-                actor_role="PUBLIC",
-                action="ARTISAN_ENDPOINT_BLOCKED_UNVERIFIED_ID",
-                target_type="seller_profile",
-                target_id=seller.id,
-                reason=f"Blocked public access to unverified/inactive artisan ({clean_id}).",
-                correlation_id=corr_id,
-                ip_address=request.client.host if request.client else None,
-            )
-        )
-        db.commit()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artisan not found.")
-
-    listing_rows = db.execute(
-        select(SellerProductListing, Product, Category)
-        .join(Product, Product.id == SellerProductListing.product_id)
-        .join(Category, Category.id == Product.category_id)
-        .where(
-            SellerProductListing.seller_profile_id == seller.id,
-            SellerProductListing.listing_status == "ACTIVE",
-            Product.is_active == True,  # noqa: E712
-            Product.approval_status == "APPROVED",
-        )
-        .order_by(Product.sku_root.asc(), SellerProductListing.created_at.desc())
-    ).all()
-
-    product_ids = [prod.id for _, prod, _ in listing_rows]
-    images_map = _load_product_images_map(db, product_ids)
-    portraits_map = _load_seller_portraits_map(db, [seller.id])
-    meta_map = _load_seller_metadata_map(db, [seller.id])
-    portrait_url = portraits_map.get(seller.id) or (meta_map.get(seller.id) or {}).get("portrait_url")
-
-    serialized_listings = [
-        _serialize_catalog_row(
-            listing,
-            product,
-            category,
+            for listing, product, category in listing_rows
+        ]
+        summary = _serialize_artisan_summary(
             seller,
             artisan_user,
-            images=images_map.get(product.id),
-            artisan_portrait_url=portrait_url,
+            [(l, c) for l, _, c in listing_rows],
+            portrait_url=portraits_map.get(seller.id),
+            meta=meta_map.get(seller.id),
         )
-        for listing, product, category in listing_rows
-    ]
-    summary = _serialize_artisan_summary(
-        seller,
-        artisan_user,
-        [(l, c) for l, _, c in listing_rows],
-        portrait_url=portraits_map.get(seller.id),
-        meta=meta_map.get(seller.id),
-    )
 
-    return ArtisanDetailResponse(
-        **summary.model_dump(),
-        listings=serialized_listings,
+        return ArtisanDetailResponse(
+            **summary.model_dump(),
+            listings=serialized_listings,
+        )
+
+    return cache_get_or_set(
+        cache_key,
+        ttl_seconds=settings.redis_ttl_artisan_detail_seconds,
+        loader=_load_artisan_detail,
+        type_adapter=_ARTISAN_DETAIL_ADAPTER,
+        settings=settings,
     )
 
 
@@ -613,9 +737,10 @@ def get_verified_artisan_by_query_id(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> ArtisanDetailResponse:
     """Return a single verified artisan + DB listings via `?id=<uuid>`."""
-    return _resolve_verified_artisan_detail(id, request, response, db)
+    return _resolve_verified_artisan_detail(id, request, response, db, settings)
 
 
 @router.get("/artisans/{identifier}", response_model=ArtisanDetailResponse)
@@ -624,9 +749,10 @@ def get_verified_artisan_by_id_or_slug(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> ArtisanDetailResponse:
     """Return a single verified artisan + DB listings by unique DB UUID or store slug."""
-    return _resolve_verified_artisan_detail(identifier, request, response, db)
+    return _resolve_verified_artisan_detail(identifier, request, response, db, settings)
 
 
 def _serialize_order(order: RetailOrder, items: list[RetailOrderItem]) -> RetailOrderSummaryResponse:
@@ -673,6 +799,7 @@ def create_retail_order_from_cart(
     payload: CreateRetailOrderRequest,
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> RetailOrderSummaryResponse:
     """Create a server-validated RetailOrder whose totals come strictly from DB prices."""
     buyer = db.scalar(select(User).where(User.id == principal.user_id))
@@ -798,6 +925,7 @@ def create_retail_order_from_cart(
             created_items.append(row)
 
     db.commit()
+    invalidate_admin_overview_cache(settings=settings)
     return _serialize_order(order, created_items)
 
 
@@ -823,12 +951,7 @@ def list_my_retail_orders(
     return results
 
 
-@router.get("/admin/overview")
-def admin_live_overview(
-    admin: AuthenticatedPrincipal = Depends(require_admin_permission("payments.read")),
-    db: Session = Depends(get_db),
-) -> dict:
-    """Strictly admin-only real database snapshot for the Admin Console."""
+def _build_admin_overview_snapshot(db: Session) -> dict:
     users = list(db.scalars(select(User).order_by(User.created_at.desc()).limit(200)).all())
     sellers = list(db.scalars(select(SellerProfile).order_by(SellerProfile.created_at.desc()).limit(200)).all())
     applications = list(
@@ -892,8 +1015,6 @@ def admin_live_overview(
     ]
 
     return {
-        "admin_user_id": admin.user_id,
-        "admin_permissions": sorted(admin.admin_permissions),
         "counts": {
             "users": len(users),
             "sellers": len(sellers),
@@ -1076,6 +1197,29 @@ def admin_live_overview(
             }
             for o in orders
         ],
+    }
+
+
+@router.get("/admin/overview")
+def admin_live_overview(
+    admin: AuthenticatedPrincipal = Depends(require_admin_permission("payments.read")),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """Strictly admin-only real database snapshot for the Admin Console."""
+    ver = get_namespace_version("admin", settings)
+    cache_key = build_key("cache", "admin", f"v{ver}", "overview", settings=settings)
+    snapshot = cache_get_or_set(
+        cache_key,
+        ttl_seconds=settings.redis_ttl_admin_overview_seconds,
+        loader=lambda: _build_admin_overview_snapshot(db),
+        jitter_ratio=0.0,
+        settings=settings,
+    )
+    return {
+        "admin_user_id": admin.user_id,
+        "admin_permissions": sorted(admin.admin_permissions),
+        **snapshot,
     }
 
 
@@ -1326,6 +1470,7 @@ def publish_studio_listing(
     request: Request,
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> GuardrailResponse:
     """Persist an Artisan Studio craft through all 10 ASIGS Guardrail layers into the live DB."""
     corr_id = getattr(request.state, "correlation_id", "") or str(uuid.uuid4())
@@ -1406,6 +1551,8 @@ def publish_studio_listing(
                 db.commit()
         except Exception:
             db.rollback()
+    invalidate_artisan_cache(settings=settings)
+    invalidate_passport_cache(settings=settings)
     return res
 
 
@@ -1416,6 +1563,7 @@ def admin_moderate_listing(
     request: Request,
     admin: AuthenticatedPrincipal = Depends(require_admin_permission("guardrails.decide")),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Allow an authorized Admin to approve (`ACTIVE`), pause (`PAUSED`), or reject (`REJECTED`) a listing."""
     target_status = str(payload.get("listing_status") or "").strip().upper()
@@ -1443,6 +1591,8 @@ def admin_moderate_listing(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
+    invalidate_catalog_cache(settings=settings)
+    invalidate_artisan_cache(settings=settings)
     return {
         "listing_id": listing.id,
         "previous_status": prev,
@@ -1458,6 +1608,7 @@ def admin_decide_artisan_application(
     request: Request,
     admin: AuthenticatedPrincipal = Depends(require_admin_permission("guardrails.decide")),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Approve or Reject a staged Artisan Verification Application from `/admin`.
 
@@ -1585,6 +1736,13 @@ def admin_decide_artisan_application(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
+    seller_user = db.scalar(select(User).where(User.id == seller.user_id))
+    invalidate_principal_cache(
+        clerk_user_id=seller_user.clerk_user_id if seller_user else None,
+        user_id=seller.user_id,
+        settings=settings,
+    )
+    invalidate_artisan_cache(settings=settings)
 
     return {
         "application_id": app_row.id,
@@ -1606,6 +1764,7 @@ def admin_verify_seller(
     payload: dict,
     admin: AuthenticatedPrincipal = Depends(require_admin_permission("guardrails.decide")),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Allow an authorized Admin to APPROVE or REJECT an artisan's verification status in DB."""
     decision = str(payload.get("decision") or "").strip().upper()
@@ -1635,6 +1794,13 @@ def admin_verify_seller(
         latest_app.reviewed_by_user_id = admin.user_id
 
     db.commit()
+    seller_user = db.scalar(select(User).where(User.id == seller.user_id))
+    invalidate_principal_cache(
+        clerk_user_id=seller_user.clerk_user_id if seller_user else None,
+        user_id=seller.user_id,
+        settings=settings,
+    )
+    invalidate_artisan_cache(settings=settings)
     return {
         "seller_id": seller.id,
         "previous_verification_status": prev_verify,

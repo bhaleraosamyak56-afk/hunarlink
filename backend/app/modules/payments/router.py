@@ -25,7 +25,11 @@ from app.modules.payments.schemas import (
 )
 
 router = APIRouter(tags=["Payments (Razorpay)"])
-payment_rate_limiter = SlidingWindowRateLimiter(max_requests=60, window_seconds=60)
+payment_rate_limiter = SlidingWindowRateLimiter(
+    max_requests=60,
+    window_seconds=60,
+    scope="payments",
+)
 
 
 def get_razorpay_gateway(settings: Settings = Depends(get_settings)) -> RazorpayGatewayProtocol:

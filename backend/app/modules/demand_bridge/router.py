@@ -13,8 +13,10 @@ from app.core.auth import (
     load_principal_by_clerk_id,
     require_platform_role,
 )
+from app.core.cache import is_admin_token_revoked
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.core.security import SlidingWindowRateLimiter
 from app.models.base import utcnow
 from app.models.core_models import SellerProfile
 from app.models.craftproof_models import BuyerDemandRequest, DemandArtisanMatch
@@ -27,6 +29,26 @@ from app.modules.demand_bridge.schemas import (
 )
 
 router = APIRouter(tags=["Demand Bridge"])
+demand_bridge_rate_limiter = SlidingWindowRateLimiter(
+    max_requests=20, window_seconds=60, scope="demand_bridge"
+)
+
+
+def _enforce_demand_bridge_rate_limit(
+    request: Request, principal: AuthenticatedPrincipal | None
+) -> None:
+    actor = (
+        principal.user_id
+        if principal is not None
+        else (request.client.host if request.client else "anon")
+    )
+    allowed, retry_after = demand_bridge_rate_limiter.allow(f"db:{actor}")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Demand Bridge rate limit exceeded. Retry in {retry_after}s.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 def _optional_principal(
@@ -43,6 +65,8 @@ def _optional_principal(
     try:
         admin_claims = verify_admin_session_token(token, settings)
         if admin_claims is not None:
+            if is_admin_token_revoked(admin_claims.get("jti"), settings=settings):
+                return None
             return load_admin_principal_by_user_id(db, str(admin_claims["sub"]))
         verifier = get_token_verifier(settings)
         claims = verifier.verify(token)
@@ -54,11 +78,13 @@ def _optional_principal(
 @router.post("/demand-bridge/parse")
 def post_parse_demand_brief(
     payload: DemandParseIn,
+    request: Request,
     principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Step 1: Parse messy natural-language wholesale brief into structured JSON for buyer confirmation."""
+    _enforce_demand_bridge_rate_limit(request, principal)
     return parse_buyer_brief(
         settings,
         payload.raw_request_text,
@@ -70,10 +96,12 @@ def post_parse_demand_brief(
 @router.post("/demand-bridge/match", status_code=status.HTTP_201_CREATED)
 def post_match_demand_bridge(
     payload: DemandMatchIn,
+    request: Request,
     principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
     db: Session = Depends(get_db),
 ) -> dict:
     """Step 2: Deterministically score artisans & automatically form Multi-Artisan Cluster when needed."""
+    _enforce_demand_bridge_rate_limit(request, principal)
     return match_demand_to_artisans(
         db,
         payload=payload,

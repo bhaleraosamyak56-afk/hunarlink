@@ -4,6 +4,7 @@ import '../../styles/portal.css';
 import PortalScope from '../../components/PortalScope.jsx';
 import { useStore } from '../../state/StoreContext.jsx';
 import {
+  adminLogout,
   canAttemptBackend,
   decideAdminArtisanApplication,
   decideAdminGuardrailCase,
@@ -377,6 +378,9 @@ export default function AdminPage() {
               type="button"
               className="up-nav-pill up-nav-signout"
               onClick={() => {
+                if (adminToken && canAttemptBackend()) {
+                  adminLogout(adminToken).catch(() => {});
+                }
                 clearAdminSession(null);
                 navigate('/', { replace: true });
               }}

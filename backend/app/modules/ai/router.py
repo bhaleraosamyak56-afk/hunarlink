@@ -15,8 +15,15 @@ from app.core.auth import (
     require_platform_role,
 )
 from app.core.admin_security import verify_admin_session_token
+from app.core.cache import (
+    build_key,
+    cache_get_or_set,
+    invalidate_passport_cache,
+    is_admin_token_revoked,
+)
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.core.security import SlidingWindowRateLimiter
 from app.models.core_models import SellerProfile
 from app.models.craftproof_models import AIInteractionLog
 from app.modules.ai.provider import LocalAIGateway
@@ -34,6 +41,18 @@ from app.modules.ai.service import (
 )
 
 router = APIRouter(prefix="/ai", tags=["CraftProof AI"])
+ai_rate_limiter = SlidingWindowRateLimiter(max_requests=20, window_seconds=60, scope="ai")
+
+
+def _enforce_ai_rate_limit(request: Request, principal: AuthenticatedPrincipal | None) -> None:
+    actor = principal.user_id if principal is not None else (request.client.host if request.client else "anon")
+    allowed, retry_after = ai_rate_limiter.allow(f"ai:{actor}")
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"AI assistant rate limit exceeded. Retry in {retry_after}s.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
 
 def _optional_principal(
@@ -50,6 +69,8 @@ def _optional_principal(
     try:
         admin_claims = verify_admin_session_token(token, settings)
         if admin_claims is not None:
+            if is_admin_token_revoked(admin_claims.get("jti"), settings=settings):
+                return None
             return load_admin_principal_by_user_id(db, str(admin_claims["sub"]))
         verifier = get_token_verifier(settings)
         claims = verifier.verify(token)
@@ -61,18 +82,27 @@ def _optional_principal(
 @router.get("/status")
 def get_ai_gateway_status(settings: Settings = Depends(get_settings)) -> dict:
     """Inspect local Ollama reachability, active model (`qwen2.5:3b`), and fallback readiness."""
-    gateway = LocalAIGateway(settings)
-    return gateway.probe_status()
+    status_key = build_key("cache", "ai", "status", settings=settings)
+    return cache_get_or_set(
+        status_key,
+        ttl_seconds=settings.redis_ttl_ai_status_seconds,
+        loader=lambda: LocalAIGateway(settings).probe_status(),
+        jitter_ratio=0.0,
+        use_stampede_lock=False,
+        settings=settings,
+    )
 
 
 @router.post("/artisan-doc/prescreen")
 def post_artisan_doc_prescreen(
     payload: ArtisanDocPreScreenIn,
+    request: Request,
     principal: AuthenticatedPrincipal = Depends(get_current_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pillar 1A: Pre-screen uploaded GI Certificate / Artisan Card & pass advisory dossier to Admin."""
+    _enforce_ai_rate_limit(request, principal)
     return prescreen_artisan_document(
         db,
         settings=settings,
@@ -84,11 +114,13 @@ def post_artisan_doc_prescreen(
 @router.post("/artisan-copilot/draft")
 def post_artisan_copilot_draft(
     payload: ArtisanCopilotDraftIn,
+    request: Request,
     principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pillar 2: Turn Hindi / Hinglish / English artisan voice/text notes into an editable listing + Fair-Craft breakdown."""
+    _enforce_ai_rate_limit(request, principal)
     enriched = payload
     if principal is not None and (not payload.seller_district or not payload.seller_craft_specialty):
         seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == principal.user_id))
@@ -110,31 +142,38 @@ def post_artisan_copilot_draft(
 @router.post("/craft-audit/listing")
 def post_craft_audit_listing(
     payload: CraftAuditListingIn,
+    request: Request,
     principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pillar 1B: Adversarial CraftProof Audit checking craft economics, stock anomalies & GI conflicts."""
+    _enforce_ai_rate_limit(request, principal)
     seller = None
     if principal is not None:
         seller = db.scalar(select(SellerProfile).where(SellerProfile.user_id == principal.user_id))
-    return audit_craft_listing(
+    result = audit_craft_listing(
         db,
         settings=settings,
         payload=payload,
         seller_profile=seller,
         actor_user_id=principal.user_id if principal else None,
     )
+    if payload.passport_id:
+        invalidate_passport_cache(settings=settings)
+    return result
 
 
 @router.post("/buyer-assistant/ask")
 def post_buyer_assistant_ask(
     payload: BuyerAssistantAskIn,
+    request: Request,
     principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pillar 3: Public evidence-locked Buyer Assistant bound strictly to live MySQL Craft Passport rows."""
+    _enforce_ai_rate_limit(request, principal)
     return answer_buyer_passport_question(
         db,
         settings=settings,
