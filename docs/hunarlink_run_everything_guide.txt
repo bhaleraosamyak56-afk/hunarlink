@@ -1,0 +1,412 @@
+================================================================================
+HUNARLINK — COMPLETE COMMANDS, SQL & RUNBOOK GUIDE (WINDOWS POWERSHELL & CLOUD)
+================================================================================
+Project Root (Local Windows Example): C:\Users\Samyak\Documents\hunarlink
+Stack: React 19 + Vite 8 | FastAPI + SQLAlchemy 2.0 | MySQL 8.0/8.4 | Redis | Clerk | Razorpay
+================================================================================
+
+
+================================================================================
+0. PORT & URL CHEAT SHEET
+================================================================================
+Frontend (Vite Dev Mode)        : http://localhost:5173  (or :5174 if 5173 is busy)
+Frontend (Production Preview)   : http://localhost:4173
+FastAPI Backend Root            : http://localhost:8000
+FastAPI Swagger API UI          : http://localhost:8000/docs
+FastAPI Health Liveness         : http://localhost:8000/healthz
+FastAPI DB + Redis Readiness    : http://localhost:8000/readyz
+Admin Portal Login Page         : http://localhost:5173/login  (click "Admin Login" or /portal/admin)
+MySQL Server                    : 127.0.0.1:3306  (schema: hunarlink)
+Redis Server (Optional Cache)   : 127.0.0.1:6379
+HunarSathi Streaming (Optional) : 127.0.0.1:5050
+Local Ollama LLM (Optional)     : 127.0.0.1:11434
+
+
+================================================================================
+1. DAILY QUICK START (RUN EVERYTHING IN 2 POWERSHELL TERMINALS)
+================================================================================
+Once dependencies and MySQL are set up, you only need TWO terminals each day:
+
+--- TERMINAL 1: FastAPI Backend (Port 8000) ---
+cd C:\Users\Samyak\Documents\hunarlink\backend
+# (Optional if you use a virtual environment: .\.venv\Scripts\Activate.ps1)
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+--- TERMINAL 2: React Frontend (Port 5173 / 5174) ---
+cd C:\Users\Samyak\Documents\hunarlink\app
+npm run dev
+
+--- (OPTIONAL) Start Local Redis Container in Docker Desktop ---
+docker start hunarlink-redis
+
+
+================================================================================
+2. FIRST-TIME INSTALLATION & GIT SYNC COMMANDS
+================================================================================
+# 2.1 Pull latest code from GitHub main branch
+cd C:\Users\Samyak\Documents\hunarlink
+git checkout main
+git pull origin main
+
+# 2.2 Install Backend Python packages
+cd C:\Users\Samyak\Documents\hunarlink\backend
+# Optional virtual environment creation:
+#   python -m venv .venv
+#   .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+# 2.3 Install Frontend Node packages
+cd C:\Users\Samyak\Documents\hunarlink\app
+npm install
+
+
+================================================================================
+3. ENVIRONMENT VARIABLES CONFIGURATION (.env FILES)
+================================================================================
+--- 3.1 Backend Environment File: backend\.env ---
+# Copy template first if backend\.env does not exist:
+cd C:\Users\Samyak\Documents\hunarlink\backend
+Copy-Item .env.example .env
+
+# Key settings inside backend\.env (replace placeholders with your real secrets):
+APP_ENV=development
+APP_NAME=HunarLink API
+API_V1_PREFIX=/api/v1
+DEBUG=false
+
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173
+TRUSTED_HOSTS=localhost,127.0.0.1,testserver
+FRONTEND_BASE_URL=http://localhost:5173
+
+# MySQL 8.0 / 8.4 Connection (leave DATABASE_URL blank to use MYSQL_* fields)
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_DATABASE=hunarlink
+MYSQL_USER=hunarlink_app
+MYSQL_PASSWORD=<YOUR_MYSQL_PASSWORD>
+MYSQL_CHARSET=utf8mb4
+DATABASE_URL=
+
+# Clerk Auth (Identity for Buyers & Artisans)
+CLERK_ISSUER=https://<YOUR_CLERK_DOMAIN>.clerk.accounts.dev
+CLERK_JWKS_URL=https://<YOUR_CLERK_DOMAIN>.clerk.accounts.dev/.well-known/jwks.json
+CLERK_AUDIENCE=
+CLERK_WEBHOOK_SECRET=
+
+# Admin JWT Signing Secret (32+ random characters)
+ADMIN_JWT_SECRET=<GENERATE_A_LONG_RANDOM_32_PLUS_CHAR_SECRET>
+ADMIN_SESSION_TTL_SECONDS=28800
+
+# Razorpay Standard Checkout (INR)
+RAZORPAY_MODE=test
+RAZORPAY_KEY_ID=rzp_test_<YOUR_KEY_ID>
+RAZORPAY_KEY_SECRET=<YOUR_KEY_SECRET>
+RAZORPAY_WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
+RAZORPAY_CURRENCY=INR
+
+# Redis Layer (falls back automatically to MySQL if Redis is not running)
+REDIS_ENABLED=true
+REDIS_URL=
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
+REDIS_SSL=false
+REDIS_KEY_PREFIX=hl
+
+--- 3.2 Frontend Environment File: app\.env ---
+# Inside C:\Users\Samyak\Documents\hunarlink\app\.env:
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_<YOUR_CLERK_PUBLISHABLE_KEY>
+# Leave VITE_API_BASE_URL blank locally so Vite proxies /api -> 127.0.0.1:8000
+VITE_API_BASE_URL=
+
+
+================================================================================
+4. MYSQL 8.0 / 8.4 SETUP, MIGRATIONS & DATABASE SCRIPTS
+================================================================================
+# 4.1 Full Turnkey MySQL Setup + Seed 53 Kashmiri Artisans & 96 Listings
+# Note: Run with a user that has CREATE TABLE privileges (e.g. root or migrator):
+cd C:\Users\Samyak\Documents\hunarlink\backend
+python scripts/setup_mysql_and_sync.py --mysql-url "mysql+pymysql://root:<ROOT_PASSWORD>@127.0.0.1:3306/hunarlink"
+
+# 4.2 Inspect Live Database Counts (Buyers, Artisans, Admins, Orders, Listings)
+cd C:\Users\Samyak\Documents\hunarlink\backend
+python scripts/inspect_db.py
+
+# 4.3 Run Alembic Schema Migrations
+cd C:\Users\Samyak\Documents\hunarlink\backend
+python -m alembic upgrade head
+
+# 4.4 Backfill CraftProof Passports & Artisan Capabilities (if needed)
+cd C:\Users\Samyak\Documents\hunarlink\backend
+python scripts/backfill_craftproof_and_capabilities.py
+
+
+================================================================================
+5. ADMIN ACCOUNT COMMANDS (CREATE / LIST / REVOKE ADMINS)
+================================================================================
+Admins NEVER register through public sign-up. Provision them via CLI:
+
+# 5.1 Create or update an Admin account (prompts securely for password)
+cd C:\Users\Samyak\Documents\hunarlink\backend
+python scripts/create_admin_account.py --email admin@hunarlink.in --name "Samyak Admin"
+
+# 5.2 List all authorized Admin accounts in the database
+python scripts/create_admin_account.py --list
+
+# 5.3 Revoke an Admin account
+python scripts/create_admin_account.py --revoke admin@hunarlink.in
+
+
+================================================================================
+6. MYSQL WORKBENCH SQL — 3 SEPARATE ACCOUNT TABLES & LIVE VERIFICATION QUERIES
+================================================================================
+Note: In MySQL Workbench, press Ctrl+Shift+Enter (or click the plain lightning
+bolt icon with NO text highlighted) to execute an entire script. Afterwards,
+right-click "Tables" in the left Navigator -> click "Refresh All".
+
+--- 6.1 Create & Backfill buyer_accounts, artisan_accounts, admin_accounts ---
+USE `hunarlink`;
+
+CREATE TABLE IF NOT EXISTS `buyer_accounts` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `clerk_user_id` VARCHAR(128) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `email_verified` TINYINT(1) NOT NULL DEFAULT 0,
+  `phone` VARCHAR(32) NULL,
+  `first_name` VARCHAR(100) NOT NULL,
+  `last_name` VARCHAR(100) NULL,
+  `display_name` VARCHAR(160) NULL,
+  `preferred_currency` CHAR(3) NOT NULL DEFAULT 'INR',
+  `account_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_buyer_accounts_clerk_user_id` (`clerk_user_id`),
+  UNIQUE KEY `uq_buyer_accounts_email` (`email`),
+  CONSTRAINT `fk_buyer_accounts_user` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `artisan_accounts` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `clerk_user_id` VARCHAR(128) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `email_verified` TINYINT(1) NOT NULL DEFAULT 0,
+  `phone` VARCHAR(32) NULL,
+  `first_name` VARCHAR(100) NOT NULL,
+  `last_name` VARCHAR(100) NULL,
+  `display_name` VARCHAR(160) NULL,
+  `store_name` VARCHAR(160) NULL,
+  `craft_specialty` VARCHAR(160) NULL,
+  `workshop_district` VARCHAR(100) NULL,
+  `verification_status` VARCHAR(32) NOT NULL DEFAULT 'UNVERIFIED',
+  `account_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_artisan_accounts_clerk_user_id` (`clerk_user_id`),
+  UNIQUE KEY `uq_artisan_accounts_email` (`email`),
+  CONSTRAINT `fk_artisan_accounts_user` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `admin_accounts` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `first_name` VARCHAR(100) NOT NULL,
+  `last_name` VARCHAR(100) NULL,
+  `display_name` VARCHAR(160) NULL,
+  `department` VARCHAR(100) NULL DEFAULT 'Platform Administration',
+  `account_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_admin_accounts_email` (`email`),
+  CONSTRAINT `fk_admin_accounts_user` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT IGNORE INTO `admin_accounts` (
+  `id`, `email`, `password_hash`, `first_name`, `last_name`, `display_name`,
+  `department`, `account_status`, `is_active`, `last_login_at`, `created_at`, `updated_at`
+)
+SELECT
+  u.`id`, u.`email`, COALESCE(ac.`password_hash`, 'REVOKED'), u.`first_name`, u.`last_name`,
+  u.`display_name`, COALESCE(ap.`department`, 'Platform Administration'), u.`account_status`,
+  COALESCE(ac.`is_active`, 1), COALESCE(ac.`last_login_at`, u.`last_login_at`), u.`created_at`, u.`updated_at`
+FROM `users` u
+LEFT JOIN `admin_credentials` ac ON ac.`user_id` = u.`id`
+LEFT JOIN `admin_profiles` ap ON ap.`user_id` = u.`id`
+WHERE ac.`id` IS NOT NULL OR ap.`id` IS NOT NULL;
+
+INSERT IGNORE INTO `artisan_accounts` (
+  `id`, `clerk_user_id`, `email`, `email_verified`, `phone`, `first_name`, `last_name`,
+  `display_name`, `store_name`, `craft_specialty`, `workshop_district`,
+  `verification_status`, `account_status`, `last_login_at`, `created_at`, `updated_at`
+)
+SELECT
+  u.`id`, u.`clerk_user_id`, u.`email`, u.`email_verified`, u.`phone`, u.`first_name`, u.`last_name`,
+  u.`display_name`, sp.`store_name`, sp.`craft_specialty`, sp.`workshop_district`,
+  COALESCE(sp.`verification_status`, 'UNVERIFIED'), u.`account_status`, u.`last_login_at`, u.`created_at`, u.`updated_at`
+FROM `users` u
+JOIN `seller_profiles` sp ON sp.`user_id` = u.`id`
+LEFT JOIN `admin_accounts` aa ON aa.`id` = u.`id`
+WHERE aa.`id` IS NULL;
+
+INSERT IGNORE INTO `buyer_accounts` (
+  `id`, `clerk_user_id`, `email`, `email_verified`, `phone`, `first_name`, `last_name`,
+  `display_name`, `preferred_currency`, `account_status`, `last_login_at`, `created_at`, `updated_at`
+)
+SELECT
+  u.`id`, u.`clerk_user_id`, u.`email`, u.`email_verified`, u.`phone`, u.`first_name`, u.`last_name`,
+  u.`display_name`, u.`preferred_currency`, u.`account_status`, u.`last_login_at`, u.`created_at`, u.`updated_at`
+FROM `users` u
+LEFT JOIN `admin_accounts` aa ON aa.`id` = u.`id`
+LEFT JOIN `artisan_accounts` ara ON ara.`id` = u.`id`
+WHERE aa.`id` IS NULL AND ara.`id` IS NULL;
+
+--- 6.2 Useful Live Inspection Queries in MySQL Workbench ---
+USE `hunarlink`;
+
+-- Count accounts in each dedicated table:
+SELECT 'buyer_accounts' AS table_name, COUNT(*) AS rows_count FROM `buyer_accounts`
+UNION ALL
+SELECT 'artisan_accounts', COUNT(*) FROM `artisan_accounts`
+UNION ALL
+SELECT 'admin_accounts', COUNT(*) FROM `admin_accounts`;
+
+-- View newest Buyers, Artisans, and Admins:
+SELECT * FROM `buyer_accounts` ORDER BY `created_at` DESC LIMIT 25;
+SELECT * FROM `artisan_accounts` ORDER BY `created_at` DESC LIMIT 25;
+SELECT `id`, `email`, `display_name`, `department`, `is_active`, `last_login_at` FROM `admin_accounts`;
+
+-- View newest Retail Orders & Razorpay Payments:
+SELECT `order_number`, `order_status`, `payment_status`, `grand_total_amount`, `created_at`
+FROM `retail_orders` ORDER BY `created_at` DESC LIMIT 20;
+
+SELECT `payment_reference`, `gateway_order_id`, `gateway_payment_id`, `amount`, `payment_status`, `captured_at`
+FROM `payments` ORDER BY `created_at` DESC LIMIT 20;
+
+-- View ASIGS Guardrail Cases & Immutable Audit Logs:
+SELECT `case_number`, `entity_type`, `risk_level`, `case_status`, `created_at`
+FROM `guardrail_cases` ORDER BY `created_at` DESC LIMIT 20;
+
+SELECT `action`, `actor_type`, `entity_type`, `created_at`
+FROM `audit_logs` ORDER BY `created_at` DESC LIMIT 25;
+
+
+================================================================================
+7. REDIS COMMANDS (WINDOWS LOCAL CACHE & RATE LIMITER)
+================================================================================
+Note: FastAPI runs even if Redis is offline (automatic 15s circuit-breaker
+fallback to MySQL). To run live Redis locally on Windows:
+
+# Option A: Docker Desktop (Recommended 1-liner)
+docker run -d --name hunarlink-redis --restart unless-stopped -p 127.0.0.1:6379:6379 redis:7.4-alpine
+
+# Check Redis container & ping:
+docker exec -it hunarlink-redis redis-cli ping
+# Expected output: PONG
+
+# Inspect live HunarLink Redis keys (dev only):
+docker exec -it hunarlink-redis redis-cli --scan --pattern "hl:*"
+
+# Clear only HunarLink cache keys if needed during manual DB edits:
+docker exec -it hunarlink-redis redis-cli FLUSHDB
+
+# Option B: WSL2 Ubuntu Redis
+# wsl -d Ubuntu -- sudo service redis-server start
+
+# Verify FastAPI sees Redis:
+# Open http://localhost:8000/readyz -> check "redis": "connected"
+
+
+================================================================================
+8. FRONTEND BUILD, PRODUCTION PREVIEW & GITHUB PAGES SYNC
+================================================================================
+# 8.1 Local Development Server (Hot Reload; React DevTools shows dev mode)
+cd C:\Users\Samyak\Documents\hunarlink\app
+npm run dev
+
+# 8.2 Local Production Build & Preview (Minified; React DevTools shows prod green/blue)
+cd C:\Users\Samyak\Documents\hunarlink\app
+npx vite build --base=/
+npm run preview
+# Open http://localhost:4173
+
+# 8.3 Build & Sync Root Bundle for GitHub Pages Deployment
+cd C:\Users\Samyak\Documents\hunarlink\app
+npm run build:root
+cd C:\Users\Samyak\Documents\hunarlink
+powershell -ExecutionPolicy Bypass -File .\sync-build.ps1
+
+
+================================================================================
+9. OPTIONAL AI SERVICES (OLLAMA & HUNARSATHI STREAMING)
+================================================================================
+Both AI features have zero-crash offline fallbacks built in, so running these
+servers is completely optional.
+
+# 9.1 Local Ollama for CraftProof AI & Hinglish Seller Copilot (:11434)
+ollama pull qwen2.5:3b
+ollama serve
+# Verify status at: http://localhost:8000/api/v1/ai/status
+
+# 9.2 HunarSathi Buyer Chatbot Gemini Streaming Server (:5050)
+# (Without this running, HunarSathi uses its instant built-in offline KB)
+cd C:\Users\Samyak\Documents\hunarlink\hunarsathi-chatbot
+Copy-Item .env.example .env
+# Edit .env and add GEMINI_API_KEY=<YOUR_KEY>
+python -m pip install -r requirements.txt
+python server.py
+
+
+================================================================================
+10. AUTOMATED TESTING & VERIFICATION COMMANDS
+================================================================================
+# 10.1 Run All 92 Backend Pytest Tests (ASIGS, Razorpay, Auth, Storefront, CraftProof, Redis)
+cd C:\Users\Samyak\Documents\hunarlink\backend
+python -m pytest -q
+
+# 10.2 Run Only Redis Integration Tests
+python -m pytest -v tests/test_redis_integration.py
+
+# 10.3 Validate Static MySQL 8.4 SQL Schema Files
+cd C:\Users\Samyak\Documents\hunarlink
+python hunarlink-database/tools/validate_sql_static.py
+
+# 10.4 Run Frontend Route, Accessibility & Migration Checks
+cd C:\Users\Samyak\Documents\hunarlink\app
+npm run verify
+
+
+================================================================================
+11. RENDER.COM CLOUD DEPLOYMENT SETTINGS (QUICK REFERENCE)
+================================================================================
+Service Type      : Web Service (connected to GitHub repo, branch: main)
+Root Directory    : backend
+Runtime           : Python 3  (set env var PYTHON_VERSION = 3.12.8)
+Build Command     : pip install -r requirements.txt
+Start Command     : uvicorn app.main:app --host 0.0.0.0 --port $PORT
+Health Check Path : /healthz
+
+Required Render Environment Variables:
+  PYTHON_VERSION       = 3.12.8
+  APP_ENV              = production   (or development to keep /docs enabled for demos)
+  CORS_ALLOWED_ORIGINS = https://<YOUR_FRONTEND_DOMAIN>,http://localhost:5173
+  FRONTEND_BASE_URL    = https://<YOUR_FRONTEND_DOMAIN>
+  ADMIN_JWT_SECRET     = <32_PLUS_CHAR_RANDOM_SECRET>
+  DATABASE_URL         = mysql+pymysql://<USER>:<PASS>@<CLOUD_MYSQL_HOST>:<PORT>/hunarlink
+  REDIS_URL            = redis://<RENDER_KEY_VALUE_OR_UPSTASH_URL>
+  CLERK_ISSUER         = https://<YOUR_CLERK_DOMAIN>.clerk.accounts.dev
+  CLERK_JWKS_URL       = https://<YOUR_CLERK_DOMAIN>.clerk.accounts.dev/.well-known/jwks.json
+  RAZORPAY_KEY_ID      = rzp_test_<YOUR_KEY_ID>
+  RAZORPAY_KEY_SECRET  = <YOUR_KEY_SECRET>
+
+Frontend Env Var (Vercel / Netlify / Static Build):
+  VITE_API_BASE_URL    = https://<YOUR_RENDER_SERVICE>.onrender.com
+================================================================================
