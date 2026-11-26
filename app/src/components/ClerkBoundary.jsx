@@ -429,14 +429,17 @@ function ClerkBridgeInner({ children }) {
           lastDbSyncKeyRef.current = syncKey;
           syncedAccountIdsRef.current.add(clerkAccount.id);
 
-          const dbIsArtisan = Boolean(res?.is_artisan) || requestedRole === 'artisan';
+          const dbHasArtisanRole = Boolean(res?.is_artisan);
           const dbArtisanVerified = Boolean(res?.artisan_verified);
           const dbVerificationStatus =
             res?.seller_profile?.verification_status || 'UNVERIFIED';
-          const effectiveRole = dbIsArtisan ? 'artisan' : 'buyer';
+          // Respect the workspace role the user explicitly selected on /login or /auth:
+          // choosing Buyer enters the buyer storefront even if the same account also
+          // holds an unverified artisan role, while /seller always enforces verification.
+          const effectiveRole = requestedRole === 'artisan' ? 'artisan' : 'buyer';
           saveUserRole(clerkAccount.id, effectiveRole);
 
-          if (dbIsArtisan) {
+          if (dbHasArtisanRole || effectiveRole === 'artisan') {
             const existingLocal = readClerkArtisanProfile(clerkAccount.id) || {};
             const sp = res?.seller_profile || null;
             const mergedArtisan = {
@@ -470,7 +473,7 @@ function ClerkBridgeInner({ children }) {
             {
               ...refreshed.payload,
               role: effectiveRole,
-              artisanVerified: dbIsArtisan ? dbArtisanVerified : false,
+              artisanVerified: dbHasArtisanRole ? dbArtisanVerified : false,
               verificationStatus: dbVerificationStatus,
               sellerProfile: res?.seller_profile || null,
               sellerProfileId: res?.seller_profile?.seller_profile_id || null,
@@ -483,7 +486,7 @@ function ClerkBridgeInner({ children }) {
             { silent: true }
           );
 
-          if (!dbIsArtisan) {
+          if (effectiveRole === 'buyer') {
             setBuyerProfile({
               ...(buyerProfile || {}),
               firstName: syncedMeta.first,
@@ -508,11 +511,13 @@ function ClerkBridgeInner({ children }) {
             currentPath === '/sso-callback';
           const isSellerPath = currentPath === '/seller';
 
-          if (dbIsArtisan && !dbArtisanVerified) {
+          if (effectiveRole === 'artisan' && !dbArtisanVerified) {
             if (isEntryOrAuth || isSellerPath) {
               navigate('/auth?tab=verify', { replace: true });
             }
-          } else if (dbIsArtisan && dbArtisanVerified) {
+          } else if (isSellerPath && !dbArtisanVerified) {
+            navigate('/auth?tab=verify', { replace: true });
+          } else if (effectiveRole === 'artisan' && dbArtisanVerified) {
             if (
               currentPath === '/login' ||
               currentPath === '/sso-callback' ||
@@ -520,7 +525,7 @@ function ClerkBridgeInner({ children }) {
             ) {
               navigate('/seller', { replace: true });
             }
-          } else if (!dbIsArtisan && (currentPath === '/login' || currentPath === '/sso-callback')) {
+          } else if (effectiveRole === 'buyer' && (currentPath === '/login' || currentPath === '/sso-callback')) {
             navigate(sanitizeBuyerDest(savedNext), { replace: true });
           }
           if (import.meta.env.DEV) {
@@ -666,8 +671,8 @@ function ClerkBridgeInner({ children }) {
     const metaRole = clerkUser.publicMetadata?.role;
     const resolvedRole =
       pendingRole ||
-      (metaRole === 'artisan' || metaRole === 'buyer' ? metaRole : null) ||
       roleMap[clerkUser.id] ||
+      (metaRole === 'artisan' || metaRole === 'buyer' ? metaRole : null) ||
       'buyer';
 
     saveUserRole(clerkUser.id, resolvedRole);
@@ -748,9 +753,8 @@ function ClerkBridgeInner({ children }) {
           if (!res) {
             return { redirected: false };
           }
-          const dbIsArtisan = Boolean(res?.is_artisan) || normalizedRole === 'artisan';
           const dbVerified = Boolean(res?.artisan_verified);
-          if (dbIsArtisan) {
+          if (normalizedRole === 'artisan') {
             return {
               alreadySignedIn: true,
               destination: dbVerified ? '/seller' : '/auth?tab=verify',
