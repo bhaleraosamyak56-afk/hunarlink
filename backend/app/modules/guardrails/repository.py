@@ -118,6 +118,7 @@ DEFAULT_ASIGS_RULES: list[tuple[str, str, str, str]] = [
     ("ID_UNVERIFIED_OR_INACTIVE_PROFILE", "IDENTITY", "Block unapproved or inactive seller/supplier/dealer profiles", "BLOCK"),
     ("ID_OWNERSHIP_SPOOFING", "IDENTITY", "Block cross-tenant profile ID spoofing attempts", "BLOCK"),
     ("INPUT_UNSAFE_MARKUP_OR_SCRIPT", "INPUT_VALIDATION", "Block HTML/XSS script injection in titles & descriptions", "BLOCK"),
+    ("PROHIBITED_CONTENT_BLOCKED", "INPUT_VALIDATION", "Hard-block weapons, explosives, illegal drugs, and banned wildlife contraband", "BLOCK"),
     ("PROD_SELLER_CANNOT_SELF_VERIFY_GI", "PRODUCT", "Block seller self-assignment of GI_VERIFIED status", "BLOCK"),
     ("PROD_LISTING_REQUIRES_APPROVAL", "PRODUCT", "Block bypassing PENDING_APPROVAL workflow", "BLOCK"),
     ("COMM_PRICE_ABOVE_MRP", "COMMERCIAL", "Reject selling price exceeding compare-at MRP", "BLOCK"),

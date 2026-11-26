@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../state/StoreContext.jsx';
 import { useClerkBridge } from '../data/clerkConfig.js';
+import { checkProhibitedQuery } from '../utils/contentSafety.js';
 import { Heart, Bag, Search, Close } from './Icons.jsx';
 import { asset } from '../utils/legacy.js';
 import { scrollToSection } from '../utils/scrollToSection.js';
@@ -129,17 +130,19 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
   }, []);
 
   const term = query.trim().toLowerCase();
-  const matches = term
-    ? catalogue
-        .filter(
-          (p) =>
-            p.title.toLowerCase().includes(term) ||
-            p.artisan.toLowerCase().includes(term) ||
-            p.giId.toLowerCase().includes(term) ||
-            p.guildLabel.toLowerCase().includes(term)
-        )
-        .slice(0, 6)
-    : [];
+  const safetyHit = term ? checkProhibitedQuery(term) : null;
+  const matches =
+    term && !safetyHit
+      ? catalogue
+          .filter(
+            (p) =>
+              p.title.toLowerCase().includes(term) ||
+              p.artisan.toLowerCase().includes(term) ||
+              p.giId.toLowerCase().includes(term) ||
+              p.guildLabel.toLowerCase().includes(term)
+          )
+          .slice(0, 6)
+      : [];
 
   const goHome = () => {
     setFilters({ guild: 'all', query: '' });
@@ -158,6 +161,12 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
   };
 
   const commitSearch = (value) => {
+    const blocked = checkProhibitedQuery(value);
+    if (blocked) {
+      toast(blocked.message, 'error');
+      setSuggestOpen(true);
+      return;
+    }
     /* A search narrows the catalogue exactly like a filter chip does, so it
        gets the same loading veil even though the control lives up here. */
     raiseVeil(`Searching for \u201c${value}\u201d\u2026`);
@@ -245,7 +254,23 @@ export default function Header({ showSectionNav = true, activeSection = 'home' }
 
             {suggestOpen && term && (
               <div className="search-suggestions-dropdown" id="search-suggestions">
-                {matches.length === 0 ? (
+                {safetyHit ? (
+                  <div
+                    className="suggestion-item suggestion-empty"
+                    role="alert"
+                    style={{
+                      background: '#FDF2F0',
+                      color: '#8B261D',
+                      borderLeft: '3px solid #9E2F25',
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      lineHeight: 1.45,
+                      padding: '10px 12px'
+                    }}
+                  >
+                    &#9888; {safetyHit.message}
+                  </div>
+                ) : matches.length === 0 ? (
                   <div className="suggestion-item suggestion-empty">
                     No pieces match &ldquo;{query}&rdquo;
                   </div>

@@ -46,6 +46,7 @@ from app.models.core_models import (
 )
 from app.models.guardrail_models import FileSecurityScan
 from app.modules.guardrails import repository as guardrail_repo, service as guardrail_service
+from app.modules.guardrails.rules.content_safety import check_prohibited_content
 from app.modules.guardrails.schemas import (
     GuardrailOutcome,
     GuardrailResponse,
@@ -306,10 +307,18 @@ def _serialize_artisan_summary(
 @router.get("/catalog/products", response_model=list[CatalogProductItem])
 def list_active_catalog_products(
     category_slug: str | None = None,
+    q: str | None = None,
     limit: int = 200,
     db: Session = Depends(get_db),
 ) -> list[CatalogProductItem]:
     """Return active, approved marketplace listings from the DB for public browsing."""
+    if q:
+        safety_hit = check_prohibited_content(q)
+        if safety_hit is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=safety_hit.message,
+            )
     safe_limit = max(1, min(limit, 250))
     stmt = (
         select(SellerProductListing, Product, Category, SellerProfile, User)

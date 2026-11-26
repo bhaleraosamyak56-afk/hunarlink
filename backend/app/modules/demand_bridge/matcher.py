@@ -16,6 +16,7 @@ import re
 from decimal import Decimal
 from typing import Any
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -32,6 +33,7 @@ from app.models.craftproof_models import (
 from app.modules.ai.provider import LocalAIGateway
 from app.modules.ai.service import record_ai_interaction
 from app.modules.demand_bridge.schemas import DemandMatchIn
+from app.modules.guardrails.rules.content_safety import check_prohibited_content
 
 _CATEGORY_KEYWORDS: list[tuple[tuple[str, ...], str, str]] = [
     (("walnut", "wood", "box", "boxes", "carv", "khatamband", "tray"), "walnut-wood", "Walnut Wood Carving"),
@@ -151,6 +153,31 @@ def parse_buyer_brief(
     actor_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Use Local Ollama (`qwen2.5:3b`) + deterministic guardrails to parse a bulk buyer brief."""
+    safety_hit = check_prohibited_content(raw_request_text)
+    if safety_hit is not None:
+        record_ai_interaction(
+            db,
+            workflow_type="DEMAND_BRIDGE_PARSE",
+            provider_used="safety_guardrail",
+            model_used=safety_hit.rule_code,
+            latency_ms=0,
+            input_text=raw_request_text[:2000],
+            output_summary=safety_hit.message,
+            output_json={
+                "blocked": True,
+                "category": safety_hit.category,
+                "rule_code": safety_hit.rule_code,
+            },
+            actor_user_id=actor_user_id,
+            target_type="DEMAND_BRIEF",
+            target_ref=safety_hit.category,
+            overclaim_guard_triggered=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=safety_hit.message,
+        )
+
     baseline = _deterministic_parse_brief(raw_request_text)
     gateway = LocalAIGateway(settings)
 
@@ -361,6 +388,42 @@ def match_demand_to_artisans(
     buyer_user_id: str | None = None,
 ) -> dict[str, Any]:
     """100% Deterministic MySQL Matching + Smart Multi-Artisan Cluster Fulfillment."""
+    safety_hit = check_prohibited_content(
+        " ".join(
+            part
+            for part in (
+                payload.raw_request_text,
+                payload.craft_technique or "",
+                payload.category_slug or "",
+                payload.preferred_district or "",
+            )
+            if part
+        )
+    )
+    if safety_hit is not None:
+        record_ai_interaction(
+            db,
+            workflow_type="DEMAND_BRIDGE_PARSE",
+            provider_used="safety_guardrail",
+            model_used=safety_hit.rule_code,
+            latency_ms=0,
+            input_text=payload.raw_request_text[:2000],
+            output_summary=safety_hit.message,
+            output_json={
+                "blocked": True,
+                "category": safety_hit.category,
+                "rule_code": safety_hit.rule_code,
+            },
+            actor_user_id=buyer_user_id,
+            target_type="DEMAND_MATCH",
+            target_ref=safety_hit.category,
+            overclaim_guard_triggered=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=safety_hit.message,
+        )
+
     ensure_artisan_capabilities_seeded(db)
 
     req_cat = (payload.category_slug or "").strip().lower()

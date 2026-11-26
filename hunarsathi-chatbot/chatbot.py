@@ -71,6 +71,24 @@ OFF_TOPIC_REFUSAL = (
     "How can I assist you with HunarLink today?"
 )
 
+PROHIBITED_SAFETY_REFUSAL = (
+    "Blocked by HunarLink Safety Guardrail: I cannot assist with explosives, weapons, "
+    "illegal drugs/narcotics, banned wildlife contraband, or unlawful requests. "
+    "HunarSathi is strictly dedicated to authentic Jammu & Kashmir heritage handicrafts."
+)
+
+_PROHIBITED_SAFETY_RE = re.compile(
+    r"\b("
+    r"bomb|bombs|bomber|bombing|explosive|explosives|ied|rdx|c4|tnt|dynamite|grenade|detonator|"
+    r"firearm|handgun|pistol|revolver|rifle|shotgun|ak[\s\-]?47|ak[\s\-]?56|ammunition|gunpowder|"
+    r"drug|drugs|narcotic|narcotics|cocaine|heroin|meth|methamphetamine|fentanyl|lsd|mdma|"
+    r"opium|charas|ganja|hashish|marijuana|cannabis|weed|ketamine|contraband|"
+    r"ivory|elephant\s*tusk|rhino\s*horn|tiger\s*skin|chiru\s*wool|tibetan\s*antelope|"
+    r"terrorist|terrorism|cyanide|ricin|fake\s*currency|counterfeit\s*currency"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Thread-safe state
 _LOCK = threading.Lock()
 _CLIENT: Optional[object] = None
@@ -391,6 +409,18 @@ def stream_hunarsathi(
         reply = "Namaste! Ask me anything about HunarLink crafts, prices, GI verification, or your orders."
         yield {"type": "chunk", "text": reply}
         yield {"type": "done", "reply": reply, "model": "fast-path", "latency_ms": 1, "cached": True}
+        return
+
+    # 0. Hard Safety Guardrail — block weapons, explosives, drugs, contraband BEFORE any LLM/cache call
+    if _PROHIBITED_SAFETY_RE.search(cleaned):
+        yield {"type": "chunk", "text": PROHIBITED_SAFETY_REFUSAL}
+        yield {
+            "type": "done",
+            "reply": PROHIBITED_SAFETY_REFUSAL,
+            "model": "safety-guardrail",
+            "latency_ms": int((time.perf_counter() - t_start) * 1000),
+            "cached": False,
+        }
         return
 
     # 1. Instant fast-path for greetings / thank-you (0ms, zero quota)
