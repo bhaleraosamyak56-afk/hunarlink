@@ -430,14 +430,14 @@ function ClerkBridgeInner({ children }) {
           syncedAccountIdsRef.current.add(clerkAccount.id);
 
           const dbAccountType = res?.account_type || (res?.is_artisan ? 'artisan' : 'buyer');
-          const dbIsArtisan = dbAccountType === 'artisan';
+          const dbHasArtisanRole = dbAccountType === 'artisan';
           const dbArtisanVerified = Boolean(res?.artisan_verified);
           const dbVerificationStatus =
             res?.seller_profile?.verification_status || 'UNVERIFIED';
-          const effectiveRole = dbIsArtisan ? 'artisan' : 'buyer';
+          const effectiveRole = dbAccountType === 'artisan' ? 'artisan' : 'buyer';
           saveUserRole(clerkAccount.id, effectiveRole);
 
-          if (dbIsArtisan) {
+          if (dbHasArtisanRole || effectiveRole === 'artisan') {
             const existingLocal = readClerkArtisanProfile(clerkAccount.id) || {};
             const sp = res?.seller_profile || null;
             const mergedArtisan = {
@@ -471,7 +471,7 @@ function ClerkBridgeInner({ children }) {
             {
               ...refreshed.payload,
               role: effectiveRole,
-              artisanVerified: dbIsArtisan ? dbArtisanVerified : false,
+              artisanVerified: dbHasArtisanRole ? dbArtisanVerified : false,
               verificationStatus: dbVerificationStatus,
               sellerProfile: res?.seller_profile || null,
               sellerProfileId: res?.seller_profile?.seller_profile_id || null,
@@ -484,7 +484,7 @@ function ClerkBridgeInner({ children }) {
             { silent: true }
           );
 
-          if (!dbIsArtisan) {
+          if (effectiveRole === 'buyer') {
             setBuyerProfile({
               ...(buyerProfile || {}),
               firstName: syncedMeta.first,
@@ -504,11 +504,13 @@ function ClerkBridgeInner({ children }) {
           const isOAuthReturn = currentSearch.includes('oauth_return=1');
           const isSellerPath = currentPath === '/seller';
 
-          if (dbIsArtisan && !dbArtisanVerified) {
+          if (effectiveRole === 'artisan' && !dbArtisanVerified) {
             if (currentPath === '/login' || currentPath === '/sso-callback' || isSellerPath) {
               navigate('/auth?tab=verify', { replace: true });
             }
-          } else if (dbIsArtisan && dbArtisanVerified) {
+          } else if (isSellerPath && !dbArtisanVerified) {
+            navigate('/auth?tab=verify', { replace: true });
+          } else if (effectiveRole === 'artisan' && dbArtisanVerified) {
             if (
               currentPath === '/login' ||
               currentPath === '/sso-callback' ||
@@ -516,7 +518,7 @@ function ClerkBridgeInner({ children }) {
             ) {
               navigate('/seller', { replace: true });
             }
-          } else if (!dbIsArtisan && (currentPath === '/login' || currentPath === '/sso-callback')) {
+          } else if (effectiveRole === 'buyer' && (currentPath === '/login' || currentPath === '/sso-callback')) {
             navigate(sanitizeBuyerDest(savedNext), { replace: true });
           }
           if (import.meta.env.DEV) {
@@ -662,8 +664,8 @@ function ClerkBridgeInner({ children }) {
     const metaRole = clerkUser.publicMetadata?.role;
     const resolvedRole =
       pendingRole ||
-      (metaRole === 'artisan' || metaRole === 'buyer' ? metaRole : null) ||
       roleMap[clerkUser.id] ||
+      (metaRole === 'artisan' || metaRole === 'buyer' ? metaRole : null) ||
       'buyer';
 
     saveUserRole(clerkUser.id, resolvedRole);
@@ -742,9 +744,8 @@ function ClerkBridgeInner({ children }) {
           if (!res) {
             return { redirected: false };
           }
-          const dbIsArtisan = Boolean(res?.is_artisan) || normalizedRole === 'artisan';
           const dbVerified = Boolean(res?.artisan_verified);
-          if (dbIsArtisan) {
+          if (normalizedRole === 'artisan') {
             return {
               alreadySignedIn: true,
               destination: dbVerified ? '/seller' : '/auth?tab=verify',
