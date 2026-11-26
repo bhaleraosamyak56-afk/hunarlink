@@ -94,7 +94,9 @@ export default function ArtisansSection() {
             <p className="section-desc artisans-header-note">
               {dbSyncStatus === 'loading'
                 ? 'Loading verified master artisans from the HunarLink database\u2026'
-                : 'Verified artisan workshops from the HunarLink database appear here.'}
+                : dbSyncStatus === 'error'
+                  ? 'Start the FastAPI backend on port 8000 to load verified master artisans from the database.'
+                  : 'Verified artisan workshops from the HunarLink database appear here.'}
             </p>
           </div>
         </div>

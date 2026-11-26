@@ -153,7 +153,7 @@ def install_mysql_schema(mysql_url: str) -> None:
         c.execute(text("DELETE FROM alembic_version"))
         c.execute(
             text("INSERT INTO alembic_version (version_num) VALUES (:ver)"),
-            {"ver": "0003_add_admin_credentials"},
+            {"ver": "0005_add_ai_interaction_logs"},
         )
     inspector = inspect(engine)
     tables = inspector.get_table_names()
@@ -269,17 +269,14 @@ def migrate_sqlite_to_mysql(sqlite_path: pathlib.Path, mysql_url: str) -> None:
 
 
 def seed_real_artisans_and_rules(mysql_url: str) -> None:
-    """Seed the 4 real Kashmiri artisans, 5 GI crafts, and default ASIGS rules."""
+    """Seed the 53 verified Kashmiri artisans, 96 GI crafts, and default ASIGS rules."""
     print("[4/4] Seeding verified Kashmiri artisans, craft listings & ASIGS guardrail rules ...")
-    import os
-    os.environ["DATABASE_URL"] = mysql_url
-    from scripts.seed_real_artisans import seed as seed_artisans
+    from scripts.seed_real_artisans import seed_artisans_and_catalog
     from app.modules.guardrails.repository import ensure_default_guardrail_rules
-
-    seed_artisans()
 
     engine = create_engine(mysql_url, pool_pre_ping=True, future=True)
     with Session(engine) as db:
+        seed_artisans_and_catalog(session_override=db)
         ensure_default_guardrail_rules(db)
         db.commit()
     engine.dispose()
@@ -301,7 +298,7 @@ def main() -> None:
     args = parser.parse_args()
 
     settings = get_settings()
-    mysql_url = args.mysql_url or settings.database_url
+    mysql_url = args.mysql_url or settings.database_url or settings.build_mysql_url().render_as_string(hide_password=False)
 
     if args.verify_only:
         engine = create_engine(mysql_url, pool_pre_ping=True, future=True)
