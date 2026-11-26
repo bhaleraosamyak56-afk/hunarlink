@@ -277,9 +277,13 @@ def seed_real_artisans_and_rules(mysql_url: str) -> None:
     from scripts.seed_real_artisans import seed_artisans_and_catalog
     from app.modules.guardrails.repository import ensure_default_guardrail_rules
 
+    from app.core.account_tables import backfill_all_existing_users, ensure_separate_account_tables
+
     engine = create_engine(mysql_url, pool_pre_ping=True, future=True)
+    ensure_separate_account_tables(engine)
     with Session(engine) as db:
         seed_artisans_and_catalog(session_override=db)
+        backfill_all_existing_users(db)
         ensure_default_guardrail_rules(db)
         db.commit()
     engine.dispose()

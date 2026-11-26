@@ -269,6 +269,70 @@ CREATE TABLE IF NOT EXISTS `admin_credentials` (
   CONSTRAINT `chk_admin_credentials_active` CHECK (`is_active` IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 11. buyer_accounts (Dedicated table strictly for Regular Buyers / Collectors)
+CREATE TABLE IF NOT EXISTS `buyer_accounts` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `clerk_user_id` VARCHAR(128) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `email_verified` TINYINT(1) NOT NULL DEFAULT 0,
+  `phone` VARCHAR(32) NULL,
+  `first_name` VARCHAR(100) NOT NULL,
+  `last_name` VARCHAR(100) NULL,
+  `display_name` VARCHAR(160) NULL,
+  `preferred_currency` CHAR(3) NOT NULL DEFAULT 'INR',
+  `account_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_buyer_accounts_clerk_user_id` (`clerk_user_id`),
+  UNIQUE KEY `uq_buyer_accounts_email` (`email`),
+  CONSTRAINT `fk_buyer_accounts_user` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 12. artisan_accounts (Dedicated table strictly for Kashmiri Artisans / Workshops)
+CREATE TABLE IF NOT EXISTS `artisan_accounts` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `clerk_user_id` VARCHAR(128) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `email_verified` TINYINT(1) NOT NULL DEFAULT 0,
+  `phone` VARCHAR(32) NULL,
+  `first_name` VARCHAR(100) NOT NULL,
+  `last_name` VARCHAR(100) NULL,
+  `display_name` VARCHAR(160) NULL,
+  `store_name` VARCHAR(160) NULL,
+  `craft_specialty` VARCHAR(160) NULL,
+  `workshop_district` VARCHAR(100) NULL,
+  `verification_status` VARCHAR(32) NOT NULL DEFAULT 'UNVERIFIED',
+  `account_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_artisan_accounts_clerk_user_id` (`clerk_user_id`),
+  UNIQUE KEY `uq_artisan_accounts_email` (`email`),
+  CONSTRAINT `fk_artisan_accounts_user` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 13. admin_accounts (Dedicated table strictly for Provisioned Administrators)
+CREATE TABLE IF NOT EXISTS `admin_accounts` (
+  `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `first_name` VARCHAR(100) NOT NULL,
+  `last_name` VARCHAR(100) NULL,
+  `display_name` VARCHAR(160) NULL,
+  `department` VARCHAR(100) NULL DEFAULT 'Platform Administration',
+  `account_status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_login_at` DATETIME(6) NULL,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_admin_accounts_email` (`email`),
+  CONSTRAINT `fk_admin_accounts_user` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- >>> END 01_identity_and_admin_access.sql <<<
 
 
