@@ -39,7 +39,7 @@ logger = logging.getLogger("hunarlink.backend")
 
 
 def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
-    """In development mode, ensure schema & heritage catalog exist if the configured DB has 0 listings."""
+    """In development mode, ensure schema & full 53-artisan / 96-listing heritage catalog exist."""
     if settings.app_env != "development" or not settings.auto_seed_catalog:
         return
     try:
@@ -58,7 +58,7 @@ def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
                 )
                 or 0
             )
-            if active_count > 0:
+            if active_count >= 96:
                 return
             backend_root = Path(__file__).resolve().parents[1]
             if str(backend_root) not in sys.path:
@@ -70,7 +70,7 @@ def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
             ensure_default_guardrail_rules(db)
             db.commit()
             logger.info(
-                "Auto-seeded empty %s development DB with %d artisans and %d active listings.",
+                "Seeded %s development DB to full catalog (%d artisans, %d active listings).",
                 engine.dialect.name,
                 stats["total_artisans"],
                 stats["total_products"],

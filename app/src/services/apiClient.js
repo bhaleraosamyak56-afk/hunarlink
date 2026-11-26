@@ -107,6 +107,15 @@ export async function probeBackendHealth({ force = false } = {}) {
   return _cachedProbe;
 }
 
+function getLocalhostDirectFallbackBase() {
+  if (typeof window === 'undefined') return null;
+  const host = String(window.location.hostname || '').toLowerCase();
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return `${window.location.protocol}//${host}:8000`;
+  }
+  return null;
+}
+
 export async function apiRequest(path, { method = 'GET', body = undefined, token = null, isFormData = false } = {}) {
   const base = resolveApiBase();
   if (base === null) {
@@ -121,13 +130,36 @@ export async function apiRequest(path, { method = 'GET', body = undefined, token
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const resp = await fetch(`${base}${path}`, {
+  const reqInit = {
     method,
     headers,
     body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body)
-  });
+  };
 
-  const isJson = (resp.headers.get('content-type') || '').includes('application/json');
+  let resp;
+  try {
+    resp = await fetch(`${base}${path}`, reqInit);
+  } catch (networkErr) {
+    const directFallback = base === '' ? getLocalhostDirectFallbackBase() : null;
+    if (!directFallback) throw networkErr;
+    resp = await fetch(`${directFallback}${path}`, reqInit);
+  }
+
+  let isJson = (resp.headers.get('content-type') || '').includes('application/json');
+  if (base === '' && (!isJson || resp.status === 502 || resp.status === 504)) {
+    const directFallback = getLocalhostDirectFallbackBase();
+    if (directFallback) {
+      try {
+        const retryResp = await fetch(`${directFallback}${path}`, reqInit);
+        if ((retryResp.headers.get('content-type') || '').includes('application/json')) {
+          resp = retryResp;
+          isJson = true;
+        }
+      } catch {
+        /* keep original response */
+      }
+    }
+  }
   const data = isJson ? await resp.json().catch(() => null) : null;
 
   if (!resp.ok) {

@@ -1,7 +1,10 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiProxyTarget = (env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000').replace(/\/+$/, '')
+  const chatProxyTarget = (env.VITE_HUNARSATHI_API_URL || 'http://127.0.0.1:5050').replace(/\/+$/, '')
   const atRoot = mode === 'root'
   const isDevServer = command === 'serve'
   const adminPreview = process.env.HUNARLINK_ADMIN_PREVIEW === '1'
@@ -58,14 +61,14 @@ export default defineConfig(({ command, mode }) => {
       allowedHosts: true,
       proxy: {
         /* HunarSathi AI Buyer Chatbot (:5050) — matched before /api -> FastAPI (:8000) */
-        '/api/chat': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api/health': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api/warmup': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api/reset': { target: 'http://127.0.0.1:5050', changeOrigin: true },
+        '/api/chat': { target: chatProxyTarget, changeOrigin: true },
+        '/api/health': { target: chatProxyTarget, changeOrigin: true },
+        '/api/warmup': { target: chatProxyTarget, changeOrigin: true },
+        '/api/reset': { target: chatProxyTarget, changeOrigin: true },
         /* HunarLink FastAPI Marketplace Backend (:8000) */
-        '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-        '/healthz': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-        '/readyz': { target: 'http://127.0.0.1:8000', changeOrigin: true }
+        '/api': { target: apiProxyTarget, changeOrigin: true },
+        '/healthz': { target: apiProxyTarget, changeOrigin: true },
+        '/readyz': { target: apiProxyTarget, changeOrigin: true }
       }
     },
     preview: {
@@ -73,13 +76,13 @@ export default defineConfig(({ command, mode }) => {
       port: 4173,
       allowedHosts: true,
       proxy: {
-        '/api/chat': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api/health': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api/warmup': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api/reset': { target: 'http://127.0.0.1:5050', changeOrigin: true },
-        '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-        '/healthz': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-        '/readyz': { target: 'http://127.0.0.1:8000', changeOrigin: true }
+        '/api/chat': { target: chatProxyTarget, changeOrigin: true },
+        '/api/health': { target: chatProxyTarget, changeOrigin: true },
+        '/api/warmup': { target: chatProxyTarget, changeOrigin: true },
+        '/api/reset': { target: chatProxyTarget, changeOrigin: true },
+        '/api': { target: apiProxyTarget, changeOrigin: true },
+        '/healthz': { target: apiProxyTarget, changeOrigin: true },
+        '/readyz': { target: apiProxyTarget, changeOrigin: true }
       }
     }
   }
