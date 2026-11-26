@@ -535,15 +535,33 @@ export function StoreProvider({ children }) {
      and artisan profiles before signing in. Zero static dummy data. */
   const loadPublicCatalog = useCallback(async () => {
     dispatch({ type: 'db/loading' });
+    let fetchError = null;
     try {
       const [rawProducts, rawArtisans] = await Promise.all([
-        fetchCatalogProducts(null, null).catch(() => []),
-        fetchArtisans(null).catch(() => [])
+        fetchCatalogProducts(null, null).catch((err) => {
+          fetchError = err;
+          return [];
+        }),
+        fetchArtisans(null).catch((err) => {
+          if (!fetchError) fetchError = err;
+          return [];
+        })
       ]);
+      const mappedProducts = Array.isArray(rawProducts)
+        ? rawProducts.map(mapDbListingToProduct)
+        : [];
+      const mappedArtisans = Array.isArray(rawArtisans) ? rawArtisans : [];
+      if (fetchError && mappedProducts.length === 0 && mappedArtisans.length === 0) {
+        dispatch({
+          type: 'db/error',
+          error: fetchError?.message || 'Backend API unreachable — start FastAPI on port 8000.'
+        });
+        return;
+      }
       dispatch({
         type: 'db/publicLoaded',
-        catalogue: Array.isArray(rawProducts) ? rawProducts.map(mapDbListingToProduct) : [],
-        artisans: Array.isArray(rawArtisans) ? rawArtisans : []
+        catalogue: mappedProducts,
+        artisans: mappedArtisans
       });
     } catch (err) {
       dispatch({ type: 'db/error', error: err?.message || 'Could not load catalog from database.' });

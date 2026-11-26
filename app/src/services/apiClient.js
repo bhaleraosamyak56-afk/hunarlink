@@ -32,6 +32,12 @@ export function resolveApiBase() {
   if (import.meta.env.DEV) {
     return '';
   }
+  if (typeof window !== 'undefined') {
+    const host = String(window.location.hostname || '').toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.e2b.app')) {
+      return '';
+    }
+  }
   return null;
 }
 

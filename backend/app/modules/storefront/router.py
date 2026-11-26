@@ -106,19 +106,52 @@ def _verified_seller_conditions():
     )
 
 
+def _ensure_active_direct_seller_role(db: Session, user_id: str) -> None:
+    ds_role = db.scalar(select(PlatformRole).where(PlatformRole.code == "DIRECT_SELLER"))
+    if ds_role is None:
+        ds_role = PlatformRole(
+            id=new_uuid(), code="DIRECT_SELLER", name="Direct Artisan Seller", is_active=True
+        )
+        db.add(ds_role)
+        db.flush()
+    assign = db.scalar(
+        select(UserRoleAssignment).where(
+            UserRoleAssignment.user_id == user_id,
+            UserRoleAssignment.platform_role_id == ds_role.id,
+        )
+    )
+    if assign is None:
+        db.add(
+            UserRoleAssignment(
+                id=new_uuid(),
+                user_id=user_id,
+                platform_role_id=ds_role.id,
+                assignment_status="ACTIVE",
+                granted_at=utcnow(),
+            )
+        )
+    else:
+        assign.assignment_status = "ACTIVE"
+
+
 def _has_active_direct_seller_role(db: Session, user_id: str) -> bool:
-    hit = db.scalar(
-        select(UserRoleAssignment.id)
+    """Return True unless `DIRECT_SELLER` was explicitly revoked/suspended on this user.
+
+    Approved/Active `SellerProfile` records seeded via SQL or approved by Admin
+    without a manual `user_role_assignments` insert remain publicly discoverable,
+    while any explicitly REVOKED/INACTIVE role assignment still blocks visibility.
+    """
+    assignments = db.execute(
+        select(UserRoleAssignment.assignment_status, PlatformRole.is_active)
         .join(PlatformRole, PlatformRole.id == UserRoleAssignment.platform_role_id)
         .where(
             UserRoleAssignment.user_id == user_id,
-            UserRoleAssignment.assignment_status == "ACTIVE",
             PlatformRole.code == "DIRECT_SELLER",
-            PlatformRole.is_active == True,  # noqa: E712
         )
-        .limit(1)
-    )
-    return hit is not None
+    ).all()
+    if not assignments:
+        return True
+    return any(status_val == "ACTIVE" and bool(role_active) for status_val, role_active in assignments)
 
 
 def _load_product_images_map(db: Session, product_ids: list[str]) -> dict[str, list[str]]:
@@ -1490,6 +1523,8 @@ def admin_verify_seller(
     prev_verify = seller.verification_status
     seller.verification_status = decision
     seller.profile_status = "ACTIVE" if decision == "APPROVED" else "DRAFT"
+    if decision == "APPROVED":
+        _ensure_active_direct_seller_role(db, seller.user_id)
 
     latest_app = db.scalar(
         select(SellerVerificationApplication)

@@ -54,6 +54,11 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
+        allow_origin_regex=(
+            r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+            if settings.app_env != "production"
+            else None
+        ),
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=[
@@ -103,11 +108,42 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     def readyz(db: Session = Depends(get_db)) -> JSONResponse:
         db_connected = False
         dialect_name = None
+        public_artisans = 0
+        public_listings = 0
         try:
             db.execute(text("SELECT 1"))
             db_connected = True
             if db.bind is not None:
                 dialect_name = db.bind.dialect.name
+            public_artisans = int(
+                db.execute(
+                    text(
+                        "SELECT COUNT(*) FROM seller_profiles sp "
+                        "JOIN users u ON u.id = sp.user_id "
+                        "WHERE u.account_status = 'ACTIVE' "
+                        "AND sp.profile_status = 'ACTIVE' "
+                        "AND sp.verification_status = 'APPROVED'"
+                    )
+                ).scalar()
+                or 0
+            )
+            public_listings = int(
+                db.execute(
+                    text(
+                        "SELECT COUNT(*) FROM seller_product_listings spl "
+                        "JOIN products p ON p.id = spl.product_id "
+                        "JOIN seller_profiles sp ON sp.id = spl.seller_profile_id "
+                        "JOIN users u ON u.id = sp.user_id "
+                        "WHERE spl.listing_status = 'ACTIVE' "
+                        "AND p.is_active = 1 "
+                        "AND p.approval_status = 'APPROVED' "
+                        "AND u.account_status = 'ACTIVE' "
+                        "AND sp.profile_status = 'ACTIVE' "
+                        "AND sp.verification_status = 'APPROVED'"
+                    )
+                ).scalar()
+                or 0
+            )
         except Exception:
             logger.warning("Readiness probe could not reach configured database.")
 
@@ -115,6 +151,8 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
             "status": "ready" if db_connected else "degraded",
             "database": "connected" if db_connected else "unavailable",
             "database_dialect": dialect_name,
+            "public_artisans": public_artisans,
+            "public_listings": public_listings,
             "clerk_configured": bool(
                 (settings.clerk_issuer or "").strip() and (settings.clerk_jwks_url or "").strip()
             ),

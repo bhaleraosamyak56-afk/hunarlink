@@ -10,9 +10,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(BACKEND_DIR / ".env"), ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -28,7 +31,8 @@ class Settings(BaseSettings):
         default=(
             "http://localhost:5173,http://127.0.0.1:5173,"
             "http://localhost:5174,http://127.0.0.1:5174,"
-            "http://localhost:5175,http://127.0.0.1:5175"
+            "http://localhost:5175,http://127.0.0.1:5175,"
+            "http://localhost:4173,http://127.0.0.1:4173"
         )
     )
     trusted_hosts: str = Field(default="localhost,127.0.0.1,testserver")
