@@ -10,17 +10,22 @@ Wires together:
 from __future__ import annotations
 
 import logging
+import sys
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.database import get_db
+from app.core.database import get_db, get_engine, get_session_factory
 from app.core.security import CorrelationAndHeadersMiddleware
+from app.models.base import Base
+from app.models.core_models import SellerProductListing
 from app.modules.auth.router import router as auth_router
 from app.modules.ai.router import router as ai_router
 from app.modules.craftproof.router import router as craftproof_router
@@ -33,12 +38,63 @@ from app.modules.storefront.router import router as storefront_router
 logger = logging.getLogger("hunarlink.backend")
 
 
+def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
+    """In development mode, ensure schema & heritage catalog exist if the configured DB has 0 listings."""
+    if settings.app_env != "development" or not settings.auto_seed_catalog:
+        return
+    try:
+        import app.models.core_models  # noqa: F401
+        import app.models.guardrail_models  # noqa: F401
+        import app.models.craftproof_models  # noqa: F401
+
+        engine = get_engine()
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        with get_session_factory()() as db:
+            active_count = int(
+                db.scalar(
+                    select(func.count(SellerProductListing.id)).where(
+                        SellerProductListing.listing_status == "ACTIVE"
+                    )
+                )
+                or 0
+            )
+            if active_count > 0:
+                return
+            backend_root = Path(__file__).resolve().parents[1]
+            if str(backend_root) not in sys.path:
+                sys.path.insert(0, str(backend_root))
+            from scripts.seed_real_artisans import seed_artisans_and_catalog
+            from app.modules.guardrails.repository import ensure_default_guardrail_rules
+
+            stats = seed_artisans_and_catalog(session_override=db)
+            ensure_default_guardrail_rules(db)
+            db.commit()
+            logger.info(
+                "Auto-seeded empty %s development DB with %d artisans and %d active listings.",
+                engine.dialect.name,
+                stats["total_artisans"],
+                stats["total_products"],
+            )
+    except Exception as exc:
+        logger.warning(
+            "Dev catalog bootstrap skipped (%s: %s) — verify MYSQL_* / DATABASE_URL in backend/.env.",
+            type(exc).__name__,
+            exc,
+        )
+
+
 def create_app(settings_override: Settings | None = None) -> FastAPI:
     settings = settings_override or get_settings()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        _bootstrap_dev_catalog_if_empty(settings)
+        yield
 
     application = FastAPI(
         title=settings.app_name,
         version="1.0.0",
+        lifespan=lifespan,
         docs_url="/docs" if settings.app_env != "production" else None,
         redoc_url="/redoc" if settings.app_env != "production" else None,
         openapi_url="/openapi.json" if settings.app_env != "production" else None,

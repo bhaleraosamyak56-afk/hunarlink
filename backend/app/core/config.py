@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     mysql_password: SecretStr = Field(default=SecretStr(""))
     mysql_charset: str = Field(default="utf8mb4")
     database_url: str = Field(default="")
+    auto_seed_catalog: bool = Field(default=True)
 
     # Clerk authentication (identity only)
     clerk_issuer: str = Field(default="")
