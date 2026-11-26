@@ -776,19 +776,26 @@ def resolve_passport_by_code_or_slug(db: Session, code_or_slug: str) -> CraftPas
 def resolve_or_create_passport_by_product(db: Session, product_ref: str) -> CraftPassport | None:
     """Resolve CraftPassport by product_id, product slug, listing_id, or SKU (lazy-creating if needed)."""
     needle = product_ref.strip()
+    upper_needle = needle.upper()
     listing = db.scalar(
         select(SellerProductListing).where(
             or_(
                 SellerProductListing.id == needle,
                 SellerProductListing.product_id == needle,
                 SellerProductListing.seller_sku == needle,
+                SellerProductListing.seller_sku == upper_needle,
             )
         )
     )
     if listing is None:
         product = db.scalar(
             select(Product).where(
-                or_(Product.id == needle, Product.slug == needle, Product.sku_root == needle)
+                or_(
+                    Product.id == needle,
+                    Product.slug == needle,
+                    Product.sku_root == needle,
+                    Product.sku_root == upper_needle,
+                )
             )
         )
         if product is not None:

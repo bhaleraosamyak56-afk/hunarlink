@@ -76,7 +76,7 @@
           "Authentication & User Sync"
         ],
         "summary": "Check Existing Account",
-        "description": "Check whether an email already exists in the HunarLink DB before registration/login.",
+        "description": "Check which dedicated account table (`buyer_accounts`, `artisan_accounts`, `admin_accounts`) owns `email`.",
         "operationId": "check_existing_account_api_v1_auth_check_account_post",
         "requestBody": {
           "content": {
@@ -118,7 +118,7 @@
           "Authentication & User Sync"
         ],
         "summary": "Sync Authenticated User",
-        "description": "Upsert a Clerk-authenticated user into HunarLink's database (`users` + roles).\n\nCalled automatically by the frontend right after Clerk sign-in / sign-up so\nevery new Google/Apple/email user exists immediately in MySQL/SQLite.",
+        "description": "Upsert a Clerk-authenticated Buyer or Artisan into its dedicated DB table (`buyer_accounts` or `artisan_accounts`).\n\nStrict 3-table separation (`buyer_accounts`, `artisan_accounts`, `admin_accounts`) + 1 account type per email:\n  - Buyer registrations/logins operate strictly on `buyer_accounts`.\n  - Artisan registrations/logins operate strictly on `artisan_accounts`.\n  - Attempting to sign in or register an email under a different account type is rejected with HTTP 409 Conflict.",
         "operationId": "sync_authenticated_user_api_v1_auth_sync_post",
         "requestBody": {
           "content": {
@@ -165,7 +165,7 @@
           "Authentication & User Sync"
         ],
         "summary": "Get My Profile",
-        "description": "Return the authenticated caller's DB profile, roles, and seller status.",
+        "description": "Return the authenticated caller's DB profile strictly from its dedicated account table.",
         "operationId": "get_my_profile_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -389,6 +389,35 @@
         }
       }
     },
+    "/api/v1/auth/admin-logout": {
+      "post": {
+        "tags": [
+          "Authentication & User Sync"
+        ],
+        "summary": "Admin Logout",
+        "description": "Revoke the caller's Admin HS256 JWT `jti` immediately in Redis & audit sign-out.",
+        "operationId": "admin_logout_api_v1_auth_admin_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Admin Logout Api V1 Auth Admin Logout Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/catalog/products": {
       "get": {
         "tags": [
@@ -412,6 +441,22 @@
                 }
               ],
               "title": "Category Slug"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           },
           {
@@ -3323,6 +3368,33 @@
             "type": "boolean",
             "title": "Exists"
           },
+          "account_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "buyer",
+                  "artisan",
+                  "admin"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Type"
+          },
+          "account_table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Table"
+          },
           "roles": {
             "items": {
               "type": "string"
@@ -4316,6 +4388,21 @@
             "type": "boolean",
             "title": "Is New User",
             "default": false
+          },
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "buyer",
+              "artisan",
+              "admin"
+            ],
+            "title": "Account Type",
+            "default": "buyer"
+          },
+          "account_table": {
+            "type": "string",
+            "title": "Account Table",
+            "default": "buyer_accounts"
           },
           "user_id": {
             "type": "string",
