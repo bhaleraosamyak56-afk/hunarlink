@@ -1,0 +1,187 @@
+# HunarLink — Complete PowerShell Commands (MySQL Only)
+# All commands run from PS C:\Users\Samyak\Documents\hunarlink> unless noted
+# Open PowerShell as Administrator
+
+# ============================================================
+# 0. Check tools installed
+# ============================================================
+mysql --version
+python --version
+node --version
+npm --version
+redis-cli ping
+git --version
+
+# ============================================================
+# 1. Clone / Update repo
+# ============================================================
+git clone https://github.com/bhaleraosamyak56-afk/hunarlink.git
+cd hunarlink
+git pull origin main
+
+# ============================================================
+# 2. Backend Python venv
+# ============================================================
+python -m venv backend\.venv
+backend\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
+deactivate
+
+# ============================================================
+# 3. Frontend
+# ============================================================
+cd app
+npm install
+cd ..
+
+# ============================================================
+# 4. Env files
+# ============================================================
+Copy-Item backend\.env.example backend\.env
+Copy-Item app\.env.example app\.env.local -ErrorAction SilentlyContinue
+Copy-Item hunarsathi-chatbot\.env.example hunarsathi-chatbot\.env -ErrorAction SilentlyContinue
+notepad backend\.env
+# --- Edit backend\.env with (replace YOUR_STRONG_PASSWORD): ---
+# MYSQL_HOST=127.0.0.1
+# MYSQL_PORT=3306
+# MYSQL_DATABASE=hunarlink
+# MYSQL_USER=hunarlink_app
+# MYSQL_PASSWORD=YOUR_STRONG_PASSWORD
+# MYSQL_CHARSET=utf8mb4
+# DATABASE_URL=
+# ADMIN_JWT_SECRET=long_random_32+_chars_change_me
+# REDIS_ENABLED=true
+# REDIS_HOST=127.0.0.1
+# REDIS_PORT=6379
+# CLERK_ISSUER / CLERK_JWKS_URL / CLERK_AUDIENCE (from Clerk dashboard)
+# RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET (rzp_test_*)
+# RAZORPAY_WEBHOOK_SECRET
+
+# ============================================================
+# 5. MySQL — Create DB + app user (run as root)
+# ============================================================
+mysql -u root -p -e "SELECT VERSION();"
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS hunarlink CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+mysql -u root -p -e "CREATE USER IF NOT EXISTS 'hunarlink_app'@'127.0.0.1' IDENTIFIED WITH caching_sha2_password BY 'YOUR_STRONG_PASSWORD';"
+mysql -u root -p -e "GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE ON hunarlink.* TO 'hunarlink_app'@'127.0.0.1'; FLUSH PRIVILEGES;"
+
+# --- Alternative: Single-file installer ---
+cd hunarlink-database
+Get-Content hunarlink_mysql_full_install.sql | mysql -u root -p
+Get-Content sql\11_validation_queries.sql | mysql -u root -p
+cd ..
+
+# --- Verify ---
+mysql -u hunarlink_app -p -e "SHOW TABLES FROM hunarlink;"
+
+# ============================================================
+# 6. Provision & Seed (from hunarlink\ root)
+# ============================================================
+backend\.venv\Scripts\python.exe backend\scripts\setup_mysql_and_sync.py
+# With explicit URL if .env not set yet:
+backend\.venv\Scripts\python.exe backend\scripts\setup_mysql_and_sync.py --mysql-url "mysql+pymysql://hunarlink_app:YOUR_PASS@127.0.0.1:3306/hunarlink"
+backend\.venv\Scripts\python.exe backend\scripts\inspect_db.py
+backend\.venv\Scripts\python.exe backend\scripts\setup_mysql_and_sync.py --verify-only
+backend\.venv\Scripts\python.exe backend\scripts\seed_real_artisans.py
+
+# ============================================================
+# 7. Run — Terminal 1: Backend API :8000
+# ============================================================
+backend\.venv\Scripts\Activate.ps1
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Open: http://localhost:8000/docs
+#       http://localhost:8000/healthz
+#       http://localhost:8000/readyz
+
+# ============================================================
+# 7. Run — Terminal 2: Frontend :5173
+# ============================================================
+cd app
+npm run dev
+# Open: http://localhost:5173
+npm run build
+npm run preview
+
+# ============================================================
+# 7. Run — Terminal 3: Redis (if not as Windows service)
+# ============================================================
+redis-server
+redis-cli ping
+redis-cli INFO server
+
+# ============================================================
+# 7. Run — Terminal 4: HunarSathi Chatbot :5050 (optional)
+# ============================================================
+cd hunarsathi-chatbot
+..\backend\.venv\Scripts\python.exe server.py
+
+# ============================================================
+# 8. Admin accounts
+# ============================================================
+backend\.venv\Scripts\python.exe backend\scripts\create_admin_account.py --email admin@hunarlink.in --password AdminPass123!
+backend\.venv\Scripts\python.exe backend\scripts\promote_admin.py --email samyak@example.com
+
+# ============================================================
+# 9. Alembic migrations
+# ============================================================
+cd backend
+..\backend\.venv\Scripts\alembic.exe stamp 0001_hunarlink_mysql_baseline
+..\backend\.venv\Scripts\alembic.exe upgrade head
+..\backend\.venv\Scripts\alembic.exe upgrade 0001_hunarlink_mysql_baseline:head --sql
+..\backend\.venv\Scripts\alembic.exe current
+..\backend\.venv\Scripts\alembic.exe history
+cd ..
+
+# ============================================================
+# 10. Tests (96 tests, SQLite in-memory, no live DB needed)
+# ============================================================
+backend\.venv\Scripts\python.exe -m pytest backend/tests -v
+backend\.venv\Scripts\python.exe -m pytest backend/tests/test_asigs_guardrails.py -v
+backend\.venv\Scripts\python.exe -m pytest backend/tests/test_razorpay_payments.py -v
+backend\.venv\Scripts\python.exe -m pytest backend/tests/test_storefront_integration.py -v
+backend\.venv\Scripts\python.exe -m pytest backend/tests/test_craftproof_ai_demand_bridge.py -v
+backend\.venv\Scripts\python.exe -m pytest backend/tests/test_redis_integration.py -v
+
+# ============================================================
+# 11. Cache — Fix stale delete (when you DELETE FROM seller_profiles in Workbench)
+# ============================================================
+redis-cli FLUSHDB
+redis-cli KEYS "hl:*"
+redis-cli DEL "hl:cache:artisans:v1:list"
+# Then restart backend: Ctrl+C then uvicorn command again
+
+# ============================================================
+# 12. API quick checks (PowerShell)
+# ============================================================
+curl http://localhost:8000/healthz
+curl http://localhost:8000/readyz
+curl http://localhost:8000/api/v1/catalog/products
+curl http://localhost:8000/api/v1/artisans
+Invoke-RestMethod http://localhost:8000/api/v1/catalog/products | ConvertTo-Json -Depth 4
+
+# ============================================================
+# 13. Backup & Restore
+# ============================================================
+mysqldump -u hunarlink_migrator -p --single-transaction --routines --triggers hunarlink > backups\hunarlink.sql
+Compress-Archive backups\hunarlink.sql backups\hunarlink.zip
+mysql -u root -p -e "CREATE DATABASE hunarlink_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+Get-Content backups\hunarlink.sql | mysql -u root -p hunarlink_restore
+
+# ============================================================
+# 14. Git push
+# ============================================================
+git status
+git add .
+git commit -m "msg"
+git push origin main
+git log --oneline -5
+
+# ============================================================
+# 15. Cleanup
+# ============================================================
+Remove-Item backend\hunarlink_dev.db -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force backend\.venv
+Get-Process python | Stop-Process -Force
+Get-Process node | Stop-Process -Force
