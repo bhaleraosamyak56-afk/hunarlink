@@ -54,10 +54,17 @@ def _optional_principal(
 @router.post("/demand-bridge/parse")
 def post_parse_demand_brief(
     payload: DemandParseIn,
+    principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
+    db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Step 1: Parse messy natural-language wholesale brief into structured JSON for buyer confirmation."""
-    return parse_buyer_brief(settings, payload.raw_request_text)
+    return parse_buyer_brief(
+        settings,
+        payload.raw_request_text,
+        db=db,
+        actor_user_id=principal.user_id if principal else None,
+    )
 
 
 @router.post("/demand-bridge/match", status_code=status.HTTP_201_CREATED)

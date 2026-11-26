@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   decideAdminCraftClaim,
+  fetchAdminAiInteractionLogs,
   fetchAdminCraftClaims
 } from '../../services/craftproofApi.js';
 
@@ -18,6 +19,7 @@ const STATUS_FILTERS = [
 export default function AdminCraftProofTab({ adminToken, toast }) {
   const [filter, setFilter] = useState('');
   const [items, setItems] = useState([]);
+  const [aiLogs, setAiLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [notesByClaim, setNotesByClaim] = useState({});
@@ -27,8 +29,12 @@ export default function AdminCraftProofTab({ adminToken, toast }) {
     if (!adminToken) return;
     setLoading(true);
     try {
-      const res = await fetchAdminCraftClaims(adminToken, filter);
-      setItems(res.items || []);
+      const [claimsRes, logsRes] = await Promise.all([
+        fetchAdminCraftClaims(adminToken, filter),
+        fetchAdminAiInteractionLogs(adminToken, 30).catch(() => ({ items: [] }))
+      ]);
+      setItems(claimsRes.items || []);
+      setAiLogs(logsRes.items || []);
     } catch (err) {
       if (toast) toast(err?.message || 'Could not load CraftProof claims.', 'error');
     } finally {
@@ -187,6 +193,64 @@ export default function AdminCraftProofTab({ adminToken, toast }) {
           ))}
         </div>
       )}
+
+      {/* Live Local LLM Interaction Audit Trail (ai_interaction_logs) */}
+      <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid rgba(20,56,42,0.14)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+          <div>
+            <div className="cp-kicker">MySQL Persisted AI Audit Trail (`ai_interaction_logs`)</div>
+            <h4 style={{ margin: 0, fontFamily: 'var(--font-serif, Georgia, serif)' }}>
+              Recent Local LLM Runs ({aiLogs.length}) &mdash; Strictly Advisory (`is_legal_proof = 0`)
+            </h4>
+          </div>
+        </div>
+
+        {aiLogs.length === 0 ? (
+          <p style={{ fontSize: '0.82rem', opacity: 0.7 }}>
+            No AI interactions logged yet. Run Artisan Copilot, Adversarial Audit, Buyer Assistant, or Demand Bridge to see live records here and in MySQL Workbench.
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.12)' }}>
+                  <th style={{ padding: '6px 8px' }}>Workflow</th>
+                  <th style={{ padding: '6px 8px' }}>Model / Latency</th>
+                  <th style={{ padding: '6px 8px' }}>Target</th>
+                  <th style={{ padding: '6px 8px' }}>Input</th>
+                  <th style={{ padding: '6px 8px' }}>Advisory Output</th>
+                  <th style={{ padding: '6px 8px' }}>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiLogs.map((log) => (
+                  <tr key={log.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', verticalAlign: 'top' }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, fontSize: '0.73rem' }}>
+                      {log.workflow_type}
+                    </td>
+                    <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                      {log.provider_used}:{log.model_used}
+                      <div style={{ opacity: 0.65 }}>{log.latency_ms}ms</div>
+                    </td>
+                    <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                      {log.target_ref || '—'}
+                    </td>
+                    <td style={{ padding: '6px 8px', maxWidth: 220 }}>
+                      {String(log.input_text || '').slice(0, 120)}
+                    </td>
+                    <td style={{ padding: '6px 8px', maxWidth: 260 }}>
+                      {String(log.output_summary || '').slice(0, 150)}
+                    </td>
+                    <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', fontSize: '0.72rem', opacity: 0.7 }}>
+                      {log.created_at ? new Date(log.created_at).toLocaleString('en-IN') : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

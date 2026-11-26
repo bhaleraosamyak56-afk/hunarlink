@@ -23,6 +23,7 @@ from app.models.core_models import (
     SellerVerificationApplication,
 )
 from app.models.craftproof_models import (
+    AIInteractionLog,
     CraftPassport,
     CraftVerificationEvent,
 )
@@ -138,6 +139,47 @@ def _detect_district(text: str, fallback: str | None = None) -> str | None:
         if re.search(rf"\b{re.escape(d)}\b", text or "", re.IGNORECASE):
             return d
     return fallback
+
+
+def record_ai_interaction(
+    db: Session | None,
+    *,
+    workflow_type: str,
+    provider_used: str,
+    model_used: str,
+    latency_ms: int,
+    input_text: str,
+    output_summary: str,
+    output_json: dict[str, Any],
+    actor_user_id: str | None = None,
+    target_type: str | None = None,
+    target_ref: str | None = None,
+    overclaim_guard_triggered: bool = False,
+) -> str | None:
+    """Persist every local/cloud LLM call in `ai_interaction_logs` (always `is_legal_proof=False`)."""
+    if db is None:
+        return None
+    try:
+        row = AIInteractionLog(
+            workflow_type=workflow_type,
+            actor_user_id=actor_user_id,
+            target_type=target_type,
+            target_ref=target_ref[:128] if target_ref else None,
+            provider_used=provider_used[:48],
+            model_used=model_used[:80],
+            latency_ms=max(0, int(latency_ms or 0)),
+            input_text=(input_text or "")[:8000],
+            output_summary=(output_summary or "")[:4000],
+            output_json=output_json,
+            overclaim_guard_triggered=bool(overclaim_guard_triggered),
+            is_legal_proof=False,
+        )
+        db.add(row)
+        db.commit()
+        return row.id
+    except Exception:
+        db.rollback()
+        return None
 
 
 # ===========================================================================
@@ -358,6 +400,30 @@ def prescreen_artisan_document(
             app_row.submitted_metadata = meta
             db.commit()
 
+    log_id = record_ai_interaction(
+        db,
+        workflow_type="ARTISAN_DOC_PRESCREEN",
+        provider_used=llm_res.provider_used,
+        model_used=llm_res.model_used,
+        latency_ms=llm_res.latency_ms,
+        input_text=(
+            f"Store: {payload.store_name} | Craft: {payload.craft_specialty} | "
+            f"District: {payload.workshop_district} | Path: {payload.verification_path} | "
+            f"GI: {claimed_gi or 'None'}"
+        ),
+        output_summary=f"[{advisory_status}] {advisory_summary}",
+        output_json={
+            "advisory_status": advisory_status,
+            "contradictions": contradictions,
+            "checks_passed": checks_passed,
+            "reviewer_checklist": dossier["reviewer_checklist"],
+        },
+        actor_user_id=actor_user_id,
+        target_type="SELLER_APPLICATION",
+        target_ref=payload.application_id or payload.file_scan_id or payload.store_name,
+    )
+    dossier["ai_meta"]["interaction_log_id"] = log_id
+
     return dossier
 
 
@@ -370,6 +436,7 @@ def audit_craft_listing(
     settings: Settings,
     payload: CraftAuditListingIn,
     seller_profile: SellerProfile | None = None,
+    actor_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Interrogate craft listing claims for economic/profile/GI contradictions; NEVER self-verifies."""
     combined = " ".join(
@@ -592,7 +659,7 @@ def audit_craft_listing(
             )
             db.commit()
 
-    return {
+    audit_payload = {
         "risk_level": risk_level,
         "is_legal_proof": False,
         "human_verification_required": True,
@@ -614,6 +681,26 @@ def audit_craft_listing(
             "latency_ms": llm_res.latency_ms,
         },
     }
+    log_id = record_ai_interaction(
+        db,
+        workflow_type="ADVERSARIAL_CRAFT_AUDIT",
+        provider_used=llm_res.provider_used,
+        model_used=llm_res.model_used,
+        latency_ms=llm_res.latency_ms,
+        input_text=f"{payload.title} | INR {payload.selling_price_inr} | Stock {payload.stock_quantity} | {payload.description or ''}",
+        output_summary=f"[Risk={risk_level}] {skeptical_summary}",
+        output_json={
+            "risk_level": risk_level,
+            "red_flags": red_flags,
+            "warnings": warnings,
+            "prescribed_evidence_types": sorted(required_evidence),
+        },
+        actor_user_id=actor_user_id,
+        target_type="CRAFT_LISTING_AUDIT",
+        target_ref=payload.passport_id or payload.title[:100],
+    )
+    audit_payload["ai_meta"]["interaction_log_id"] = log_id
+    return audit_payload
 
 
 # ===========================================================================
@@ -715,6 +802,8 @@ def draft_artisan_listing(
     *,
     settings: Settings,
     payload: ArtisanCopilotDraftIn,
+    db: Session | None = None,
+    actor_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Turn unstructured Hindi/Hinglish/English artisan speech/notes into a structured editable listing.
 
@@ -888,7 +977,7 @@ def draft_artisan_listing(
             origin_location=draft.get("origin_district"),
         )
 
-    return {
+    draft_out = {
         "draft": draft,
         "extracted_claims": extracted_claims,
         "missing_fields_to_confirm": missing,
@@ -903,6 +992,25 @@ def draft_artisan_listing(
             "latency_ms": llm_res.latency_ms,
         },
     }
+    log_id = record_ai_interaction(
+        db,
+        workflow_type="ARTISAN_COPILOT_DRAFT",
+        provider_used=llm_res.provider_used,
+        model_used=llm_res.model_used,
+        latency_ms=llm_res.latency_ms,
+        input_text=payload.raw_note,
+        output_summary=f"Drafted '{draft.get('title')}' (INR {draft.get('selling_price_inr') or 'TBD'}, {len(extracted_claims)} seller-declared claims).",
+        output_json={
+            "draft": draft,
+            "extracted_claims": extracted_claims,
+            "missing_fields_to_confirm": missing,
+        },
+        actor_user_id=actor_user_id,
+        target_type="LISTING_DRAFT",
+        target_ref=draft.get("guild_slug"),
+    )
+    draft_out["ai_meta"]["interaction_log_id"] = log_id
+    return draft_out
 
 
 # ===========================================================================
@@ -972,6 +1080,7 @@ def answer_buyer_passport_question(
     *,
     settings: Settings,
     payload: BuyerAssistantAskIn,
+    actor_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Answer buyer questions strictly grounded in live MySQL Craft Passport claims & evidence."""
     passport = None
@@ -1056,7 +1165,7 @@ def answer_buyer_passport_question(
         overclaim_guard_triggered = True
         answer_text = _build_deterministic_buyer_answer(passport_data, payload.question)
 
-    return {
+    qa_out = {
         "passport_code": passport_data["passport_code"],
         "overall_trust_level": passport_data["overall_trust_level"],
         "answer": answer_text,
@@ -1082,3 +1191,25 @@ def answer_buyer_passport_question(
             "latency_ms": llm_res.latency_ms,
         },
     }
+    log_id = record_ai_interaction(
+        db,
+        workflow_type="BUYER_ASSISTANT_QA",
+        provider_used=llm_res.provider_used,
+        model_used=llm_res.model_used,
+        latency_ms=llm_res.latency_ms,
+        input_text=payload.question,
+        output_summary=answer_text,
+        output_json={
+            "passport_code": passport_data["passport_code"],
+            "overall_trust_level": passport_data["overall_trust_level"],
+            "verified_claims_count": len(verified),
+            "unverified_claims_count": len(unverified),
+            "overclaim_guard_triggered": overclaim_guard_triggered,
+        },
+        actor_user_id=actor_user_id,
+        target_type="CRAFT_PASSPORT",
+        target_ref=passport_data["passport_code"],
+        overclaim_guard_triggered=overclaim_guard_triggered,
+    )
+    qa_out["ai_meta"]["interaction_log_id"] = log_id
+    return qa_out
