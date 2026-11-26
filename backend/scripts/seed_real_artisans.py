@@ -111,10 +111,12 @@ def seed_artisans_and_catalog(*, session_override: Session | None = None) -> dic
         import app.models.core_models  # noqa: F401
         import app.models.guardrail_models  # noqa: F401
         import app.models.craftproof_models  # noqa: F401
+        from app.main import _ensure_missing_orm_columns
 
         settings = get_settings()
         engine = create_db_engine(settings)
         Base.metadata.create_all(bind=engine, checkfirst=True)
+        _ensure_missing_orm_columns(engine)
         db_ctx = Session(engine)
         dialect_label = engine.dialect.name.upper()
     else:
