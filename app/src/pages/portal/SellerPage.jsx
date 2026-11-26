@@ -301,18 +301,29 @@ export default function SellerPage() {
     setAsigsResult(null);
     try {
       const token = clerk?.getToken ? await clerk.getToken() : null;
+      const guildInfo = GUILD_META[newForm.guild] || GUILD_META.pashmina;
       const sku = `HL-${(newForm.guild || 'CRAFT').toUpperCase().slice(0, 6)}-${Date.now().toString().slice(-4)}`;
+      const parsedPrice = Number(newForm.price);
+      const parsedMrp = Number(newForm.mrp);
+      const parsedHours = parseInt(newForm.hours, 10);
+      const trimmedTitle = String(newForm.title || '').trim();
       const res = await validateSellerStudioListing(
         {
-          title: newForm.title || 'Untitled Craft',
+          title: trimmedTitle.length >= 3 ? trimmedTitle : 'Untitled Craft',
           guild: newForm.guild || 'pashmina',
+          technique: newForm.technique || null,
           description: newForm.description || '',
-          selling_price: String(Math.max(1, Number(newForm.price) || 1)),
-          compare_at_mrp: newForm.mrp ? String(Number(newForm.mrp)) : null,
+          selling_price: String(Number.isFinite(parsedPrice) && parsedPrice > 0 ? parsedPrice : 1),
+          compare_at_mrp: Number.isFinite(parsedMrp) && parsedMrp > 0 ? String(parsedMrp) : null,
           currency_code: 'INR',
           stock_quantity: Math.max(0, parseInt(newForm.stock, 10) || 1),
           min_order_qty: 1,
-          seller_sku: sku
+          seller_sku: sku,
+          image_url: newImage && !newImage.startsWith('data:') ? newImage : guildInfo.defaultImg,
+          loom_hours: Number.isFinite(parsedHours) && parsedHours >= 1 ? parsedHours : null,
+          dimensions: (newForm.dimensions || '').trim() || null,
+          origin_district: (newForm.district || seller?.district || 'Srinagar').trim() || null,
+          purity_metric: (newForm.purity || '').trim() || null
         },
         token
       );
@@ -1362,7 +1373,7 @@ export default function SellerPage() {
                         <strong style={{ fontSize: '0.86rem' }}>ASIGS Server Guardrail Pre-Check</strong>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-500)' }}>
                           {backendStatus.online
-                            ? '● FastAPI ASIGS connected (/api/v1/seller/listings/validate & /guardrails/documents/upload)'
+                            ? '● FastAPI ASIGS connected (/api/v1/seller/studio/validate & /guardrails/documents/upload)'
                             : '○ Static Preview Mode — local publishing stays active; connect FastAPI for live server ASIGS enforcement'}
                         </div>
                       </div>
@@ -1398,17 +1409,56 @@ export default function SellerPage() {
                       <div style={{ marginTop: '10px', fontSize: '0.78rem', color: '#8f2424' }}>
                         <strong>Server Response (HTTP {asigsResult.status || '—'}):</strong> {asigsResult.error}
                         {asigsResult.status === 401 && ' — Sign in with Clerk to send a verified Bearer JWT.'}
+                        {Array.isArray(asigsResult.detail?.field_errors) && asigsResult.detail.field_errors.length > 0 && (
+                          <ul style={{ margin: '6px 0 0 18px', padding: 0 }}>
+                            {asigsResult.detail.field_errors.map((fe, idx) => (
+                              <li key={`${fe.rule_code}-${idx}`}>
+                                <strong>{fe.field}</strong> ({fe.rule_code}): {fe.message}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     )}
                     {asigsResult?.response && (
                       <div style={{ marginTop: '10px', fontSize: '0.78rem' }}>
-                        <strong>Outcome:</strong> <code>{asigsResult.response.outcome}</code>
+                        <strong>Outcome:</strong>{' '}
+                        <code
+                          style={{
+                            color:
+                              asigsResult.response.outcome === 'BLOCK'
+                                ? '#8f2424'
+                                : asigsResult.response.outcome === 'PASS'
+                                  ? '#124e33'
+                                  : '#8a5a00'
+                          }}
+                        >
+                          {asigsResult.response.outcome}
+                        </code>
                         {' · '}
                         <strong>Correlation ID:</strong> <code>{asigsResult.response.correlation_id}</code>
                         {asigsResult.response.triggered_rule_codes?.length > 0 && (
                           <div style={{ marginTop: '4px' }}>
                             <strong>Rules:</strong> {asigsResult.response.triggered_rule_codes.join(', ')}
                           </div>
+                        )}
+                        {Array.isArray(asigsResult.response.field_errors) && asigsResult.response.field_errors.length > 0 && (
+                          <ul style={{ margin: '6px 0 0 18px', padding: 0, color: '#8f2424' }}>
+                            {asigsResult.response.field_errors.map((fe, idx) => (
+                              <li key={`${fe.rule_code}-${idx}`}>
+                                <strong>{fe.field}</strong>: {fe.message}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {Array.isArray(asigsResult.response.warnings) && asigsResult.response.warnings.length > 0 && (
+                          <ul style={{ margin: '6px 0 0 18px', padding: 0, color: '#7a5200' }}>
+                            {asigsResult.response.warnings.map((w, idx) => (
+                              <li key={`${w.rule_code}-${idx}`}>
+                                <strong>{w.field}</strong>: {w.message}
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
                     )}

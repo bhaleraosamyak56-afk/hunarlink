@@ -157,7 +157,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     @application.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         corr_id = getattr(request.state, "correlation_id", "unknown")
-        logger.error("Unhandled backend error [%s]: %s", corr_id, type(exc).__name__)
+        logger.exception("Unhandled backend error [%s]: %s", corr_id, type(exc).__name__)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={

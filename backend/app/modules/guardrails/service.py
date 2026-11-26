@@ -1,17 +1,19 @@
 """ASIGS Guardrail Service orchestrating all 10 validation & escalation layers."""
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_log
 from app.core.auth import AuthenticatedPrincipal
 from app.core.config import Settings
-from app.models.base import new_uuid
+from app.models.base import Base, new_uuid
 from app.models.core_models import (
     Category,
     DealerAssignment,
@@ -25,7 +27,40 @@ from app.models.core_models import (
     SupplierProfile,
     Warehouse,
 )
-from app.models.guardrail_models import FileSecurityScan, GuardrailCase
+from app.models.guardrail_models import (
+    FileSecurityScan,
+    GuardrailCase,
+    GuardrailCaseEvent,
+    GuardrailCheck,
+    GuardrailRule,
+    InputFingerprint,
+)
+
+logger = logging.getLogger("hunarlink.guardrails")
+
+
+def _ensure_asigs_tables(db: Session) -> bool:
+    """Safely create additive ASIGS guardrail tables if missing (e.g. fresh MySQL install)."""
+    try:
+        bind = db.get_bind()
+        if bind is None:
+            return False
+        Base.metadata.create_all(
+            bind=bind,
+            tables=[
+                GuardrailRule.__table__,
+                GuardrailCheck.__table__,
+                GuardrailCase.__table__,
+                GuardrailCaseEvent.__table__,
+                FileSecurityScan.__table__,
+                InputFingerprint.__table__,
+            ],
+            checkfirst=True,
+        )
+        return True
+    except Exception:
+        logger.warning("Could not auto-ensure ASIGS guardrail tables.", exc_info=True)
+        return False
 from app.modules.guardrails import repository
 from app.modules.guardrails.providers.gi_llm_base import BaseGILLMProvider
 from app.modules.guardrails.providers.gi_llm_mock import MockGIWorkflowProvider
@@ -142,17 +177,36 @@ def evaluate_seller_listing(
     )
     outcome_before_dup = _compute_outcome(issues)
     if outcome_before_dup != GuardrailOutcome.BLOCK:
-        issues.extend(
-            check_and_record_duplicate(
-                db,
-                actor_user_id=principal.user_id,
-                scope="seller_listing",
-                fingerprint_hash=fingerprint,
-                target_type="seller_product_listings",
-                target_id=None,
-                persist=False,
+        try:
+            issues.extend(
+                check_and_record_duplicate(
+                    db,
+                    actor_user_id=principal.user_id,
+                    scope="seller_listing",
+                    fingerprint_hash=fingerprint,
+                    target_type="seller_product_listings",
+                    target_id=None,
+                    persist=False,
+                )
             )
-        )
+        except SQLAlchemyError:
+            db.rollback()
+            if _ensure_asigs_tables(db):
+                try:
+                    issues.extend(
+                        check_and_record_duplicate(
+                            db,
+                            actor_user_id=principal.user_id,
+                            scope="seller_listing",
+                            fingerprint_hash=fingerprint,
+                            target_type="seller_product_listings",
+                            target_id=None,
+                            persist=False,
+                        )
+                    )
+                except SQLAlchemyError:
+                    db.rollback()
+                    logger.warning("Duplicate fingerprint lookup skipped after retry.", exc_info=True)
 
     outcome = _compute_outcome(issues)
     created_id: str | None = None
@@ -180,29 +234,55 @@ def evaluate_seller_listing(
         business_status = listing.listing_status
 
         # Record fingerprint for future duplicate detection
-        check_and_record_duplicate(
+        try:
+            check_and_record_duplicate(
+                db,
+                actor_user_id=principal.user_id,
+                scope="seller_listing",
+                fingerprint_hash=fingerprint,
+                target_type="seller_product_listings",
+                target_id=listing.id,
+                persist=True,
+            )
+        except SQLAlchemyError:
+            logger.warning("Could not persist input_fingerprint for listing %s.", listing.id, exc_info=True)
+
+    check = None
+    try:
+        check = repository.persist_guardrail_check(
             db,
             actor_user_id=principal.user_id,
-            scope="seller_listing",
-            fingerprint_hash=fingerprint,
+            workflow_name="seller_listing_create" if create_record else "seller_listing_validate",
             target_type="seller_product_listings",
-            target_id=listing.id,
-            persist=True,
+            target_id=created_id,
+            outcome=outcome,
+            issues=issues,
+            payload_for_hash=payload.model_dump(mode="json"),
+            correlation_id=correlation_id,
         )
+    except SQLAlchemyError:
+        if not create_record:
+            db.rollback()
+            if _ensure_asigs_tables(db):
+                try:
+                    check = repository.persist_guardrail_check(
+                        db,
+                        actor_user_id=principal.user_id,
+                        workflow_name="seller_listing_validate",
+                        target_type="seller_product_listings",
+                        target_id=created_id,
+                        outcome=outcome,
+                        issues=issues,
+                        payload_for_hash=payload.model_dump(mode="json"),
+                        correlation_id=correlation_id,
+                    )
+                except SQLAlchemyError:
+                    db.rollback()
+                    logger.warning("Dry-run guardrail_checks audit write skipped.", exc_info=True)
+        else:
+            raise
 
-    check = repository.persist_guardrail_check(
-        db,
-        actor_user_id=principal.user_id,
-        workflow_name="seller_listing_create" if create_record else "seller_listing_validate",
-        target_type="seller_product_listings",
-        target_id=created_id,
-        outcome=outcome,
-        issues=issues,
-        payload_for_hash=payload.model_dump(mode="json"),
-        correlation_id=correlation_id,
-    )
-
-    if create_record and outcome == GuardrailOutcome.REVIEW_REQUIRED:
+    if create_record and outcome == GuardrailOutcome.REVIEW_REQUIRED and check is not None:
         case = repository.create_guardrail_case(
             db,
             check=check,
