@@ -87,6 +87,13 @@ export default function AuthPage() {
       setErrMsg(
         'No registered HunarLink Artisan account was found for that email. Please register as an Artisan below first.'
       );
+      return;
+    }
+    const modeParam = params.get('mode');
+    if (modeParam === 'register' || modeParam === 'signup') {
+      setAuthMode('register');
+    } else if (modeParam === 'login' || modeParam === 'signin') {
+      setAuthMode('signin');
     }
   }, [params]);
   const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || '';
@@ -485,14 +492,14 @@ export default function AuthPage() {
               </div>
               <h1>Kashmiri Artisan Verification</h1>
               <p>
-                Every artisan on HunarLink verifies their identity via Clerk and submits either a
-                GI Authorized User certificate or an Artisan Card image. Applications stay staged
-                in our database until verified by an Administrator in the Admin Console.
+                Every artisan on HunarLink verifies their identity and submits either a GI
+                Authorized User certificate or a Jammu &amp; Kashmir Artisan Card. Applications
+                are reviewed by our verification desk before your workshop goes live.
               </p>
             </div>
             <ul className="login-perks">
-              <li><IconBadgeCheck size={14} /> Staged in seller_verification_applications &amp; seller_documents</li>
-              <li><IconShield size={14} /> Promoted to live Verified Artisans only after Admin approval</li>
+              <li><IconBadgeCheck size={14} /> GI Certificate &amp; Artisan Card document verification</li>
+              <li><IconShield size={14} /> Verified Guild badge &amp; Seller Studio unlocked after approval</li>
             </ul>
           </div>
 
@@ -507,8 +514,8 @@ export default function AuthPage() {
                   </h2>
                   <p className="login-sub">
                     {authMode === 'register'
-                      ? 'New artisans register below. Already registered in our DB? Switch to Sign In — existing accounts cannot re-register.'
-                      : 'Sign in with Google or Apple. Unverified artisans proceed straight to Verification.'}
+                      ? 'New artisans register below. Already have an account? Switch to Sign In — existing accounts cannot re-register.'
+                      : 'Sign in with Google, Apple, or email. Unverified artisans proceed straight to Verification.'}
                   </p>
                 </div>
 
@@ -577,13 +584,43 @@ export default function AuthPage() {
                         </span>
                       </button>
                     </div>
-                    <p className="login-footer-note" style={{ marginTop: '0.85rem' }}>
-                      Prefer email code? Use{' '}
-                      <Link to={`/login?role=artisan&mode=${authMode}`}>
-                        Artisan Email {authMode === 'register' ? 'Registration' : 'Sign In'}
-                      </Link>
-                      .
-                    </p>
+
+                    <div className="login-social-divider" aria-hidden="true">
+                      <span>or continue with email</span>
+                    </div>
+
+                    <Link
+                      to={`/login?role=artisan&mode=${authMode}`}
+                      className="btn-orange-outline"
+                      style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
+                    >
+                      <IconShield size={15} />
+                      <span>
+                        {authMode === 'register'
+                          ? 'Register with Email & Password'
+                          : 'Sign In with Email & Password / Code'}
+                      </span>
+                      <IconArrowRight size={14} />
+                    </Link>
+
+                    <div className="login-swap">
+                      <span>
+                        {authMode === 'register'
+                          ? 'Already have an Artisan account?'
+                          : 'New Kashmiri artisan workshop?'}
+                      </span>
+                      <button
+                        type="button"
+                        className="login-swap-link"
+                        onClick={() => {
+                          setAuthMode(authMode === 'register' ? 'signin' : 'register');
+                          setErrMsg('');
+                        }}
+                      >
+                        {authMode === 'register' ? 'Sign In instead' : 'Register your workshop'}
+                        <IconArrowRight size={13} />
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="login-error show" role="alert">
@@ -608,14 +645,14 @@ export default function AuthPage() {
                       marginBottom: '0.6rem'
                     }}
                   >
-                    ● Staged in Database • Awaiting Admin Verification
+                    ● Submitted • Awaiting Admin Verification
                   </span>
                   <h2 className="login-title">Application Under Admin Review</h2>
                   <p className="login-sub">
-                    Your workshop <strong>{dbSellerProfile.store_name}</strong> is saved in{' '}
-                    <code>seller_verification_applications</code> and awaiting inspection in the
-                    Admin Panel. Once approved by Admin, your profile automatically goes live on the
-                    Artisan Directory and unlocks your Seller Studio.
+                    Your workshop <strong>{dbSellerProfile.store_name}</strong> has been received
+                    and is awaiting inspection by our verification team. Once approved, your
+                    profile automatically goes live on the Artisan Directory and unlocks your
+                    Seller Studio.
                   </p>
                 </div>
 
