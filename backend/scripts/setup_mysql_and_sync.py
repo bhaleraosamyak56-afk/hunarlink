@@ -289,11 +289,36 @@ def seed_real_artisans_and_rules(mysql_url: str) -> None:
     engine.dispose()
 
 
+def setup_sqlite_schema(sqlite_url: str) -> None:
+    """Create/upgrade all ORM tables + 3 separate account tables directly in local SQLite."""
+    print(f"[1/2] Applying ORM schema & 3 separate account tables (`buyer_accounts`, `artisan_accounts`, `admin_accounts`) to SQLite: {sqlite_url} ...")
+    from app.core.account_tables import backfill_all_existing_users, ensure_separate_account_tables
+    from app.main import _ensure_missing_orm_columns
+
+    engine = create_engine(
+        sqlite_url,
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    _ensure_missing_orm_columns(engine)
+    ensure_separate_account_tables(engine)
+    with Session(engine) as db:
+        counts = backfill_all_existing_users(db)
+        db.commit()
+    tables = inspect(engine).get_table_names()
+    print(
+        f"      SQLite schema ready ({len(tables)} tables). "
+        f"Backfilled: buyers={counts['buyers']}, artisans={counts['artisans']}, admins={counts['admins']}."
+    )
+    engine.dispose()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Initialize MySQL 8.4 LTS schema, migrate SQLite data & seed HunarLink."
+        description="Initialize MySQL 8.4 LTS (or local SQLite) schema, migrate SQLite data & seed HunarLink."
     )
-    parser.add_argument("--mysql-url", help="Target MySQL SQLAlchemy URL (default: DATABASE_URL from .env)")
+    parser.add_argument("--mysql-url", help="Target MySQL SQLAlchemy URL (overrides DATABASE_URL from .env)")
     parser.add_argument(
         "--from-sqlite",
         default=str(BACKEND_DIR / "hunarlink_dev.db"),
@@ -301,24 +326,54 @@ def main() -> None:
     )
     parser.add_argument("--skip-sqlite", action="store_true", help="Do not import rows from SQLite")
     parser.add_argument("--skip-seed", action="store_true", help="Do not seed real Kashmiri artisans")
-    parser.add_argument("--verify-only", action="store_true", help="Only verify MySQL connection & table count")
+    parser.add_argument("--verify-only", action="store_true", help="Only verify DB connection & table count")
     args = parser.parse_args()
 
     settings = get_settings()
-    mysql_url = args.mysql_url or settings.database_url or settings.build_mysql_url().render_as_string(hide_password=False)
+
+    # Determine target URL:
+    # 1) Explicit --mysql-url always targets MySQL.
+    # 2) If DATABASE_URL in .env is SQLite AND MYSQL_PASSWORD is provided in .env, prefer MYSQL_* for this script.
+    # 3) If only SQLite is configured in .env, gracefully set up & seed the local SQLite DB instead of crashing!
+    if args.mysql_url:
+        target_url = args.mysql_url
+    elif settings.database_url and settings.database_url.startswith("mysql"):
+        target_url = settings.database_url
+    elif settings.mysql_password.get_secret_value().strip():
+        target_url = settings.build_mysql_url().render_as_string(hide_password=False)
+    elif settings.database_url:
+        target_url = settings.database_url
+    else:
+        target_url = settings.build_mysql_url().render_as_string(hide_password=False)
+
+    parsed_target = make_url(target_url)
 
     if args.verify_only:
-        engine = create_engine(mysql_url, pool_pre_ping=True, future=True)
+        engine = create_engine(target_url, pool_pre_ping=True, future=True)
         tables = inspect(engine).get_table_names()
-        print(f"MySQL OK: {len(tables)} tables present in target database.")
+        print(f"DB OK ({parsed_target.drivername}): {len(tables)} tables present in target database.")
         engine.dispose()
         return
 
-    install_mysql_schema(mysql_url)
+    if parsed_target.drivername.startswith("sqlite"):
+        print(
+            "NOTE: `DATABASE_URL` in `backend/.env` is currently pointing to SQLite "
+            "(and `MYSQL_PASSWORD` is empty).\n"
+            "      Setting up & seeding your configured SQLite database now.\n"
+            "      (To sync into MySQL Workbench instead, pass `--mysql-url \"mysql+pymysql://root:YOUR_PASS@127.0.0.1:3306/hunarlink\"` "
+            "or set `MYSQL_USER` / `MYSQL_PASSWORD` in `backend/.env`.)\n"
+        )
+        setup_sqlite_schema(target_url)
+        if not args.skip_seed:
+            seed_real_artisans_and_rules(target_url)
+        print("\nALL DONE! Run `python scripts/inspect_db.py` to inspect `buyer_accounts`, `artisan_accounts`, and `admin_accounts`.")
+        return
+
+    install_mysql_schema(target_url)
     if not args.skip_sqlite:
-        migrate_sqlite_to_mysql(pathlib.Path(args.from_sqlite), mysql_url)
+        migrate_sqlite_to_mysql(pathlib.Path(args.from_sqlite), target_url)
     if not args.skip_seed:
-        seed_real_artisans_and_rules(mysql_url)
+        seed_real_artisans_and_rules(target_url)
 
     print("\nALL DONE! Run `python scripts/inspect_db.py` to inspect your live MySQL 8.4 database.")
 
