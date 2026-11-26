@@ -18,7 +18,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import Engine, func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -38,6 +38,32 @@ from app.modules.storefront.router import router as storefront_router
 logger = logging.getLogger("hunarlink.backend")
 
 
+def _ensure_missing_orm_columns(engine: Engine) -> int:
+    """Safely add any columns added in later ORM revisions to pre-existing SQLite/MySQL tables."""
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    added = 0
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        present_cols = {c["name"] for c in inspector.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in present_cols or col.primary_key:
+                continue
+            col_type_sql = col.type.compile(dialect=engine.dialect)
+            default_clause = ""
+            if not col.nullable and col.name in {"average_rating", "total_reviews", "is_active"}:
+                default_clause = " DEFAULT 0"
+            ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col_type_sql}{default_clause}'
+            if engine.dialect.name == "mysql":
+                ddl = f"ALTER TABLE `{table.name}` ADD COLUMN `{col.name}` {col_type_sql} NULL"
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+            added += 1
+            logger.info("Auto-migrated missing column %s.%s (%s)", table.name, col.name, col_type_sql)
+    return added
+
+
 def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
     """In development mode, ensure schema & full 53-artisan / 96-listing heritage catalog exist."""
     if settings.app_env != "development" or not settings.auto_seed_catalog:
@@ -49,6 +75,7 @@ def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
 
         engine = get_engine()
         Base.metadata.create_all(bind=engine, checkfirst=True)
+        _ensure_missing_orm_columns(engine)
         with get_session_factory()() as db:
             active_count = int(
                 db.scalar(
