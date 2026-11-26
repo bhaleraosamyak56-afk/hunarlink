@@ -225,3 +225,32 @@ class DemandArtisanMatch(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
     )
+
+
+class AIInteractionLog(Base):
+    """Immutable audit log of every local/cloud LLM call across all 4 CraftProof AI pillars.
+
+    Hard DB invariant: `is_legal_proof` MUST always be 0 (False) — AI logs are advisory only.
+    """
+
+    __tablename__ = "ai_interaction_logs"
+    __table_args__ = (
+        CheckConstraint("is_legal_proof = 0", name="chk_ail_not_legal_proof"),
+    )
+
+    id: Mapped[str] = mapped_column(UUIDChar(), primary_key=True, default=new_uuid)
+    workflow_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    actor_user_id: Mapped[str | None] = mapped_column(
+        UUIDChar(), ForeignKey("users.id"), nullable=True
+    )
+    target_type: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    target_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    provider_used: Mapped[str] = mapped_column(String(48), nullable=False)
+    model_used: Mapped[str] = mapped_column(String(80), nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    input_text: Mapped[str] = mapped_column(Text, nullable=False)
+    output_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    output_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    overclaim_guard_triggered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_legal_proof: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

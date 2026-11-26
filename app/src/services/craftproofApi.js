@@ -89,6 +89,10 @@ export function fetchAdminCraftClaims(token, statusFilter = '') {
   return cpRequest(`/admin/passports/claims${qs}`, { token });
 }
 
+export function fetchAdminAiInteractionLogs(token, limit = 30) {
+  return cpRequest(`/ai/admin/interaction-logs?limit=${encodeURIComponent(limit)}`, { token });
+}
+
 export function decideAdminCraftClaim(claimId, payload, token) {
   return cpRequest(`/admin/passports/claims/${encodeURIComponent(claimId)}/decision`, {
     method: 'POST',

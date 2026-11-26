@@ -227,3 +227,33 @@ CREATE TABLE IF NOT EXISTS `demand_artisan_matches` (
     CONSTRAINT `fk_dam_request` FOREIGN KEY (`demand_request_id`) REFERENCES `buyer_demand_requests` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_dam_seller` FOREIGN KEY (`seller_profile_id`) REFERENCES `seller_profiles` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 8. Full Local/Cloud LLM Interaction Audit Trail (Strictly Advisory: is_legal_proof = 0)
+CREATE TABLE IF NOT EXISTS `ai_interaction_logs` (
+    `id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `workflow_type` ENUM(
+        'ARTISAN_DOC_PRESCREEN',
+        'ARTISAN_COPILOT_DRAFT',
+        'ADVERSARIAL_CRAFT_AUDIT',
+        'BUYER_ASSISTANT_QA',
+        'DEMAND_BRIDGE_PARSE'
+    ) NOT NULL,
+    `actor_user_id` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    `target_type` VARCHAR(48) NULL,
+    `target_ref` VARCHAR(128) NULL,
+    `provider_used` VARCHAR(48) NOT NULL,
+    `model_used` VARCHAR(80) NOT NULL,
+    `latency_ms` INT UNSIGNED NOT NULL DEFAULT 0,
+    `input_text` TEXT NOT NULL,
+    `output_summary` TEXT NOT NULL,
+    `output_json` JSON NOT NULL,
+    `overclaim_guard_triggered` TINYINT(1) NOT NULL DEFAULT 0,
+    `is_legal_proof` TINYINT(1) NOT NULL DEFAULT 0,
+    `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (`id`),
+    KEY `idx_ail_workflow_created` (`workflow_type`, `created_at`),
+    KEY `idx_ail_target_ref` (`target_ref`),
+    KEY `idx_ail_actor` (`actor_user_id`),
+    CONSTRAINT `fk_ail_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `chk_ail_not_legal_proof` CHECK (`is_legal_proof` = 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

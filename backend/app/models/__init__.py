@@ -58,6 +58,7 @@ from app.models.guardrail_models import (
     InputFingerprint,
 )
 from app.models.craftproof_models import (
+    AIInteractionLog,
     ArtisanCapability,
     BuyerDemandRequest,
     CraftClaimEvidence,
@@ -132,4 +133,5 @@ __all__ = [
     "ArtisanCapability",
     "BuyerDemandRequest",
     "DemandArtisanMatch",
+    "AIInteractionLog",
 ]

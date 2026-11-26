@@ -1,7 +1,7 @@
 """FastAPI Router for CraftProof AI Services (Local Ollama + Provider-Agnostic Gateway)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from app.core.admin_security import verify_admin_session_token
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.core_models import SellerProfile
+from app.models.craftproof_models import AIInteractionLog
 from app.modules.ai.provider import LocalAIGateway
 from app.modules.ai.schemas import (
     ArtisanCopilotDraftIn,
@@ -98,7 +99,12 @@ def post_artisan_copilot_draft(
                 seller_district=payload.seller_district or seller.workshop_district,
                 seller_craft_specialty=payload.seller_craft_specialty or seller.craft_specialty,
             )
-    return draft_artisan_listing(settings=settings, payload=enriched)
+    return draft_artisan_listing(
+        settings=settings,
+        payload=enriched,
+        db=db,
+        actor_user_id=principal.user_id if principal else None,
+    )
 
 
 @router.post("/craft-audit/listing")
@@ -117,14 +123,62 @@ def post_craft_audit_listing(
         settings=settings,
         payload=payload,
         seller_profile=seller,
+        actor_user_id=principal.user_id if principal else None,
     )
 
 
 @router.post("/buyer-assistant/ask")
 def post_buyer_assistant_ask(
     payload: BuyerAssistantAskIn,
+    principal: AuthenticatedPrincipal | None = Depends(_optional_principal),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Pillar 3: Public evidence-locked Buyer Assistant bound strictly to live MySQL Craft Passport rows."""
-    return answer_buyer_passport_question(db, settings=settings, payload=payload)
+    return answer_buyer_passport_question(
+        db,
+        settings=settings,
+        payload=payload,
+        actor_user_id=principal.user_id if principal else None,
+    )
+
+
+@router.get("/admin/interaction-logs")
+def admin_list_ai_interaction_logs(
+    workflow_type: str | None = Query(default=None),
+    limit: int = Query(default=40, ge=1, le=200),
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Admin audit trail of every local/cloud LLM interaction persisted in `ai_interaction_logs`."""
+    if not principal.is_active_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required to view AI interaction audit logs.",
+        )
+
+    stmt = select(AIInteractionLog)
+    if workflow_type:
+        stmt = stmt.where(AIInteractionLog.workflow_type == workflow_type.upper())
+    rows = list(db.scalars(stmt.order_by(AIInteractionLog.created_at.desc()).limit(limit)).all())
+    return {
+        "count": len(rows),
+        "items": [
+            {
+                "id": r.id,
+                "workflow_type": r.workflow_type,
+                "actor_user_id": r.actor_user_id,
+                "target_type": r.target_type,
+                "target_ref": r.target_ref,
+                "provider_used": r.provider_used,
+                "model_used": r.model_used,
+                "latency_ms": r.latency_ms,
+                "input_text": r.input_text,
+                "output_summary": r.output_summary,
+                "overclaim_guard_triggered": bool(r.overclaim_guard_triggered),
+                "is_legal_proof": bool(r.is_legal_proof),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }

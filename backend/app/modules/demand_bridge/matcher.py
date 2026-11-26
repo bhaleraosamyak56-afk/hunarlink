@@ -30,6 +30,7 @@ from app.models.craftproof_models import (
     DemandArtisanMatch,
 )
 from app.modules.ai.provider import LocalAIGateway
+from app.modules.ai.service import record_ai_interaction
 from app.modules.demand_bridge.schemas import DemandMatchIn
 
 _CATEGORY_KEYWORDS: list[tuple[tuple[str, ...], str, str]] = [
@@ -142,7 +143,13 @@ def _deterministic_parse_brief(raw_text: str) -> dict[str, Any]:
     }
 
 
-def parse_buyer_brief(settings: Settings, raw_request_text: str) -> dict[str, Any]:
+def parse_buyer_brief(
+    settings: Settings,
+    raw_request_text: str,
+    *,
+    db: Session | None = None,
+    actor_user_id: str | None = None,
+) -> dict[str, Any]:
     """Use Local Ollama (`qwen2.5:3b`) + deterministic guardrails to parse a bulk buyer brief."""
     baseline = _deterministic_parse_brief(raw_request_text)
     gateway = LocalAIGateway(settings)
@@ -222,12 +229,31 @@ def parse_buyer_brief(settings: Settings, raw_request_text: str) -> dict[str, An
                 str(x).strip() for x in p["ambiguous_fields"] if str(x).strip()
             ][:6]
 
+    log_id = record_ai_interaction(
+        db,
+        workflow_type="DEMAND_BRIDGE_PARSE",
+        provider_used=llm_res.provider_used,
+        model_used=llm_res.model_used,
+        latency_ms=llm_res.latency_ms,
+        input_text=raw_request_text,
+        output_summary=(
+            f"Parsed category={structured.get('category_slug')}, qty={structured.get('requested_quantity')}, "
+            f"budget={structured.get('budget_min_inr')}..{structured.get('budget_max_inr')} INR, "
+            f"days={structured.get('target_delivery_days')}"
+        ),
+        output_json=structured,
+        actor_user_id=actor_user_id,
+        target_type="DEMAND_BRIEF",
+        target_ref=structured.get("category_slug"),
+    )
+
     return {
         "structured_requirements": structured,
         "ai_meta": {
             "provider_used": llm_res.provider_used,
             "model_used": llm_res.model_used,
             "latency_ms": llm_res.latency_ms,
+            "interaction_log_id": log_id,
         },
     }
 

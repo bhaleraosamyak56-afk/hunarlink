@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models.base import new_uuid
 from app.models.core_models import SellerProfile
 from app.models.craftproof_models import (
+    AIInteractionLog,
     ArtisanCapability,
     CraftVerificationEvent,
 )
@@ -351,3 +352,57 @@ def test_pillar4_demand_bridge_multi_artisan_cluster_pooling(app_and_client, db_
     )
     assert accept_res.status_code == 200
     assert accept_res.json()["match_status"] == "ACCEPTED"
+
+
+def test_all_ai_workflows_persist_to_ai_interaction_logs_and_enforce_not_legal_proof(
+    app_and_client, db_session, test_settings
+):
+    """Every LLM endpoint logs to `ai_interaction_logs` and SQL CHECK forbids `is_legal_proof=True`."""
+    test_settings.ai_provider = "fallback"
+    app, client = app_and_client
+    env = seed_marketplace_entities(db_session)
+
+    # 1. Trigger Copilot Draft & Demand Bridge Parse
+    r1 = client.post(
+        "/api/v1/ai/artisan-copilot/draft",
+        json={"raw_note": "Srinagar se hand-carved walnut box, 12 din lage, price 2400, 5 pieces."},
+    )
+    assert r1.status_code == 200
+    assert r1.json()["ai_meta"]["interaction_log_id"]
+
+    r2 = client.post(
+        "/api/v1/demand-bridge/parse",
+        json={"raw_request_text": "Need 40 Kashmiri copper samovars within 20 days under 3500 INR."},
+    )
+    assert r2.status_code == 200
+    assert r2.json()["ai_meta"]["interaction_log_id"]
+
+    # 2. Non-admin cannot read Admin AI audit trail
+    set_authenticated_principal(app, env["seller_principal"])
+    assert client.get("/api/v1/ai/admin/interaction-logs").status_code == 403
+
+    # 3. Admin reads persisted logs from DB
+    set_authenticated_principal(app, env["admin_principal"])
+    logs_res = client.get("/api/v1/ai/admin/interaction-logs")
+    assert logs_res.status_code == 200
+    items = logs_res.json()["items"]
+    workflows = {i["workflow_type"] for i in items}
+    assert "ARTISAN_COPILOT_DRAFT" in workflows
+    assert "DEMAND_BRIDGE_PARSE" in workflows
+    assert all(i["is_legal_proof"] is False for i in items)
+
+    # 4. Hard SQL CHECK constraint rejects `is_legal_proof=True`
+    bad_log = AIInteractionLog(
+        workflow_type="BUYER_ASSISTANT_QA",
+        provider_used="ollama",
+        model_used="qwen2.5:3b",
+        latency_ms=120,
+        input_text="Is this pure?",
+        output_summary="Yes",
+        output_json={},
+        is_legal_proof=True,
+    )
+    db_session.add(bad_log)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
