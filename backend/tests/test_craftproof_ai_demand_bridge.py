@@ -499,3 +499,117 @@ def test_prohibited_contraband_guardrail_blocks_seller_buyer_ai_search_with_zero
     )
     assert safe_copilot.status_code == 200
     assert safe_copilot.json()["draft"]["selling_price_inr"] == 2800.0
+
+
+def test_seller_studio_validate_and_publish_all_guilds_and_purity_guardrail(
+    app_and_client, db_session, test_settings
+):
+    """Regression test:
+    1) Seller Studio validate & publish NEVER return HTTP 500 across all 4 guilds
+       even when DB categories are pre-seeded with `WALNUT_WOOD` / `SILK_CARPETS`.
+    2) Short 1-char seller_sku auto-normalizes cleanly instead of raising ValidationError 500.
+    3) Prohibited material purity (e.g. 'pure human' / 'human leather') is blocked by
+       PROHIBITED_CONTENT_BLOCKED while benign 'hand-spun by human artisans' passes.
+    """
+    from app.models.base import new_uuid
+    from app.models.core_models import Category
+
+    app, client = app_and_client
+    env = seed_marketplace_entities(db_session)
+    set_authenticated_principal(app, env["seller_principal"])
+
+    # Pre-seed categories matching seed_real_artisans.py codes & slugs
+    for code, name, slug in [
+        ("WALNUT_WOOD", "Walnut Woodcarving", "walnut"),
+        ("PAPIER_MACHE", "Papier-Mâché Art", "papier-mache"),
+        ("SILK_CARPETS", "Silk-on-Silk Rugs", "silk-rugs"),
+    ]:
+        if not db_session.query(Category).filter(Category.slug == slug).first():
+            db_session.add(
+                Category(
+                    id=new_uuid(),
+                    code=code,
+                    name=name,
+                    slug=slug,
+                    is_gi_eligible_category=True,
+                    is_active=True,
+                )
+            )
+    db_session.commit()
+
+    # 1. Validate & publish across ALL 4 guilds without HTTP 500 IntegrityError
+    for guild in ("pashmina", "walnut", "papier-mache", "silk-rugs"):
+        val_res = client.post(
+            "/api/v1/seller/studio/validate",
+            json={
+                "title": f"Authentic {guild} heritage craft",
+                "guild": guild,
+                "description": "Hand-crafted in Srinagar by human artisans using traditional tools.",
+                "selling_price": "2400",
+                "compare_at_mrp": "2900",
+                "currency_code": "INR",
+                "stock_quantity": 3,
+                "min_order_qty": 1,
+                "seller_sku": "x",  # 1-char edge case must auto-normalize, never 500
+                "purity_metric": "100% authentic natural Kashmiri craft material",
+            },
+        )
+        assert val_res.status_code == 200, f"validate failed for {guild}: {val_res.text}"
+        assert val_res.json()["outcome"] in ("PASS", "WARNING")
+
+        pub_res = client.post(
+            "/api/v1/seller/studio/listings",
+            json={
+                "title": f"Handcrafted {guild} heirloom piece",
+                "guild": guild,
+                "description": "Created in Kashmir workshop by master artisans.",
+                "selling_price": "2600",
+                "compare_at_mrp": "3200",
+                "currency_code": "INR",
+                "stock_quantity": 2,
+                "min_order_qty": 1,
+                "purity_metric": "Certified authentic Kashmiri craft",
+                "origin_district": "Srinagar",
+                "loom_hours": 180,
+                "dimensions": "205 cm x 100 cm",
+            },
+        )
+        assert pub_res.status_code == 201, f"publish failed for {guild}: {pub_res.text}"
+        assert pub_res.json()["created_resource_id"]
+
+    # 2. Prohibited human-material purity spec must be hard-blocked on both validate & publish
+    bad_val = client.post(
+        "/api/v1/seller/studio/validate",
+        json={
+            "title": "Handcrafted Decorative Vessel",
+            "guild": "papier-mache",
+            "description": "Decorative box",
+            "selling_price": "1500",
+            "compare_at_mrp": "1800",
+            "currency_code": "INR",
+            "stock_quantity": 1,
+            "min_order_qty": 1,
+            "purity_metric": "pure human leather",
+        },
+    )
+    assert bad_val.status_code == 200
+    assert bad_val.json()["outcome"] == "BLOCK"
+    assert "PROHIBITED_CONTENT_BLOCKED" in bad_val.json()["triggered_rule_codes"]
+
+    bad_pub = client.post(
+        "/api/v1/seller/studio/listings",
+        json={
+            "title": "Handcrafted Decorative Vessel",
+            "guild": "walnut",
+            "description": "Decorative box",
+            "selling_price": "1500",
+            "compare_at_mrp": "1800",
+            "currency_code": "INR",
+            "stock_quantity": 1,
+            "min_order_qty": 1,
+            "purity_metric": "pure human",
+        },
+    )
+    assert bad_pub.status_code == 422
+    assert "PROHIBITED_CONTENT_BLOCKED" in bad_pub.json()["detail"]["triggered_rule_codes"]
+

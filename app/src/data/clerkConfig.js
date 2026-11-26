@@ -30,8 +30,50 @@ export const HAS_CLERK = Boolean(
 
 export const CLERK_PENDING_ROLE_KEY = 'hunarlink_clerk_pending_role';
 export const CLERK_PENDING_AUTH_MODE_KEY = 'hunarlink_clerk_pending_auth_mode';
+export const CLERK_PENDING_NEXT_KEY = 'hunarlink_clerk_pending_next';
 export const CLERK_ROLE_MAP_KEY = 'hunarlink_clerk_role_map';
 export const CLERK_ARTISAN_PROFILES_KEY = 'hunarlink_clerk_artisan_profiles';
+
+export function setPendingClerkNext(nextPath) {
+  if (!nextPath) return;
+  try {
+    window.sessionStorage.setItem(CLERK_PENDING_NEXT_KEY, nextPath);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.localStorage.setItem(CLERK_PENDING_NEXT_KEY, nextPath);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPendingClerkNext() {
+  try {
+    const s = window.sessionStorage.getItem(CLERK_PENDING_NEXT_KEY);
+    if (s) return s;
+  } catch {
+    /* ignore */
+  }
+  try {
+    return window.localStorage.getItem(CLERK_PENDING_NEXT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingClerkNext() {
+  try {
+    window.sessionStorage.removeItem(CLERK_PENDING_NEXT_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.localStorage.removeItem(CLERK_PENDING_NEXT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function setPendingClerkAuthMode(mode) {
   if (!mode) return;
@@ -142,6 +184,8 @@ export const DEFAULT_CLERK_BRIDGE = {
   enabled: false,
   isLoaded: true,
   isSignedIn: false,
+  isSyncingAuth: false,
+  authSyncError: '',
   clerkUser: null,
   getToken: async () => null,
   authenticateWithOAuth: null,

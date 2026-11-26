@@ -71,11 +71,13 @@ _PROHIBITED_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
             r"\b("
             r"terrorist|terrorism|assassinate|hitman|cyanide|ricin|"
             r"fake\s*currency|counterfeit\s*currency|fake\s*notes|"
-            r"stolen\s*credit\s*card|ransomware|malware\s*payload|child\s*porn|csam"
+            r"stolen\s*credit\s*card|ransomware|malware\s*payload|child\s*porn|csam|"
+            r"human\s*(?:skin|leather|bone|bones|flesh|organ|organs|remains|tissue|skull|blood)|"
+            r"(?:pure|real|genuine|100%?)\s+human"
             r")\b",
             re.IGNORECASE,
         ),
-        "Unlawful, violent, or fraudulent content is strictly prohibited on HunarLink.",
+        "Unlawful, violent, fraudulent, or prohibited human-material content is strictly prohibited on HunarLink.",
     ),
 ]
 

@@ -47,10 +47,13 @@ from app.models.core_models import (
 from app.models.guardrail_models import FileSecurityScan
 from app.modules.guardrails import repository as guardrail_repo, service as guardrail_service
 from app.modules.guardrails.rules.content_safety import check_prohibited_content
+from app.modules.guardrails.rules.input_validation import validate_safe_text
 from app.modules.guardrails.schemas import (
+    FieldIssue,
     GuardrailOutcome,
     GuardrailResponse,
     SellerListingInput,
+    merge_outcome,
 )
 from app.modules.storefront.schemas import (
     ArtisanDetailResponse,
@@ -1045,15 +1048,63 @@ def admin_live_overview(
 
 _GUILD_CATEGORIES: dict[str, tuple[str, str, bool]] = {
     "pashmina": ("PASHMINA", "Pashmina Textiles", True),
-    "walnut": ("WALNUT", "Walnut Woodcarving", True),
-    "papier-mache": ("PAPIER_MACHE", "Papier-Mache Art", True),
-    "silk-rugs": ("SILK_RUGS", "Silk-on-Silk Rugs", True),
+    "walnut": ("WALNUT_WOOD", "Walnut Woodcarving", True),
+    "papier-mache": ("PAPIER_MACHE", "Papier-Mâché Art", True),
+    "silk-rugs": ("SILK_CARPETS", "Silk-on-Silk Rugs", True),
 }
 
 
 def _slugify(value: str) -> str:
     base = re.sub(r"[^a-z0-9]+", "-", (value or "craft").lower()).strip("-")
     return (base or "craft")[:90]
+
+
+def _validate_studio_extra_fields(payload: SellerStudioListingInput) -> list[FieldIssue]:
+    """Run Layer-2 text & prohibited-content safety checks on studio-specific fields."""
+    extra_issues: list[FieldIssue] = []
+    if payload.purity_metric:
+        extra_issues.extend(
+            validate_safe_text("purity_metric", payload.purity_metric, required=False, min_len=1, max_len=255)
+        )
+    if payload.technique:
+        extra_issues.extend(
+            validate_safe_text("technique", payload.technique, required=False, min_len=1, max_len=120)
+        )
+    if payload.dimensions:
+        extra_issues.extend(
+            validate_safe_text("dimensions", payload.dimensions, required=False, min_len=1, max_len=160)
+        )
+    if payload.origin_district:
+        extra_issues.extend(
+            validate_safe_text("origin_district", payload.origin_district, required=False, min_len=1, max_len=100)
+        )
+    return extra_issues
+
+
+def _merge_extra_guardrail_issues(
+    response: GuardrailResponse, extra_issues: list[FieldIssue]
+) -> GuardrailResponse:
+    if not extra_issues:
+        return response
+    outcome = response.outcome
+    field_errors = list(response.field_errors)
+    warnings = list(response.warnings)
+    codes = set(response.triggered_rule_codes)
+    for issue in extra_issues:
+        outcome = merge_outcome(outcome, issue.severity)
+        codes.add(issue.rule_code)
+        if issue.severity == GuardrailOutcome.BLOCK:
+            field_errors.append(issue)
+        else:
+            warnings.append(issue)
+    return response.model_copy(
+        update={
+            "outcome": outcome,
+            "triggered_rule_codes": sorted(codes),
+            "field_errors": field_errors,
+            "warnings": warnings,
+        }
+    )
 
 
 def _resolve_or_stage_studio_product(
@@ -1068,29 +1119,33 @@ def _resolve_or_stage_studio_product(
     cat_code, cat_name, is_gi_cat = _GUILD_CATEGORIES.get(
         guild_key, ("PASHMINA", "Pashmina Textiles", True)
     )
-    sku = (
-        payload.seller_sku.strip()
-        if payload.seller_sku and payload.seller_sku.strip()
-        else f"HL-{cat_code[:6]}-{uuid.uuid4().hex[:6].upper()}"
-    )
+    raw_sku = (payload.seller_sku or "").strip()
+    sku = raw_sku if len(raw_sku) >= 2 else f"HL-{cat_code[:6]}-{uuid.uuid4().hex[:6].upper()}"
 
     if not persist_product:
         existing_var = db.scalar(
             select(ProductVariant)
             .join(Product, Product.id == ProductVariant.product_id)
-            .where(Product.is_active == True, Product.approval_status == "APPROVED")  # noqa: E712
+            .where(
+                Product.is_active == True,  # noqa: E712
+                Product.approval_status == "APPROVED",
+                ProductVariant.is_active == True,  # noqa: E712
+            )
             .limit(1)
         )
         if existing_var is not None:
             return existing_var.product_id, existing_var.id, sku
 
-    cat = db.scalar(select(Category).where(Category.code == cat_code))
+    target_slug = guild_key if guild_key in _GUILD_CATEGORIES else _slugify(cat_name)
+    cat = db.scalar(
+        select(Category).where(or_(Category.code == cat_code, Category.slug == target_slug))
+    )
     if cat is None:
         cat = Category(
             id=new_uuid(),
             code=cat_code,
             name=cat_name,
-            slug=guild_key if guild_key in _GUILD_CATEGORIES else _slugify(cat_name),
+            slug=target_slug,
             is_gi_eligible_category=is_gi_cat,
             is_active=True,
         )
@@ -1098,6 +1153,14 @@ def _resolve_or_stage_studio_product(
         db.flush()
 
     unique_suffix = uuid.uuid4().hex[:8]
+    attrs: dict = {}
+    if payload.loom_hours is not None:
+        attrs["loom_hours"] = payload.loom_hours
+    if payload.dimensions:
+        attrs["dimensions"] = payload.dimensions.strip()[:160]
+    if payload.image_url:
+        attrs["image_url"] = payload.image_url.strip()[:512]
+
     prod = Product(
         id=new_uuid(),
         category_id=cat.id,
@@ -1106,6 +1169,10 @@ def _resolve_or_stage_studio_product(
         slug=f"{_slugify(payload.title)}-{unique_suffix}",
         short_description=(payload.description or payload.title).strip()[:450],
         description=(payload.description or payload.title).strip(),
+        craft_technique=(payload.technique or "").strip()[:120] or None,
+        origin_district=(payload.origin_district or "").strip()[:100] or None,
+        material_composition=(payload.purity_metric or "").strip()[:255] or None,
+        attributes_json=attrs or None,
         gi_status="PENDING_REVIEW",
         approval_status="APPROVED",
         is_active=True,
@@ -1113,6 +1180,19 @@ def _resolve_or_stage_studio_product(
     )
     db.add(prod)
     db.flush()
+
+    if payload.image_url and payload.image_url.strip():
+        db.add(
+            ProductImage(
+                id=new_uuid(),
+                product_id=prod.id,
+                storage_key=payload.image_url.strip()[:512],
+                alt_text=payload.title.strip()[:255],
+                sort_order=0,
+                is_primary=True,
+            )
+        )
+        db.flush()
 
     mrp_val = payload.compare_at_mrp if payload.compare_at_mrp is not None else payload.selling_price
     variant = ProductVariant(
@@ -1174,6 +1254,7 @@ def validate_studio_listing(
     db: Session = Depends(get_db),
 ) -> GuardrailResponse:
     """Dry-run an Artisan Studio craft through all 10 ASIGS Guardrail layers."""
+    extra_issues = _validate_studio_extra_fields(payload)
     product_id, variant_id, sku = _resolve_or_stage_studio_product(
         db, principal=principal, payload=payload, persist_product=False
     )
@@ -1192,13 +1273,14 @@ def validate_studio_listing(
         requested_listing_status=payload.requested_listing_status,
     )
     corr_id = getattr(request.state, "correlation_id", "") or str(uuid.uuid4())
-    return guardrail_service.evaluate_seller_listing(
+    res = guardrail_service.evaluate_seller_listing(
         db,
         principal=principal,
         payload=listing_in,
         correlation_id=corr_id,
         create_record=False,
     )
+    return _merge_extra_guardrail_issues(res, extra_issues)
 
 
 @router.post(
@@ -1214,6 +1296,7 @@ def publish_studio_listing(
 ) -> GuardrailResponse:
     """Persist an Artisan Studio craft through all 10 ASIGS Guardrail layers into the live DB."""
     corr_id = getattr(request.state, "correlation_id", "") or str(uuid.uuid4())
+    extra_issues = _validate_studio_extra_fields(payload)
 
     # First dry-run to avoid creating orphan Product rows on BLOCK
     dry_prod_id, dry_var_id, sku = _resolve_or_stage_studio_product(
@@ -1233,12 +1316,15 @@ def publish_studio_listing(
         requested_gi_status=payload.requested_gi_status,
         requested_listing_status=payload.requested_listing_status,
     )
-    dry_res = guardrail_service.evaluate_seller_listing(
-        db,
-        principal=principal,
-        payload=dry_in,
-        correlation_id=corr_id,
-        create_record=False,
+    dry_res = _merge_extra_guardrail_issues(
+        guardrail_service.evaluate_seller_listing(
+            db,
+            principal=principal,
+            payload=dry_in,
+            correlation_id=corr_id,
+            create_record=False,
+        ),
+        extra_issues,
     )
     if dry_res.outcome == GuardrailOutcome.BLOCK:
         raise HTTPException(
@@ -1275,6 +1361,18 @@ def publish_studio_listing(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=res.model_dump(mode="json"),
         )
+    if res.created_resource_id:
+        try:
+            from app.modules.craftproof.service import ensure_passport_for_listing
+
+            created_listing = db.scalar(
+                select(SellerProductListing).where(SellerProductListing.id == res.created_resource_id)
+            )
+            if created_listing is not None:
+                ensure_passport_for_listing(db, listing=created_listing)
+                db.commit()
+        except Exception:
+            db.rollback()
     return res
 
 

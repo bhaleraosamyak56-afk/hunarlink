@@ -51,7 +51,16 @@ export default function LoginPage() {
       : 'signin';
   const alreadyRegisteredNotice = params.get('already_registered') === '1';
   const notRegisteredNotice = params.get('not_registered') === '1';
-  const nextUrl = params.get('next') || '/';
+  const syncErrorNotice = params.get('sync_error') === '1';
+  const oauthReturning = params.get('oauth_return') === '1';
+  const rawNextUrl = params.get('next') || '/';
+  const nextUrl =
+    rawNextUrl.startsWith('/') &&
+    !rawNextUrl.startsWith('//') &&
+    !rawNextUrl.startsWith('/login') &&
+    !rawNextUrl.startsWith('/sso-callback')
+      ? rawNextUrl
+      : '/';
 
   const [authMode, setAuthMode] = useState(notRegisteredNotice ? 'register' : initialMode); // 'signin' | 'register'
   const [role, setRole] = useState(initialRole);
@@ -60,7 +69,9 @@ export default function LoginPage() {
       ? 'This account already exists in HunarLink. You cannot register again — please Sign In below.'
       : notRegisteredNotice
         ? 'No registered HunarLink account was found for that email. Please register first below.'
-        : ''
+        : syncErrorNotice
+          ? 'Could not complete sign-in for that account identity. Please use your original sign-in method.'
+          : ''
   );
   const [busyProvider, setBusyProvider] = useState(null);
 
@@ -75,6 +86,9 @@ export default function LoginPage() {
   const signedIn = clerk.enabled
     ? Boolean(clerk.isSignedIn && user && user.isLoggedIn)
     : Boolean(user && user.authProvider === 'clerk' && user.isLoggedIn);
+  const completingOAuthSync = Boolean(
+    clerk.enabled && clerk.isSignedIn && !signedIn && !clerk.authSyncError
+  );
   const isArtisanSession = Boolean(
     user && (user.role === 'seller' || user.role === 'artisan')
   );
@@ -97,14 +111,30 @@ export default function LoginPage() {
       setErrMsg(
         'No registered HunarLink account was found for that email. Please register first below.'
       );
+    } else if (params.get('sync_error') === '1') {
+      setErrMsg(
+        clerk.authSyncError ||
+          'Could not complete sign-in for that account identity. Please use your original sign-in method.'
+      );
     }
-  }, [params]);
+  }, [params, clerk.authSyncError]);
 
   useEffect(() => {
-    if (signedIn && isArtisanSession && !isVerifiedArtisan) {
-      navigate('/auth?tab=verify', { replace: true });
+    if (clerk.authSyncError && !errMsg) {
+      setErrMsg(clerk.authSyncError);
     }
-  }, [signedIn, isArtisanSession, isVerifiedArtisan, navigate]);
+  }, [clerk.authSyncError, errMsg]);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    if (isArtisanSession && !isVerifiedArtisan) {
+      navigate('/auth?tab=verify', { replace: true });
+      return;
+    }
+    if (oauthReturning || params.get('next')) {
+      navigate(isArtisanSession ? '/seller' : nextUrl || '/', { replace: true });
+    }
+  }, [signedIn, isArtisanSession, isVerifiedArtisan, oauthReturning, params, nextUrl, navigate]);
 
   useEffect(() => {
     const resetBusy = (event) => {
@@ -142,6 +172,8 @@ export default function LoginPage() {
       });
       if (res?.alreadySignedIn && res?.destination) {
         navigate(res.destination, { replace: true });
+      } else if (!res?.redirected) {
+        setBusyProvider(null);
       }
     } catch (err) {
       setBusyProvider(null);
@@ -392,7 +424,16 @@ export default function LoginPage() {
           </div>
 
           <div className="login-right">
-            {signedIn ? (
+            {completingOAuthSync ? (
+              <div style={{ padding: '2.5rem 0', textAlign: 'center' }} role="status" aria-live="polite">
+                <div className="login-head">
+                  <h2 className="login-title">Completing sign-in…</h2>
+                  <p className="login-sub">
+                    Verifying your HunarLink account and redirecting you into the marketplace.
+                  </p>
+                </div>
+              </div>
+            ) : signedIn ? (
               <div style={{ padding: '1rem 0' }}>
                 <div className="login-head">
                   <h2 className="login-title">You are signed in</h2>
