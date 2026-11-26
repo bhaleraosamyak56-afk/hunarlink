@@ -1,0 +1,2664 @@
+{
+  "info": {
+    "_postman_id": "c4d6e8f0-2026-4a11-9b30-hunarlink0003",
+    "name": "HunarLink \u2014 Round 3 Full-Stack API Collection (FastAPI v1)",
+    "description": "Complete Postman v2.1 API collection for HunarLink Backend (Auth, Storefront, Artisan Card Verification, ASIGS 10-Layer Guardrails, CraftProof Passports, AI Copilot, Demand Bridge, Razorpay Payments & Admin Console).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "clerkBearerToken",
+      "value": "paste_clerk_jwt_here",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "paste_admin_login_token_here",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET / \u2014 Root",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Root"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /healthz \u2014 Healthz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            },
+            "description": "Healthz"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /readyz \u2014 Readyz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readyz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "readyz"
+              ]
+            },
+            "description": "Readyz"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Storefront, Artisans & Retail Orders",
+      "item": [
+        {
+          "name": "POST /api/v1/admin/artisan-applications/{application_id}/decision \u2014 Admin Decide Artisan Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/artisan-applications/:application_id/decision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "artisan-applications",
+                ":application_id",
+                "decision"
+              ],
+              "variable": [
+                {
+                  "key": "application_id",
+                  "value": "<application_id>"
+                }
+              ]
+            },
+            "description": "Approve or Reject a staged Artisan Verification Application from `/admin`.\n\n- `APPROVE`: promotes `SellerVerificationApplication.application_status = 'APPROVED'`,\n  sets `SellerProfile.verification_status = 'APPROVED'` and `SellerProfile.profile_status = 'ACTIVE'`,\n  marks linked `SellerDocument`s `ACCEPTED`, and ensures active `DIRECT_SELLER` role assignment.\n  The artisan immediately unlocks `/seller` and appears in `/api/v1/artisans` under their unique UUID!\n- `REJECT`: sets `application_status = 'REJECTED'`, `SellerProfile.verification_status = 'REJECTED'`,\n  `SellerProfile.profile_status = 'DRAFT'`, and marks linked documents `REJECTED`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/admin/listings/{listing_id}/moderate \u2014 Admin Moderate Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/listings/:listing_id/moderate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "listings",
+                ":listing_id",
+                "moderate"
+              ],
+              "variable": [
+                {
+                  "key": "listing_id",
+                  "value": "<listing_id>"
+                }
+              ]
+            },
+            "description": "Allow an authorized Admin to approve (`ACTIVE`), pause (`PAUSED`), or reject (`REJECTED`) a listing.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/admin/overview \u2014 Admin Live Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "overview"
+              ]
+            },
+            "description": "Strictly admin-only real database snapshot for the Admin Console.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/admin/sellers/{seller_id}/verify \u2014 Admin Verify Seller",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/sellers/:seller_id/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "sellers",
+                ":seller_id",
+                "verify"
+              ],
+              "variable": [
+                {
+                  "key": "seller_id",
+                  "value": "<seller_id>"
+                }
+              ]
+            },
+            "description": "Allow an authorized Admin to APPROVE or REJECT an artisan's verification status in DB.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/artisans \u2014 List Verified Artisans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artisans",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "artisans"
+              ]
+            },
+            "description": "Return verified/active artisans strictly from the database for public browsing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/artisans/detail \u2014 Get Verified Artisan By Query Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artisans/detail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "artisans",
+                "detail"
+              ]
+            },
+            "description": "Return a single verified artisan + DB listings via `?id=<uuid>`."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/artisans/{identifier} \u2014 Get Verified Artisan By Id Or Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artisans/:identifier",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "artisans",
+                ":identifier"
+              ],
+              "variable": [
+                {
+                  "key": "identifier",
+                  "value": "<identifier>"
+                }
+              ]
+            },
+            "description": "Return a single verified artisan + DB listings by unique DB UUID or store slug."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/catalog/product \u2014 Get Active Catalog Product By Query Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalog/product",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "catalog",
+                "product"
+              ]
+            },
+            "description": "Return a single active, approved product listing via `?id=<uuid>`."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/catalog/products \u2014 List Active Catalog Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalog/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "catalog",
+                "products"
+              ]
+            },
+            "description": "Return active, approved marketplace listings from the DB for public browsing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/catalog/products/{identifier} \u2014 Get Active Catalog Product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/catalog/products/:identifier",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "catalog",
+                "products",
+                ":identifier"
+              ],
+              "variable": [
+                {
+                  "key": "identifier",
+                  "value": "<identifier>"
+                }
+              ]
+            },
+            "description": "Return a single active, approved product listing by its unique DB UUID (or slug)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/orders/retail \u2014 Create Retail Order From Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/retail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "retail"
+              ]
+            },
+            "description": "Create a server-validated RetailOrder whose totals come strictly from DB prices.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [],\n  \"shipping_address\": {\n    \"name\": null,\n    \"phone\": null,\n    \"locality\": null,\n    \"city\": null,\n    \"state\": null,\n    \"pincode\": null\n  },\n  \"payment_method\": \"RAZORPAY_STANDARD\",\n  \"payment_label\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/orders/retail/my \u2014 List My Retail Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/retail/my",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "retail",
+                "my"
+              ]
+            },
+            "description": "List My Retail Orders",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/seller/studio/listings \u2014 List My Studio Listings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/studio/listings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "studio",
+                "listings"
+              ]
+            },
+            "description": "Return the signed-in artisan's live DB listings (all statuses).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/studio/listings \u2014 Publish Studio Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/studio/listings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "studio",
+                "listings"
+              ]
+            },
+            "description": "Persist an Artisan Studio craft through all 10 ASIGS Guardrail layers into the live DB.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"guild\": \"pashmina\",\n  \"technique\": \"string\",\n  \"description\": \"string\",\n  \"selling_price\": 100.0,\n  \"compare_at_mrp\": 100.0,\n  \"currency_code\": \"INR\",\n  \"stock_quantity\": 1,\n  \"min_order_qty\": 1,\n  \"seller_sku\": \"string\",\n  \"image_url\": \"string\",\n  \"loom_hours\": 1,\n  \"dimensions\": \"string\",\n  \"origin_district\": \"string\",\n  \"purity_metric\": \"string\",\n  \"requested_gi_status\": \"string\",\n  \"requested_listing_status\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/studio/validate \u2014 Validate Studio Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/studio/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "studio",
+                "validate"
+              ]
+            },
+            "description": "Dry-run an Artisan Studio craft through all 10 ASIGS Guardrail layers.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"guild\": \"pashmina\",\n  \"technique\": \"string\",\n  \"description\": \"string\",\n  \"selling_price\": 100.0,\n  \"compare_at_mrp\": 100.0,\n  \"currency_code\": \"INR\",\n  \"stock_quantity\": 1,\n  \"min_order_qty\": 1,\n  \"seller_sku\": \"string\",\n  \"image_url\": \"string\",\n  \"loom_hours\": 1,\n  \"dimensions\": \"string\",\n  \"origin_district\": \"string\",\n  \"purity_metric\": \"string\",\n  \"requested_gi_status\": \"string\",\n  \"requested_listing_status\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ASIGS Guardrails",
+      "item": [
+        {
+          "name": "GET /api/v1/admin/guardrail/cases \u2014 List Cases",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/guardrail/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "guardrail",
+                "cases"
+              ]
+            },
+            "description": "List Cases",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/admin/guardrail/cases/{case_id} \u2014 Get Case",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/guardrail/cases/:case_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "guardrail",
+                "cases",
+                ":case_id"
+              ],
+              "variable": [
+                {
+                  "key": "case_id",
+                  "value": "<case_id>"
+                }
+              ]
+            },
+            "description": "Get Case",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/admin/guardrail/cases/{case_id}/decision \u2014 Decide Case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/guardrail/cases/:case_id/decision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "guardrail",
+                "cases",
+                ":case_id",
+                "decision"
+              ],
+              "variable": [
+                {
+                  "key": "case_id",
+                  "value": "<case_id>"
+                }
+              ]
+            },
+            "description": "Decide Case",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"string\",\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/admin/guardrail/rules \u2014 List Rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/guardrail/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "guardrail",
+                "rules"
+              ]
+            },
+            "description": "List Rules",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/dealer/assignments/{assignment_id}/respond \u2014 Respond To Assignment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dealer/assignments/:assignment_id/respond",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dealer",
+                "assignments",
+                ":assignment_id",
+                "respond"
+              ],
+              "variable": [
+                {
+                  "key": "assignment_id",
+                  "value": "<assignment_id>"
+                }
+              ]
+            },
+            "description": "Respond To Assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"string\",\n  \"notes\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/dealer/profile/validate \u2014 Validate Dealer Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dealer/profile/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dealer",
+                "profile",
+                "validate"
+              ]
+            },
+            "description": "Validate Dealer Profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealership_name\": \"string\",\n  \"city\": \"string\",\n  \"state_province\": \"string\",\n  \"gstin\": \"string\",\n  \"monthly_procurement_capacity\": 100.0,\n  \"currency_code\": \"INR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/dealer/wholesale-listings/validate \u2014 Validate Dealer Wholesale Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dealer/wholesale-listings/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dealer",
+                "wholesale-listings",
+                "validate"
+              ]
+            },
+            "description": "Validate Dealer Wholesale Listing",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"string\",\n  \"product_variant_id\": \"string\",\n  \"warehouse_id\": \"string\",\n  \"dealer_sku\": \"string\",\n  \"listing_title\": \"string\",\n  \"base_unit_price\": 100.0,\n  \"currency_code\": \"INR\",\n  \"minimum_order_quantity\": 100.0,\n  \"lead_time_days\": 14,\n  \"price_tiers\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/guardrails/documents/upload \u2014 Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guardrails/documents/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guardrails",
+                "documents",
+                "upload"
+              ]
+            },
+            "description": "Upload Document",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "document_scope",
+                  "value": "artisan_card",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/guardrails/documents/{scan_id} \u2014 Download Document",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guardrails/documents/:scan_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guardrails",
+                "documents",
+                ":scan_id"
+              ],
+              "variable": [
+                {
+                  "key": "scan_id",
+                  "value": "<scan_id>"
+                }
+              ]
+            },
+            "description": "Download Document",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/guardrails/verification/assess \u2014 Assess Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guardrails/verification/assess",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "guardrails",
+                "verification",
+                "assess"
+              ]
+            },
+            "description": "Assess Verification",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application_id\": \"string\",\n  \"evidence_scan_ids\": [\n    \"string\"\n  ],\n  \"untrusted_claim_text\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/listings \u2014 Create Seller Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/listings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "listings"
+              ]
+            },
+            "description": "Create Seller Listing",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"string\",\n  \"product_variant_id\": \"string\",\n  \"seller_sku\": \"string\",\n  \"listing_title\": \"string\",\n  \"description\": \"string\",\n  \"selling_price\": 100.0,\n  \"compare_at_mrp\": 100.0,\n  \"currency_code\": \"INR\",\n  \"stock_quantity\": 0,\n  \"min_order_qty\": 1,\n  \"max_order_qty\": 1,\n  \"requested_gi_status\": \"string\",\n  \"requested_listing_status\": \"string\",\n  \"claimed_seller_profile_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/listings/validate \u2014 Validate Seller Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/listings/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "listings",
+                "validate"
+              ]
+            },
+            "description": "Validate Seller Listing",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"string\",\n  \"product_variant_id\": \"string\",\n  \"seller_sku\": \"string\",\n  \"listing_title\": \"string\",\n  \"description\": \"string\",\n  \"selling_price\": 100.0,\n  \"compare_at_mrp\": 100.0,\n  \"currency_code\": \"INR\",\n  \"stock_quantity\": 0,\n  \"min_order_qty\": 1,\n  \"max_order_qty\": 1,\n  \"requested_gi_status\": \"string\",\n  \"requested_listing_status\": \"string\",\n  \"claimed_seller_profile_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/supplier/lots \u2014 Create Supplier Lot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/supplier/lots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "supplier",
+                "lots"
+              ]
+            },
+            "description": "Create Supplier Lot",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"string\",\n  \"product_id\": \"string\",\n  \"product_variant_id\": \"string\",\n  \"lot_title\": \"string\",\n  \"lot_description\": \"string\",\n  \"offered_quantity\": 100.0,\n  \"unit_of_measure\": \"PCS\",\n  \"expected_unit_price\": 100.0,\n  \"currency_code\": \"INR\",\n  \"is_gi_claimed\": false,\n  \"available_from_date\": \"string\",\n  \"available_until_date\": \"string\",\n  \"claimed_supplier_profile_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/supplier/lots/validate \u2014 Validate Supplier Lot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/supplier/lots/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "supplier",
+                "lots",
+                "validate"
+              ]
+            },
+            "description": "Validate Supplier Lot",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"string\",\n  \"product_id\": \"string\",\n  \"product_variant_id\": \"string\",\n  \"lot_title\": \"string\",\n  \"lot_description\": \"string\",\n  \"offered_quantity\": 100.0,\n  \"unit_of_measure\": \"PCS\",\n  \"expected_unit_price\": 100.0,\n  \"currency_code\": \"INR\",\n  \"is_gi_claimed\": false,\n  \"available_from_date\": \"string\",\n  \"available_until_date\": \"string\",\n  \"claimed_supplier_profile_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/supplier/lots/{lot_id} \u2014 Get Supplier Lot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/supplier/lots/:lot_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "supplier",
+                "lots",
+                ":lot_id"
+              ],
+              "variable": [
+                {
+                  "key": "lot_id",
+                  "value": "<lot_id>"
+                }
+              ]
+            },
+            "description": "Get Supplier Lot"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CraftProof Passports",
+      "item": [
+        {
+          "name": "GET /api/v1/admin/passports/claims \u2014 Admin List Craft Claims",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/passports/claims",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "passports",
+                "claims"
+              ]
+            },
+            "description": "Admin review queue for CraftProof product claims, evidence hashes & AI advisories.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/admin/passports/claims/{claim_id}/decision \u2014 Admin Decide Craft Claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/passports/claims/:claim_id/decision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "passports",
+                "claims",
+                ":claim_id",
+                "decision"
+              ],
+              "variable": [
+                {
+                  "key": "claim_id",
+                  "value": "<claim_id>"
+                }
+              ]
+            },
+            "description": "Human Admin approves, rejects, or marks a CraftProof claim as third-party verified.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision_status\": \"UNDER_REVIEW\",\n  \"decision_notes\": \"string\",\n  \"verified_by_authority\": \"string\",\n  \"metadata\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/passports/by-product/{product_ref} \u2014 Get Passport By Product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/passports/by-product/:product_ref",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "passports",
+                "by-product",
+                ":product_ref"
+              ],
+              "variable": [
+                {
+                  "key": "product_ref",
+                  "value": "<product_ref>"
+                }
+              ]
+            },
+            "description": "Resolve (or lazily initialize) the public Craft Passport for any product or listing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/passports/lookup \u2014 Lookup Passports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/passports/lookup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "passports",
+                "lookup"
+              ]
+            },
+            "description": "Live DB search across Craft Passports by passport code, GI code, product name, or artisan."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/passports/{code_or_slug} \u2014 Get Passport Public",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/passports/:code_or_slug",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "passports",
+                ":code_or_slug"
+              ],
+              "variable": [
+                {
+                  "key": "code_or_slug",
+                  "value": "<code_or_slug>"
+                }
+              ]
+            },
+            "description": "Public Craft Passport endpoint separating verified facts from artisan declarations."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/passports/{code_or_slug}/qr.svg \u2014 Get Passport Qr Svg",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/passports/:code_or_slug/qr.svg",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "passports",
+                ":code_or_slug",
+                "qr.svg"
+              ],
+              "variable": [
+                {
+                  "key": "code_or_slug",
+                  "value": "<code_or_slug>"
+                }
+              ]
+            },
+            "description": "Return a scannable SVG QR code linking straight to the public Craft Passport page."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/passports/claims/{claim_id}/evidence \u2014 Upload Seller Claim Evidence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/passports/claims/:claim_id/evidence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "passports",
+                "claims",
+                ":claim_id",
+                "evidence"
+              ],
+              "variable": [
+                {
+                  "key": "claim_id",
+                  "value": "<claim_id>"
+                }
+              ]
+            },
+            "description": "Attach supporting evidence to a craft claim (transitions to EVIDENCE_SUBMITTED for Admin review).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evidence_type\": \"WORKSHOP_PHOTO\",\n  \"file_scan_id\": \"string\",\n  \"external_reference_url\": \"string\",\n  \"caption\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/passports/for-listing/{listing_id} \u2014 Create Or Get Seller Passport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/passports/for-listing/:listing_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "passports",
+                "for-listing",
+                ":listing_id"
+              ],
+              "variable": [
+                {
+                  "key": "listing_id",
+                  "value": "<listing_id>"
+                }
+              ]
+            },
+            "description": "Create or retrieve a Craft Passport for a seller's listing (all new claims = SELLER_DECLARED).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"materials_summary\": null,\n  \"manufacturing_process\": null,\n  \"origin_location\": null,\n  \"craft_days_estimated\": null,\n  \"artisan_story\": null,\n  \"claims\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/passports/{passport_id}/claims \u2014 Create Seller Claim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/passports/:passport_id/claims",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "passports",
+                ":passport_id",
+                "claims"
+              ],
+              "variable": [
+                {
+                  "key": "passport_id",
+                  "value": "<passport_id>"
+                }
+              ]
+            },
+            "description": "Add a new SELLER_DECLARED craft claim to a seller's own Craft Passport.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"claim_type\": \"MATERIAL\",\n  \"claim_title\": \"string\",\n  \"claim_value\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments (Razorpay)",
+      "item": [
+        {
+          "name": "GET /api/v1/admin/payment-webhooks \u2014 Admin List Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/payment-webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "payment-webhooks"
+              ]
+            },
+            "description": "Admin List Webhooks",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/admin/payments \u2014 Admin List Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "payments"
+              ]
+            },
+            "description": "Admin List Payments",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/admin/payments/{payment_id} \u2014 Admin Get Payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/payments/:payment_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "payments",
+                ":payment_id"
+              ],
+              "variable": [
+                {
+                  "key": "payment_id",
+                  "value": "<payment_id>"
+                }
+              ]
+            },
+            "description": "Admin Get Payment",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/admin/refunds \u2014 Admin List Refunds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/refunds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "refunds"
+              ]
+            },
+            "description": "Admin List Refunds",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/orders/{order_scope}/{order_id}/payment-status \u2014 Get Order Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/:order_scope/:order_id/payment-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":order_scope",
+                ":order_id",
+                "payment-status"
+              ],
+              "variable": [
+                {
+                  "key": "order_scope",
+                  "value": "<order_scope>"
+                },
+                {
+                  "key": "order_id",
+                  "value": "<order_id>"
+                }
+              ]
+            },
+            "description": "Get Order Payment Status"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/payments/razorpay/create-order \u2014 Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/razorpay/create-order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "razorpay",
+                "create-order"
+              ]
+            },
+            "description": "Create Order",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_scope\": \"RETAIL\",\n  \"order_id\": \"string\",\n  \"idempotency_key\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/payments/razorpay/verify \u2014 Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/razorpay/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "razorpay",
+                "verify"
+              ]
+            },
+            "description": "Verify Payment",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_id\": \"string\",\n  \"razorpay_order_id\": \"string\",\n  \"razorpay_payment_id\": \"string\",\n  \"razorpay_signature\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/payments/{payment_id} \u2014 Get Payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/:payment_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                ":payment_id"
+              ],
+              "variable": [
+                {
+                  "key": "payment_id",
+                  "value": "<payment_id>"
+                }
+              ]
+            },
+            "description": "Get Payment",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/payments/{payment_id}/refund \u2014 Refund Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/:payment_id/refund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                ":payment_id",
+                "refund"
+              ],
+              "variable": [
+                {
+                  "key": "payment_id",
+                  "value": "<payment_id>"
+                }
+              ]
+            },
+            "description": "Refund Payment",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refund_type\": \"FULL\",\n  \"amount\": 100.0,\n  \"reason\": \"string\",\n  \"idempotency_key\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CraftProof AI",
+      "item": [
+        {
+          "name": "GET /api/v1/ai/admin/interaction-logs \u2014 Admin List Ai Interaction Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/admin/interaction-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "admin",
+                "interaction-logs"
+              ]
+            },
+            "description": "Admin audit trail of every local/cloud LLM interaction persisted in `ai_interaction_logs`."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/ai/artisan-copilot/draft \u2014 Post Artisan Copilot Draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/artisan-copilot/draft",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "artisan-copilot",
+                "draft"
+              ]
+            },
+            "description": "Pillar 2: Turn Hindi / Hinglish / English artisan voice/text notes into an editable listing + Fair-Craft breakdown.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raw_note\": \"string\",\n  \"language_hint\": \"string\",\n  \"seller_district\": \"string\",\n  \"seller_craft_specialty\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/ai/artisan-doc/prescreen \u2014 Post Artisan Doc Prescreen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/artisan-doc/prescreen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "artisan-doc",
+                "prescreen"
+              ]
+            },
+            "description": "Pillar 1A: Pre-screen uploaded GI Certificate / Artisan Card & pass advisory dossier to Admin.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_scan_id\": \"string\",\n  \"application_id\": \"string\",\n  \"store_name\": \"string\",\n  \"craft_specialty\": \"string\",\n  \"workshop_district\": \"string\",\n  \"verification_path\": \"NON_GI\",\n  \"claimed_gi_code\": \"string\",\n  \"document_text_snippet\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/ai/buyer-assistant/ask \u2014 Post Buyer Assistant Ask",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/buyer-assistant/ask",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "buyer-assistant",
+                "ask"
+              ]
+            },
+            "description": "Pillar 3: Public evidence-locked Buyer Assistant bound strictly to live MySQL Craft Passport rows.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passport_code\": \"string\",\n  \"product_ref\": \"string\",\n  \"question\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/ai/craft-audit/listing \u2014 Post Craft Audit Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/craft-audit/listing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "craft-audit",
+                "listing"
+              ]
+            },
+            "description": "Pillar 1B: Adversarial CraftProof Audit checking craft economics, stock anomalies & GI conflicts.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"description\": \"string\",\n  \"craft_technique\": \"string\",\n  \"material_composition\": \"string\",\n  \"origin_district\": \"string\",\n  \"selling_price_inr\": 100.0,\n  \"stock_quantity\": 1,\n  \"craft_days_claimed\": 1,\n  \"claimed_gi_code\": \"string\",\n  \"seller_verification_path\": \"GI\",\n  \"seller_workshop_district\": \"string\",\n  \"passport_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/ai/status \u2014 Get Ai Gateway Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "status"
+              ]
+            },
+            "description": "Inspect local Ollama reachability, active model (`qwen2.5:3b`), and fallback readiness."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication & User Sync",
+      "item": [
+        {
+          "name": "GET /api/v1/auth/addresses \u2014 List My Addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "addresses"
+              ]
+            },
+            "description": "List My Addresses",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/addresses \u2014 Create My Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "addresses"
+              ]
+            },
+            "description": "Create My Address",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address_label\": \"HOME\",\n  \"recipient_name\": \"string\",\n  \"recipient_phone\": \"string\",\n  \"line1\": \"string\",\n  \"line2\": \"string\",\n  \"city\": \"string\",\n  \"state_province\": \"Jammu and Kashmir\",\n  \"postal_code\": \"string\",\n  \"is_default\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/v1/auth/addresses/{address_id} \u2014 Delete My Address",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/addresses/:address_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "addresses",
+                ":address_id"
+              ],
+              "variable": [
+                {
+                  "key": "address_id",
+                  "value": "<address_id>"
+                }
+              ]
+            },
+            "description": "Delete My Address"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/admin-login \u2014 Admin Password Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/admin-login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "admin-login"
+              ]
+            },
+            "description": "Dedicated login strictly for DB-provisioned Admin accounts (zero self-registration).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"string\",\n  \"password\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/artisan-verification \u2014 Submit Artisan Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/artisan-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "artisan-verification"
+              ]
+            },
+            "description": "Persist an authenticated artisan's GI or Standard verification application.\n\n- Standard (`NON_GI` / `STANDARD`) applications require an uploaded Artisan Card\n  image/PDF (`artisan_card_scan_id` from `/api/v1/guardrails/documents/upload`) so\n  administrators can inspect the physical card in `/admin`.\n- Applications stay staged in `seller_verification_applications` (`SUBMITTED`) with\n  `SellerProfile.profile_status='DRAFT'` and `verification_status='SUBMITTED'`\n  (excluded from public `/api/v1/artisans`) until an Admin approves them in `/admin`,\n  which promotes the record straight into the live verified artisans table.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_name\": \"string\",\n  \"craft_specialty\": \"string\",\n  \"workshop_district\": \"string\",\n  \"verification_path\": \"NON_GI\",\n  \"claimed_gi_code\": \"string\",\n  \"artisan_card_scan_id\": \"string\",\n  \"skill_description\": \"string\",\n  \"phone\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/check-account \u2014 Check Existing Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/check-account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "check-account"
+              ]
+            },
+            "description": "Check whether an email already exists in the HunarLink DB before registration/login.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/auth/me \u2014 Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Return the authenticated caller's DB profile, roles, and seller status.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/sync \u2014 Sync Authenticated User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sync"
+              ]
+            },
+            "description": "Upsert a Clerk-authenticated user into HunarLink's database (`users` + roles).\n\nCalled automatically by the frontend right after Clerk sign-in / sign-up so\nevery new Google/Apple/email user exists immediately in MySQL/SQLite.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"string\",\n  \"email_verified\": false,\n  \"first_name\": \"Collector\",\n  \"last_name\": \"string\",\n  \"display_name\": \"string\",\n  \"phone\": \"string\",\n  \"requested_role\": \"buyer\",\n  \"auth_mode\": \"sync\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Demand Bridge",
+      "item": [
+        {
+          "name": "POST /api/v1/demand-bridge/match \u2014 Post Match Demand Bridge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/demand-bridge/match",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "demand-bridge",
+                "match"
+              ]
+            },
+            "description": "Step 2: Deterministically score artisans & automatically form Multi-Artisan Cluster when needed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raw_request_text\": \"string\",\n  \"buyer_name\": \"string\",\n  \"buyer_email\": \"string\",\n  \"category_slug\": \"string\",\n  \"craft_technique\": \"string\",\n  \"requested_quantity\": 25,\n  \"budget_min_inr\": 100.0,\n  \"budget_max_inr\": 100.0,\n  \"target_delivery_days\": 1,\n  \"preferred_district\": \"string\",\n  \"requires_verified_claims\": false,\n  \"allow_cluster_pooling\": true,\n  \"customization_notes\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/demand-bridge/parse \u2014 Post Parse Demand Brief",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/demand-bridge/parse",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "demand-bridge",
+                "parse"
+              ]
+            },
+            "description": "Step 1: Parse messy natural-language wholesale brief into structured JSON for buyer confirmation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"raw_request_text\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/demand-bridge/requests \u2014 List Recent Demand Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/demand-bridge/requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "demand-bridge",
+                "requests"
+              ]
+            },
+            "description": "List recent Demand Bridge briefs and cluster allocations (for transparency & Admin visibility)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/demand-bridge/requests/{request_id}/dispatch-inquiries \u2014 Post Dispatch Cluster Inquiries",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/demand-bridge/requests/:request_id/dispatch-inquiries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "demand-bridge",
+                "requests",
+                ":request_id",
+                "dispatch-inquiries"
+              ],
+              "variable": [
+                {
+                  "key": "request_id",
+                  "value": "<request_id>"
+                }
+              ]
+            },
+            "description": "Dispatch buyer brief to shortlisted / cluster artisans so offers appear in their Seller Studio.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"match_ids\": [\n    \"string\"\n  ],\n  \"buyer_name\": \"string\",\n  \"buyer_email\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/seller/demand-bridge/offers \u2014 List Seller Cluster Offers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/demand-bridge/offers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "demand-bridge",
+                "offers"
+              ]
+            },
+            "description": "List bulk & multi-artisan cluster allocations assigned to the authenticated artisan.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/seller/demand-bridge/offers/{match_id}/respond \u2014 Respond To Cluster Offer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/seller/demand-bridge/offers/:match_id/respond",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "seller",
+                "demand-bridge",
+                "offers",
+                ":match_id",
+                "respond"
+              ],
+              "variable": [
+                {
+                  "key": "match_id",
+                  "value": "<match_id>"
+                }
+              ]
+            },
+            "description": "Allow an artisan workshop to accept or decline a bulk/cluster allocation.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerkBearerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"ACCEPTED\",\n  \"response_note\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks (Razorpay)",
+      "item": [
+        {
+          "name": "POST /api/v1/webhooks/razorpay \u2014 Receive Razorpay Webhook",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/razorpay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "razorpay"
+              ]
+            },
+            "description": "Receive Razorpay Webhook"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
