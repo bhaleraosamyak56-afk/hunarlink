@@ -32,20 +32,29 @@ backend/
 │   ├── models/
 │   │   ├── base.py                            # UUIDChar (CHAR(36) ascii_bin), UTCDateTime
 │   │   ├── core_models.py                     # MySQL 8.4 baseline tables (Modules A–H)
-│   │   └── guardrail_models.py                # 6 ASIGS tables
+│   │   ├── guardrail_models.py                # 6 ASIGS tables
+│   │   └── craftproof_models.py               # CraftProof Passports, Claims, Evidence, Demand Bridge & AI Logs
 │   ├── integrations/razorpay/
 │   │   ├── client.py                          # Official razorpay SDK wrapper + timeouts
 │   │   ├── signatures.py                      # Constant-time Checkout & Webhook HMAC SHA-256
 │   │   ├── schemas.py                         # Exact Decimal rupees <-> integer paise
 │   │   └── exceptions.py                      # Timeout / Gateway / Signature errors
 │   └── modules/
-│       ├── guardrails/                        # Layers 1–10 + Admin Guardrail Center
+│       ├── auth/                              # Clerk sync, check-account, Artisan Card submission, Admin login
+│       ├── storefront/                        # Live DB catalog, verified artisans, Seller Studio, Admin Console
+│       ├── guardrails/                        # Layers 1–10 + Admin Guardrail Center + File Security Scans
+│       ├── craftproof/                        # Digital Craft Passports, QR SVG generation & Evidence Ledger
+│       ├── ai/                                # Artisan Copilot, Doc Pre-Screen, Craft Audit & Buyer Assistant
+│       ├── demand_bridge/                     # B2B Bulk Demand Parser & Artisan Cluster Capacity Matcher
 │       └── payments/                          # Checkout, Verify, Webhook, Refunds, Admin Ops
 ├── docs/
 │   ├── asigs_guardrails_architecture.md
 │   └── payments/                              # 8 Razorpay engineering & go-live docs
 ├── tests/
 │   ├── conftest.py
+│   ├── test_auth_sync.py                      # Auth, RBAC, Artisan Card staging & Admin approval tests
+│   ├── test_storefront_integration.py         # Live catalog, UUID security & retail checkout tests
+│   ├── test_craftproof_ai_demand_bridge.py    # CraftProof Passports, AI & B2B Demand Bridge tests
 │   ├── test_asigs_guardrails.py               # 21 ASIGS automated tests
 │   └── test_razorpay_payments.py              # 30 Razorpay automated tests
 ├── .env.example
@@ -64,11 +73,12 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### Run Automated Test Suite (51 Tests)
+### Run Automated Test Suite (80 Tests)
 ```bash
 cd backend
 pytest -v
 ```
+- **Exported API Collection:** See `../docs/api/HunarLink_Round3.postman_collection.json` and `../docs/api/openapi.json` (plus live Swagger UI at `http://localhost:8000/docs`).
 
 ### Verify MySQL 8.4 LTS Alembic DDL Offline (No Live DB Needed)
 ```bash

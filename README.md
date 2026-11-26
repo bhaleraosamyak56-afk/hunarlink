@@ -1,181 +1,141 @@
 # HunarLink — Valley Craft Guild
 
-GI-certified Jammu & Kashmir handicrafts marketplace. Connects geo-verified artisan
-workshops directly with collectors and B2B hospitality buyers — **zero middleman cut**.
-
-> **This is a fully working frontend prototype.** Every page runs with no backend, no
-> API keys and no internet connection. Data is persisted in `localStorage`, so listings
-> created in the artisan dashboard appear in the storefront, orders placed in checkout
-> appear in the collector's order tracker, and so on.
-
-The app is a **single-page React application**. React owns every page; there is no
-static HTML fallback and no page-level controller code.
+**Authenticity-First Jammu & Kashmir Handicrafts Marketplace & Craft Provenance Platform.**  
+Connects verified Kashmiri artisan workshops directly with retail collectors and B2B hospitality buyers — eliminating middlemen while blocking counterfeit machine-made crafts through database-enforced onboarding, 10-layer AI/rule guardrails, and cryptographic Digital Craft Passports.
 
 ---
 
-## Run it
+## Architecture Overview (Full-Stack React + FastAPI + MySQL 8)
 
-The built site is committed at the repo root, so any static file server works —
-but it must be started from the repo's **parent** directory, because every asset
-URL is prefixed with `/hunarlink/`:
+HunarLink is a production-structured monorepo connecting a **React 18 + Vite** SPA to a **FastAPI + SQLAlchemy 2.x + Alembic** backend backed by **MySQL 8.0/8.4** (with SQLite test isolation for CI):
 
-```bash
-cd ..                          # the directory CONTAINING the hunarlink folder
-python3 -m http.server 8000
-# then open http://localhost:8000/hunarlink/
+```text
+[React 18 SPA (:5173)]  ──(Vite Proxy /api/* + Bearer JWT)──▶  [FastAPI v1 (:8000)]  ──(SQLAlchemy 2.x)──▶  [MySQL 8.0/8.4 DB]
+   │                                                               │
+   ├── Clerk Identity (Google/Apple OAuth, Password, OTP)          ├── Auth & RBAC (`modules/auth/`) — Clerk RS256 JWKS + PBKDF2 Admin Auth
+   ├── Dual-Track Artisan Onboarding (`/auth?tab=verify`)          ├── Storefront & Admin (`modules/storefront/`) — Catalog, Orders, Live Approval
+   ├── Seller Studio + Artisan AI Copilot (`/seller`)              ├── ASIGS 10-Layer Guardrails (`modules/guardrails/`) — Anti-Counterfeit & File Scan
+   ├── CraftProof Digital Passports (`/passport/:code`)            ├── CraftProof Passports (`modules/craftproof/`) — QR Provenance & Evidence Ledger
+   ├── B2B Wholesale & Demand Bridge (`/wholesale`)                ├── AI Services (`modules/ai/`) — Doc Pre-Screen, Listing Audit, Buyer Assistant
+   └── HunarSathi Streaming Chatbot (`hunarsathi-chatbot/:5050`)   ├── B2B Demand Bridge (`modules/demand_bridge/`) — Cluster Capacity Matcher
+                                                                   └── Razorpay Standard Checkout (`modules/payments/`) — HMAC SHA-256 & Webhooks
 ```
 
-Starting the server *inside* the repo and opening `/` gives a blank page: the shell
-loads, but `/hunarlink/assets/...` is not on that server.
+---
 
-For development with hot reload:
+## Repository Structure
 
+```text
+hunarlink/
+├── app/                          # React 18 + Vite frontend SPA
+│   ├── src/
+│   │   ├── components/           # ClerkBoundary, modals, CraftProof, Seller Copilot, DemandBridge
+│   │   ├── pages/                # HomePage, ProductPage, PassportPage, AuthPage, WholesalePage
+│   │   │   └── portal/           # LoginPage, SellerPage, AdminPage
+│   │   ├── services/             # apiClient.js, craftproofApi.js (real FastAPI REST clients)
+│   │   └── state/                # StoreContext.jsx (hydrates catalog, artisans, orders from FastAPI)
+│   ├── .env.example              # Frontend environment template (no secrets committed)
+│   └── vite.config.js            # Proxies /api/* -> FastAPI (:8000) and /api/chat* -> HunarSathi (:5050)
+├── backend/                      # FastAPI + SQLAlchemy 2.x + Alembic backend (70 REST endpoints)
+│   ├── alembic/                  # Migrations 0001 -> 0005 (95+ baseline tables + ASIGS + CraftProof + AI logs)
+│   ├── app/
+│   │   ├── core/                 # config.py, database.py, auth.py (JWKS + RBAC), security.py, audit.py
+│   │   ├── integrations/         # razorpay/ (Decimal<->paise, constant-time HMAC SHA-256)
+│   │   ├── models/               # core_models.py, guardrail_models.py, craftproof_models.py
+│   │   └── modules/              # auth, storefront, guardrails, craftproof, ai, demand_bridge, payments
+│   ├── scripts/                  # setup_mysql_and_sync.py, seed_real_artisans.py, seed_dev_preview.py
+│   ├── tests/                    # 80 automated pytest integration & security tests
+│   └── .env.example              # Backend environment template (MySQL, Clerk, Razorpay, Gemini)
+├── hunarlink-database/           # MySQL 8.0/8.4 full DDL (`hunarlink_mysql_full_install.sql`) & modular SQL
+├── hunarsathi-chatbot/           # Dedicated streaming Gemini Flash buyer assistant (:5050) + instant fallback
+├── docs/
+│   ├── api/                      # Exported OpenAPI 3.1 spec + Postman v2.1 Collection (72 requests)
+│   └── round3_judge_qa_guide.md  # End-to-end request trace, architecture & team Q&A reference
+└── security/                     # Nginx, WAF, MySQL privilege hardening & incident response runbooks
+```
+
+---
+
+## Quick Start (Local Full-Stack Demo)
+
+### 1. Environment Variables Setup
+All secrets live outside source code in gitignored `.env` / `.env.local` files:
+
+```bash
+cp backend/.env.example backend/.env
+cp app/.env.example app/.env.local
+cp hunarsathi-chatbot/.env.example hunarsathi-chatbot/.env   # optional for live Gemini streaming
+```
+Fill in your local MySQL credentials, Clerk keys (`VITE_CLERK_PUBLISHABLE_KEY` in `app/.env.local`, `CLERK_ISSUER` & `CLERK_JWKS_URL` in `backend/.env`), and Razorpay Test keys (`rzp_test_*`).
+
+### 2. Provision MySQL Schema & Seed Authentic J&K Catalog
+```bash
+python -m venv backend/.venv
+source backend/.venv/bin/activate          # Windows: backend\.venv\Scripts\activate
+pip install -r backend/requirements.txt
+
+# Creates/updates MySQL tables, runs Alembic migrations, and seeds verified Kashmiri artisans & crafts
+python backend/scripts/setup_mysql_and_sync.py
+python backend/scripts/seed_real_artisans.py
+```
+
+### 3. Start Backend API (`:8000`)
+```bash
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+- **Interactive Swagger / OpenAPI UI:** `http://localhost:8000/docs`
+- **Health & DB Readiness Probes:** `http://localhost:8000/healthz` and `http://localhost:8000/readyz`
+
+### 4. Start React Frontend (`:5173`)
 ```bash
 cd app
 npm install
-npm run dev          # vite dev server at http://localhost:5173/
+npm run dev
 ```
+Open **`http://localhost:5173`**.
 
-### Real Google & Apple OAuth on localhost (Clerk)
-
-The storefront works out-of-the-box without any API keys (using built-in demo login
-on GitHub Pages). To enable real Google / Apple OAuth locally with Clerk:
-
-1. Copy `app/.env.example` to `app/.env.local` (gitignored):
-   ```bash
-   cp app/.env.example app/.env.local
-   ```
-2. Paste your Clerk **Development** Publishable Key (`pk_test_...`) from
-   [dashboard.clerk.com](https://dashboard.clerk.com) into `app/.env.local`:
-   ```env
-   VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-   ```
-3. In your Clerk Dashboard, enable **Google** (and/or **Apple**) under
-   **User & Authentication -> SSO Connections**.
-4. Run `cd app && npm run dev` and open **`http://localhost:5173/login`** (or `/auth`)
-   in the **same browser** where you are signed into `dashboard.clerk.com`.
-
-> Production builds for GitHub Pages omit `app/.env.local`, so `@clerk/react` is
-> never loaded on the static public site and demo login continues to work seamlessly.
-
-> The site is deployed under the `/hunarlink/` prefix (a GitHub project page), so the
-> built `index.html` references `/hunarlink/assets/…`. Serving the repo root directly
-> at `/` will 404 on assets — use the dev server, or serve the repo's **parent**
-> directory so the `/hunarlink/` prefix resolves.
+*(Optional)* Start the streaming **HunarSathi** microservice in a third terminal (`cd hunarsathi-chatbot && pip install -r requirements.txt && python server.py`).
 
 ---
 
-## Build
+## API Collection & Automated Tests
 
-```bash
-cd app
-npm run build        # vite build --mode root -> writes to ../dist
-```
-
-Then copy the output to the repo root. The build now emits several chunks —
-the entry, the vendor chunks and one per lazily-loaded route — so copy them
-all, and drop the previously hashed ones:
-
-```bash
-cd app
-npm run build:root
-cd ..
-rm -f assets/index-*.js assets/index-*.css assets/vendor-*.js \
-      assets/rolldown-runtime-*.js assets/AdminPage-*.js assets/SellerPage-*.js \
-      assets/LoginPage-*.js assets/OrdersPage-*.js assets/ProfilePage-*.js
-cp dist/index.html dist/404.html ./
-cp dist/assets/*.js dist/assets/*.css assets/
-```
-
-`vite.config.js` sets `base: '/hunarlink/'` for the `root` mode so asset URLs match
-the deployment prefix. There is a second mode (`vite build`) that emits to `react/`
-for the older subpath deployment; the root mode is the one in use.
-
-### Checking a build
-
-`tools/` holds the three verification scripts, and `app/package.json` wires them
-up. They drive a real Chromium, so install the one dependency first:
-
-```bash
-pip install -r tools/requirements.txt && playwright install chromium
-```
-
-Start the preview in one terminal, then check in another:
-
-```bash
-cd app && npm run serve          # the repo, served the way Pages serves it, :8123
-npm run verify                   # all three checks below, in order
-npm run check:routes             # 15 routes: does each render, any console error?
-npm run check:a11y               # one h1, a distinct title, labelled fields
-npm run audit                    # 22 interaction checks across every page
-```
-
-Point them elsewhere with `HUNARLINK_BASE=https://example.com npm run check:routes`.
+- **Postman Collection (Ready to Import):** [`docs/api/HunarLink_Round3.postman_collection.json`](docs/api/HunarLink_Round3.postman_collection.json) (72 pre-configured requests grouped across all 9 backend domains with `{{baseUrl}}`, `{{clerkBearerToken}}`, and `{{adminToken}}` variables).
+- **OpenAPI 3.1 Specification:** [`docs/api/openapi.json`](docs/api/openapi.json) or live at `http://localhost:8000/docs`.
+- **Run Automated Backend Test Suite (`80 passed`):**
+  ```bash
+  backend/.venv/bin/pytest -v backend/tests
+  ```
 
 ---
 
-## Pages
+## End-to-End Request Trace (Example: Artisan Card Verification -> Live Storefront)
 
-All routes are client-side. Legacy v1 URLs (`product.html`, `user-portal/login.html`,
-`seller-portal/dashboard.html`, …) still resolve — `src/pages/LegacyRoutes.jsx` maps
-each one to its current route.
+1. **Step 1 Identity (`/login?role=artisan`)**: Artisan registers/signs in via Clerk (Email+Password, OTP, or Google/Apple). `ClerkBoundary.jsx` sends a signed RS256 JWT to `POST /api/v1/auth/sync`, creating an `ACTIVE` row in `users` + `DIRECT_SELLER` in `user_role_assignments` (while blocking duplicate re-registration with `409 Conflict` and unregistered sign-ins with `404 Not Found`).
+2. **Step 2 Credential & Card Upload (`/auth?tab=verify`)**: Unverified artisans are automatically gated to `/auth?tab=verify`. Uploading their J&K Handicrafts / Pehchan Artisan Card calls `POST /api/v1/guardrails/documents/upload` (validates magic bytes, size, SHA-256, and malware scan into `file_security_scans`), then `POST /api/v1/auth/artisan-verification` stages `seller_profiles` (`DRAFT` / `SUBMITTED`) and `seller_verification_applications` (`SUBMITTED`).
+3. **Step 3 Admin Inspection & Promotion (`/admin`)**: An authenticated Admin (`POST /api/v1/auth/admin-login`, PBKDF2-SHA256) inspects the private scanned Artisan Card via `GET /api/v1/guardrails/documents/{scan_id}` and clicks **Verify & Push Live** (`POST /api/v1/admin/artisan-applications/{id}/decision`), atomically promoting `seller_profiles` to `APPROVED` + `ACTIVE` and writing an immutable `audit_logs` entry.
+4. **Step 4 Guardrailed Listing & Buyer Checkout (`/seller` -> `/` -> `/orders`)**: The verified artisan publishes crafts through `POST /api/v1/seller/studio/listings` (checked by the 10-layer ASIGS guardrail engine), issues a QR CraftProof Passport (`/passport/:code`), and buyers place orders via `POST /api/v1/orders/retail` + Razorpay HMAC verification (`POST /api/v1/payments/razorpay/verify`).
 
-| Route | Source | What it does |
+---
+
+## Security & Guardrails Summary
+
+- **Authentication & RBAC:** Clerk RS256 JWKS verification (`backend/app/core/auth.py`) + scoped Admin credentials (`AdminCredential` with PBKDF2-SHA256) + fine-grained role permissions (`DIRECT_SELLER`, `CUSTOMER`, `DEALER`, `SUPPLIER`, `SUPER_ADMIN`, `guardrails.decide`, `payments.refund`).
+- **SQLi & XSS Protection:** 100% SQLAlchemy 2.x parameterized ORM queries, strict UUID/slug regex validation, Pydantic v2 input schemas, CSP/X-Frame-Options/nosniff headers, and zero `innerHTML` user-input injection.
+- **Abuse & Counterfeit Prevention:** Per-IP sliding-window rate limiting (`429 Too Many Requests`), private quarantined document uploads (`file_security_scans`), and the 10-layer ASIGS Seller Input Guardrail engine.
+
+---
+
+## Team Module Ownership Template
+
+*(Update with your team members' names & GitHub handles before final presentation)*
+
+| Module / Surface | Key Directories & Files | Primary Owner |
 |---|---|---|
-| `/` | `pages/HomePage.jsx` | Storefront — hero, Valley Verification Flow, craft guilds, filterable catalogue, B2B banner |
-| `/product?id=<id>` | `pages/ProductPage.jsx` | Product detail — gallery with hover zoom, GI passport, add to bag |
-| `/auth` | `pages/AuthPage.jsx` | Artisan sign-in / registration, GI verification capture suite, demo evaluator logins |
-| `/login` | `pages/portal/LoginPage.jsx` | Collector sign-in / sign-up, password or 6-digit OTP |
-| `/profile` | `pages/ProfilePage.jsx` | Collector profile, addresses, UPI, wishlist |
-| `/orders` | `pages/OrdersPage.jsx` | Order tracking with live loom/shipment stages |
-| `/seller` | `pages/portal/SellerPage.jsx` | Artisan Command Center — publish, customize, orders, responses |
-| `/wholesale` | `pages/WholesalePage.jsx` | B2B bulk ordering, live lot estimator, seller routing desk |
-| `/admin` | `pages/portal/AdminPage.jsx` | Master admin console — 12 tabs, KPIs, GI audits, dealer matching |
-
-Demo credentials:
-
-* Admin console — `admin@hunarlink.com` / `AdminPass@123` (or the one-tap session)
-* Artisan portal — any demo pill on `/auth`
-* Collector — the "1-Tap Demo Login" on `/login`
-
----
-
-## Project layout
-
-```
-app/                  Vite + React source
-  src/
-    pages/            route components
-      portal/         seller, admin and collector login
-      auth/           the auth page's static form markup
-    components/       shared UI (header, drawers, modals, sections)
-    state/            StoreContext — the shared store
-    data/             product catalogue, guilds, admin demo dataset
-    styles/           one stylesheet per surface
-  public/             static assets copied into the build (images, chatbot)
-  vite.config.js
-assets/               deployed static assets + the live hashed JS/CSS bundle
-index.html            the built SPA shell (committed)
-404.html              SPA deep-link fallback for GitHub Pages
-hunarsathi-chatbot/   vanilla-JS chat widget (injected by React, builds its own UI)
-tools/                verification scripts (routes, a11y, behaviour audit)
-```
-
----
-
-## Notes
-
-* **Deep links return HTTP 404.** GitHub Pages serves `404.html` for any path it
-  cannot resolve; that page stashes the requested route and hands it back to the
-  router. Visitors see the right page, but crawlers and link-preview bots see a 404.
-  Fixing that needs a host with SPA rewrites.
-* **Cross-tab sync is live.** `StoreContext` owns every key and listens for the
-  `storage` event, so a craft published in the seller portal appears in an open
-  storefront without a reload, and a cart added on a product page updates the
-  storefront badge.
-* **The bundle is split.** React, the router and the app core are separate
-  chunks, and the three consoles plus the two account pages load on demand, so
-  the storefront no longer ships the admin console. The storefront transfers
-  about 508 KB of JS against 639 KB when it was one file.
-* **The chatbot's backend is not included.** `hunarsathi-chatbot/widget.js` calls
-  `127.0.0.1:5050`; with no backend it falls back to canned responses.
+| Authentication, RBAC & Admin Verification Pipeline | `backend/app/modules/auth/`, `app/src/components/ClerkBoundary.jsx`, `app/src/pages/AuthPage.jsx`, `app/src/pages/portal/LoginPage.jsx` | Team Member 1 |
+| Storefront Catalog, Retail Orders & Admin Console | `backend/app/modules/storefront/`, `app/src/pages/portal/AdminPage.jsx`, `app/src/pages/OrdersPage.jsx` | Team Member 2 |
+| ASIGS 10-Layer Guardrails & Security Hardening | `backend/app/modules/guardrails/`, `backend/app/core/security.py`, `security/` | Team Member 3 |
+| CraftProof Digital Passports, AI Copilot & B2B Demand Bridge | `backend/app/modules/craftproof/`, `backend/app/modules/ai/`, `backend/app/modules/demand_bridge/`, `app/src/pages/PassportPage.jsx` | Team Member 4 |
+| Razorpay Payments, Webhooks & MySQL 8 Schema | `backend/app/modules/payments/`, `backend/app/integrations/razorpay/`, `hunarlink-database/` | Team Member 5 |
+| HunarSathi Buyer Chatbot & Frontend Craft UX | `hunarsathi-chatbot/`, `app/src/components/sections/`, `app/src/pages/HomePage.jsx` | Team Member 6 |
