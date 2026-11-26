@@ -12,6 +12,8 @@ import ProductCard from '../components/ProductCard.jsx';
 import '../styles/pdp.css';
 import { IconPackage, IconShield, IconTruck } from '../components/LineIcons.jsx';
 import { describeCraft } from '../data/guilds.js';
+import { fetchPassportByProduct, passportQrSvgUrl } from '../services/craftproofApi.js';
+import BuyerAssistantDrawer from '../components/craftproof/BuyerAssistantDrawer.jsx';
 
 /* ==========================================================================
    ProductPage
@@ -110,6 +112,23 @@ export default function ProductPage() {
   }, [rawId, clerkAuth.isSignedIn, clerkAuth.getToken, navigate]);
 
   const product = rejectedByDb ? null : fetchedProduct || cachedProduct;
+  const [craftPassport, setCraftPassport] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const ref = product?.listingId || product?.productId || product?.slug || product?.id;
+    if (!ref) return undefined;
+    fetchPassportByProduct(ref)
+      .then((data) => {
+        if (active) setCraftPassport(data);
+      })
+      .catch(() => {
+        if (active) setCraftPassport(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [product?.listingId, product?.productId, product?.slug, product?.id]);
 
   useEffect(() => {
     if (!rawId && product?.id) {
@@ -391,6 +410,63 @@ export default function ProductPage() {
             </div>
           </div>
         </div>
+
+        {/* Pillar 3 — CraftProof Digital Passport + Evidence-Locked Buyer Assistant (Additive) */}
+        {craftPassport && (
+          <section style={{ margin: '28px 0 12px' }}>
+            <div className="cp-card" style={{ borderColor: 'rgba(20,56,42,0.22)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <div className="cp-kicker">CraftProof AI &middot; Living Digital Craft Passport</div>
+                  <h2 style={{ margin: '0 0 6px', fontSize: '1.25rem', fontFamily: 'var(--font-serif, Georgia, serif)' }}>
+                    Inspect Provenance, Evidence &amp; Fair-Craft Pricing
+                  </h2>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <span className={`cp-badge cp-badge--${craftPassport.overall_trust_level}`}>
+                      {craftPassport.overall_trust_level.replace(/_/g, ' ')}
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#4b5563' }}>
+                      Code: <strong style={{ fontFamily: 'monospace' }}>{craftPassport.passport_code}</strong> &middot;{' '}
+                      <strong>{craftPassport.summary_counts.verified_count}</strong> verified /{' '}
+                      <strong>{craftPassport.summary_counts.total_claims}</strong> total claims
+                    </span>
+                  </div>
+                  {craftPassport.fair_craft_breakdown?.fairness_summary && (
+                    <p style={{ margin: '0 0 10px', fontSize: '0.83rem', color: '#374151' }}>
+                      {craftPassport.fair_craft_breakdown.fairness_summary}
+                    </p>
+                  )}
+                  <Link
+                    to={`/passport/${craftPassport.passport_code}`}
+                    className="cp-btn cp-btn-primary cp-btn-sm"
+                  >
+                    Open Full Craft Passport &amp; Timeline &rarr;
+                  </Link>
+                </div>
+                <Link
+                  to={`/passport/${craftPassport.passport_code}`}
+                  className="cp-qr-box"
+                  style={{ textDecoration: 'none' }}
+                  aria-label="Open Craft Passport via QR"
+                >
+                  <img
+                    src={passportQrSvgUrl(craftPassport.passport_code)}
+                    alt={`QR Code for ${craftPassport.passport_code}`}
+                    style={{ width: 96, height: 96 }}
+                  />
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#14382a', fontFamily: 'monospace' }}>
+                    {craftPassport.passport_code}
+                  </span>
+                </Link>
+              </div>
+            </div>
+
+            <BuyerAssistantDrawer
+              passportCode={craftPassport.passport_code}
+              productName={product.title}
+            />
+          </section>
+        )}
 
         <section className="pdp-suggestions-section" id="pdp-suggestions-section">
           <div className="pdp-section-header-split">

@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     gi_llm_provider: str = Field(default="disabled")
     gi_reference_dataset_version: str = Field(default="unconfigured")
 
+    # CraftProof AI & Local Ollama Gateway (provider-agnostic: ollama | groq | gemini | fallback)
+    ai_provider: str = Field(default="ollama")
+    ollama_base_url: str = Field(default="http://127.0.0.1:11434")
+    ollama_model: str = Field(default="qwen2.5:3b")
+    ai_timeout_seconds: int = Field(default=20, ge=3, le=90)
+    groq_api_key: SecretStr = Field(default=SecretStr(""))
+    groq_model: str = Field(default="llama-3.3-70b-versatile")
+    gemini_api_key: SecretStr = Field(default=SecretStr(""))
+    gemini_model: str = Field(default="gemini-2.0-flash-lite")
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]

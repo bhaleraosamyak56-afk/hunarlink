@@ -24,6 +24,8 @@ import ProductPage from './pages/ProductPage.jsx';
 import CategoryPage from './pages/CategoryPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 import WholesalePage from './pages/WholesalePage.jsx';
+import './styles/craftproof.css';
+const PassportPage = lazy(() => import('./pages/PassportPage.jsx'));
 /* Split points. The storefront, product page and artisan auth are the hot
    path — a visitor lands on one of them and only sometimes clicks onward — so
    those stay in the main bundle. The consoles and the account pages are
@@ -233,6 +235,7 @@ export default function App() {
         <Route path="/artisans/:slug" element={<ArtisanProfilePage />} />
         <Route path="/product" element={<ProductPage />} />
         <Route path="/product.html" element={<ProductPage />} />
+        <Route path="/passport/:code" element={<PassportPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/auth.html" element={<AuthPage />} />
         <Route path="/sso-callback" element={<SsoCallbackPage />} />

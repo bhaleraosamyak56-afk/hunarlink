@@ -1,0 +1,295 @@
+/* ==========================================================================
+   craftproof.css — Strictly additive styling for CraftProof AI Passports,
+   Voice Artisan Copilot, Adversarial Claim Auditor & Demand Bridge Clusters.
+   Uses scoped `.cp-*` classes so existing storefront/portal CSS is untouched.
+   ========================================================================== */
+
+.cp-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+  color: #1c2822;
+}
+
+.cp-card {
+  background: #fffdf8;
+  border: 1px solid rgba(20, 56, 42, 0.14);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 6px 24px rgba(17, 36, 27, 0.05);
+}
+
+.cp-card-emerald {
+  background: linear-gradient(135deg, #102f23 0%, #194735 100%);
+  color: #faf6ee;
+  border-radius: 18px;
+  padding: 26px 28px;
+  box-shadow: 0 14px 36px rgba(16, 47, 35, 0.22);
+}
+
+.cp-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b45309;
+  margin-bottom: 6px;
+}
+
+.cp-card-emerald .cp-kicker {
+  color: #f6c453;
+}
+
+.cp-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.cp-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 860px) {
+  .cp-grid-2,
+  .cp-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Explicit 7-State Provenance Badges */
+.cp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cp-badge--HUMAN_VERIFIED,
+.cp-badge--THIRD_PARTY_VERIFIED {
+  background: #dcfce7;
+  color: #14532d;
+  border: 1px solid #86efac;
+}
+
+.cp-badge--EVIDENCE_SUBMITTED,
+.cp-badge--UNDER_REVIEW {
+  background: #dbeafe;
+  color: #1e3a8a;
+  border: 1px solid #93c5fd;
+}
+
+.cp-badge--SELLER_DECLARED {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.cp-badge--NOT_ESTABLISHED {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.cp-badge--REJECTED,
+.cp-badge--HIGH {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.cp-badge--MEDIUM {
+  background: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.cp-badge--LOW,
+.cp-badge--CONSISTENT_FOR_HUMAN_REVIEW {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.cp-badge--MISMATCH_DETECTED {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.cp-badge--NEEDS_HUMAN_VISUAL_INSPECTION {
+  background: #e0f2fe;
+  color: #075985;
+  border: 1px solid #7dd3fc;
+}
+
+/* Buttons */
+.cp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, opacity 0.12s ease, background 0.15s ease;
+  text-decoration: none;
+}
+
+.cp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cp-btn-primary {
+  background: #14382a;
+  color: #fffdf8;
+}
+
+.cp-btn-primary:hover:not(:disabled) {
+  background: #1d4e3b;
+}
+
+.cp-btn-saffron {
+  background: #d97706;
+  color: #ffffff;
+}
+
+.cp-btn-saffron:hover:not(:disabled) {
+  background: #b45309;
+}
+
+.cp-btn-outline {
+  background: transparent;
+  color: #14382a;
+  border-color: rgba(20, 56, 42, 0.28);
+}
+
+.cp-btn-outline:hover:not(:disabled) {
+  background: rgba(20, 56, 42, 0.06);
+}
+
+.cp-btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.cp-btn-sm {
+  padding: 6px 11px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+/* Split Claim Columns */
+.cp-claim-item {
+  border: 1px solid rgba(20, 56, 42, 0.12);
+  border-radius: 12px;
+  padding: 13px 15px;
+  background: #ffffff;
+  margin-bottom: 10px;
+}
+
+.cp-claim-item--verified {
+  border-left: 4px solid #15803d;
+  background: #f6fef9;
+}
+
+.cp-claim-item--unverified {
+  border-left: 4px solid #d97706;
+  background: #fffcf5;
+}
+
+.cp-claim-item--rejected {
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+}
+
+/* QR container */
+.cp-qr-box {
+  background: #fffdf8;
+  border: 2px solid rgba(246, 196, 83, 0.55);
+  border-radius: 14px;
+  padding: 10px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.cp-qr-box img {
+  width: 132px;
+  height: 132px;
+  display: block;
+}
+
+/* Score breakdown bars */
+.cp-score-bar-track {
+  height: 7px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cp-score-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #14382a, #d97706);
+  border-radius: 999px;
+}
+
+/* Timeline */
+.cp-timeline-item {
+  position: relative;
+  padding-left: 20px;
+  padding-bottom: 14px;
+  border-left: 2px solid rgba(20, 56, 42, 0.16);
+}
+
+.cp-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #14382a;
+}
+
+.cp-timeline-item--ai::before {
+  background: #d97706;
+}
+
+.cp-timeline-item--verified::before {
+  background: #15803d;
+}
+
+.cp-disclaimer-banner {
+  background: #fef9c3;
+  border: 1px solid #facc15;
+  color: #713f12;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.cp-voice-pulse {
+  animation: cpPulse 1.2s infinite;
+}
+
+@keyframes cpPulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+  70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
