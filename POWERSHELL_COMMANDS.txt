@@ -9,7 +9,6 @@ mysql --version
 python --version
 node --version
 npm --version
-redis-cli ping
 git --version
 
 # ============================================================
@@ -51,9 +50,6 @@ notepad backend\.env
 # MYSQL_CHARSET=utf8mb4
 # DATABASE_URL=
 # ADMIN_JWT_SECRET=long_random_32+_chars_change_me
-# REDIS_ENABLED=true
-# REDIS_HOST=127.0.0.1
-# REDIS_PORT=6379
 # CLERK_ISSUER / CLERK_JWKS_URL / CLERK_AUDIENCE (from Clerk dashboard)
 # RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET (rzp_test_*)
 # RAZORPAY_WEBHOOK_SECRET
@@ -105,14 +101,7 @@ npm run build
 npm run preview
 
 # ============================================================
-# 7. Run — Terminal 3: Redis (if not as Windows service)
-# ============================================================
-redis-server
-redis-cli ping
-redis-cli INFO server
-
-# ============================================================
-# 7. Run — Terminal 4: HunarSathi Chatbot :5050 (optional)
+# 7. Run — Terminal 3: HunarSathi Chatbot :5050 (optional)
 # ============================================================
 cd hunarsathi-chatbot
 ..\backend\.venv\Scripts\python.exe server.py
@@ -135,7 +124,7 @@ cd backend
 cd ..
 
 # ============================================================
-# 10. Tests (96 tests, SQLite in-memory, no live DB needed)
+# 10. Tests (SQLite in-memory, no live DB needed)
 # ============================================================
 backend\.venv\Scripts\python.exe -m pytest backend/tests -v
 backend\.venv\Scripts\python.exe -m pytest backend/tests/test_asigs_guardrails.py -v
@@ -145,12 +134,10 @@ backend\.venv\Scripts\python.exe -m pytest backend/tests/test_craftproof_ai_dema
 backend\.venv\Scripts\python.exe -m pytest backend/tests/test_redis_integration.py -v
 
 # ============================================================
-# 11. Cache — Fix stale delete (when you DELETE FROM seller_profiles in Workbench)
+# 11. MySQL-direct — Workbench DELETEs reflect instantly
 # ============================================================
-redis-cli FLUSHDB
-redis-cli KEYS "hl:*"
-redis-cli DEL "hl:cache:artisans:v1:list"
-# Then restart backend: Ctrl+C then uvicorn command again
+# No cache layer. After DELETE FROM ... + COMMIT in Workbench, just refresh site (Ctrl+Shift+R).
+# If you still see old data, restart backend: Ctrl+C then uvicorn command again.
 
 # ============================================================
 # 12. API quick checks (PowerShell)

@@ -1,7 +1,8 @@
-# HunarLink — Redis Architecture Analysis & Implementation Plan
+# HunarLink — Redis Architecture Analysis & Implementation Plan (ARCHIVED — Redis Removed Nov 2026)
 
-> **Status:** Implemented & Verified (`91/91` automated backend tests passing)  
-> **Repository:** `hunarlink` (React 19 + Vite Frontend · FastAPI + SQLAlchemy 2.x Backend · MySQL 8.0/8.4 LTS · Redis)
+> **Status:** ARCHIVED — Redis removed, MySQL-direct mode active (`91/91` tests passing without Redis)  
+> **Repository:** `hunarlink` (React + Vite Frontend · FastAPI + SQLAlchemy 2.x Backend · MySQL 8.0/8.4 LTS — no Redis)
+> **Note:** This document is kept for historical reference. Workbench `DELETE` + `COMMIT` now reflects instantly on next request.
 
 ---
 
