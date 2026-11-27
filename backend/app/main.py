@@ -6,7 +6,10 @@ Wires together:
   - ASIGS Advanced Seller Input Guardrail System (`/api/v1/...`)
   - Razorpay Standard Checkout, Webhooks, Refunds, Admin Ops (`/api/v1/...`)
   - Safe health endpoints (`/healthz`, `/readyz`) with zero secret exposure
+
+MySQL is the single source of truth — no Redis cache layer.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,10 +24,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine, func, inspect, select, text
 from sqlalchemy.orm import Session
 
-from app.core.cache import build_key, cache_get_or_set, get_namespace_version
 from app.core.config import Settings, get_settings
 from app.core.database import get_db, get_engine, get_session_factory
-from app.core.redis_client import close_redis_client, configure_redis, probe_redis_health
 from app.core.security import CorrelationAndHeadersMiddleware
 from app.models.base import Base
 from app.models.core_models import SellerProductListing
@@ -128,16 +129,14 @@ def _bootstrap_dev_catalog_if_empty(settings: Settings) -> None:
 
 def create_app(settings_override: Settings | None = None) -> FastAPI:
     settings = settings_override or get_settings()
-    configure_redis(settings)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        configure_redis(settings)
         _bootstrap_dev_catalog_if_empty(settings)
         try:
             yield
         finally:
-            close_redis_client()
+            pass
 
     application = FastAPI(
         title=settings.app_name,
@@ -215,68 +214,49 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         public_artisans = 0
         public_listings = 0
         try:
-            # Always verify live database connectivity (`SELECT 1`) directly
             db.execute(text("SELECT 1"))
             db_connected = True
             if db.bind is not None:
                 dialect_name = db.bind.dialect.name
 
-            def _load_public_counts() -> dict[str, int]:
-                artisans_cnt = int(
-                    db.execute(
-                        text(
-                            "SELECT COUNT(*) FROM seller_profiles sp "
-                            "JOIN users u ON u.id = sp.user_id "
-                            "WHERE u.account_status = 'ACTIVE' "
-                            "AND sp.profile_status = 'ACTIVE' "
-                            "AND sp.verification_status = 'APPROVED'"
-                        )
-                    ).scalar()
-                    or 0
-                )
-                listings_cnt = int(
-                    db.execute(
-                        text(
-                            "SELECT COUNT(*) FROM seller_product_listings spl "
-                            "JOIN products p ON p.id = spl.product_id "
-                            "JOIN seller_profiles sp ON sp.id = spl.seller_profile_id "
-                            "JOIN users u ON u.id = sp.user_id "
-                            "WHERE spl.listing_status = 'ACTIVE' "
-                            "AND p.is_active = 1 "
-                            "AND p.approval_status = 'APPROVED' "
-                            "AND u.account_status = 'ACTIVE' "
-                            "AND sp.profile_status = 'ACTIVE' "
-                            "AND sp.verification_status = 'APPROVED'"
-                        )
-                    ).scalar()
-                    or 0
-                )
-                return {
-                    "public_artisans": artisans_cnt,
-                    "public_listings": listings_cnt,
-                }
-
-            ver = get_namespace_version("admin", settings)
-            counts_key = build_key("cache", "readyz", f"v{ver}", "counts", settings=settings)
-            counts = cache_get_or_set(
-                counts_key,
-                ttl_seconds=settings.redis_ttl_readyz_counts_seconds,
-                loader=_load_public_counts,
-                jitter_ratio=0.0,
-                use_stampede_lock=False,
-                settings=settings,
+            # MySQL-direct — no cache, Workbench DELETEs reflect instantly
+            public_artisans = int(
+                db.execute(
+                    text(
+                        "SELECT COUNT(*) FROM seller_profiles sp "
+                        "JOIN users u ON u.id = sp.user_id "
+                        "WHERE u.account_status = 'ACTIVE' "
+                        "AND sp.profile_status = 'ACTIVE' "
+                        "AND sp.verification_status = 'APPROVED'"
+                    )
+                ).scalar()
+                or 0
             )
-            public_artisans = int(counts.get("public_artisans", 0))
-            public_listings = int(counts.get("public_listings", 0))
+            public_listings = int(
+                db.execute(
+                    text(
+                        "SELECT COUNT(*) FROM seller_product_listings spl "
+                        "JOIN products p ON p.id = spl.product_id "
+                        "JOIN seller_profiles sp ON sp.id = spl.seller_profile_id "
+                        "JOIN users u ON u.id = sp.user_id "
+                        "WHERE spl.listing_status = 'ACTIVE' "
+                        "AND p.is_active = 1 "
+                        "AND p.approval_status = 'APPROVED' "
+                        "AND u.account_status = 'ACTIVE' "
+                        "AND sp.profile_status = 'ACTIVE' "
+                        "AND sp.verification_status = 'APPROVED'"
+                    )
+                ).scalar()
+                or 0
+            )
         except Exception:
             logger.warning("Readiness probe could not reach configured database.")
 
-        redis_probe = probe_redis_health(settings)
         payload = {
             "status": "ready" if db_connected else "degraded",
             "database": "connected" if db_connected else "unavailable",
             "database_dialect": dialect_name,
-            "redis": redis_probe["status"],
+            "redis": "disabled",
             "public_artisans": public_artisans,
             "public_listings": public_listings,
             "clerk_configured": bool(

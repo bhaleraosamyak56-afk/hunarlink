@@ -1,4 +1,5 @@
 """Typed application settings loaded from environment variables (never hardcoded)."""
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -75,19 +76,8 @@ class Settings(BaseSettings):
     gi_llm_provider: str = Field(default="disabled")
     gi_reference_dataset_version: str = Field(default="unconfigured")
 
-    # CraftProof AI & Local Ollama Gateway (provider-agnostic: ollama | groq | gemini | fallback)
-    ai_provider: str = Field(default="ollama")
-    ollama_base_url: str = Field(default="http://127.0.0.1:11434")
-    ollama_model: str = Field(default="qwen2.5:3b")
-    ai_timeout_seconds: int = Field(default=20, ge=3, le=90)
-    groq_api_key: SecretStr = Field(default=SecretStr(""))
-    groq_model: str = Field(default="llama-3.3-70b-versatile")
-    gemini_api_key: SecretStr = Field(default=SecretStr(""))
-    gemini_model: str = Field(default="gemini-2.0-flash-lite")
-
-    # Redis Cache, Admin Session Revocation & Distributed Rate Limiting
-    # MySQL is always authoritative; Redis degrades gracefully when unavailable.
-    redis_enabled: bool = Field(default=True)
+    # Legacy Redis settings — kept for .env compat, ignored (MySQL-direct mode)
+    redis_enabled: bool = Field(default=False)
     redis_url: str = Field(default="")
     redis_host: str = Field(default="127.0.0.1")
     redis_port: int = Field(default=6379, ge=1, le=65535)
@@ -97,8 +87,6 @@ class Settings(BaseSettings):
     redis_key_prefix: str = Field(default="hl")
     redis_socket_timeout_seconds: float = Field(default=0.5, ge=0.05, le=10.0)
     redis_circuit_cooldown_seconds: float = Field(default=15.0, ge=1.0, le=300.0)
-
-    # Redis domain TTLs (seconds)
     redis_ttl_catalog_list_seconds: int = Field(default=300, ge=5)
     redis_ttl_catalog_detail_seconds: int = Field(default=600, ge=5)
     redis_ttl_artisans_list_seconds: int = Field(default=300, ge=5)
@@ -110,6 +98,16 @@ class Settings(BaseSettings):
     redis_ttl_readyz_counts_seconds: int = Field(default=30, ge=5)
     redis_ttl_ai_status_seconds: int = Field(default=30, ge=5)
     redis_ttl_admin_overview_seconds: int = Field(default=15, ge=5)
+
+    # CraftProof AI & Local Ollama Gateway (provider-agnostic: ollama | groq | gemini | fallback)
+    ai_provider: str = Field(default="ollama")
+    ollama_base_url: str = Field(default="http://127.0.0.1:11434")
+    ollama_model: str = Field(default="qwen2.5:3b")
+    ai_timeout_seconds: int = Field(default=20, ge=3, le=90)
+    groq_api_key: SecretStr = Field(default=SecretStr(""))
+    groq_model: str = Field(default="llama-3.3-70b-versatile")
+    gemini_api_key: SecretStr = Field(default=SecretStr(""))
+    gemini_model: str = Field(default="gemini-2.0-flash-lite")
 
     @property
     def cors_origins_list(self) -> List[str]:

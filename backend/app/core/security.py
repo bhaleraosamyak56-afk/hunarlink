@@ -1,4 +1,5 @@
 """Security middleware: correlation IDs, HTTP security headers, secret redaction, rate limiting."""
+
 from __future__ import annotations
 
 import math
@@ -9,11 +10,7 @@ from collections import defaultdict, deque
 from typing import Any
 
 from fastapi import Request, Response
-from redis.exceptions import RedisError
 from starlette.middleware.base import BaseHTTPMiddleware
-
-from app.core.cache import build_key
-from app.core.redis_client import get_redis_client, mark_redis_unavailable
 
 SENSITIVE_KEYS = {
     "password",
@@ -70,12 +67,10 @@ class CorrelationAndHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class SlidingWindowRateLimiter:
-    """Distributed Redis ZSET sliding-window rate limiter with in-memory fallback.
+    """In-memory sliding-window rate limiter (MySQL-direct, no Redis).
 
-    - Primary backend: Redis Sorted Set (`hl:rl:{scope}:{key}`) shared across all
-      Uvicorn/Gunicorn workers, expiring automatically after `window_seconds`.
-    - Fallback backend: Thread-safe in-process `deque` whenever Redis is disabled
-      or circuit-broken, guaranteeing uninterrupted protection with zero 500s.
+    Thread-safe deque per key, shared within this worker process.
+    For production multi-worker deploys, put a gateway rate limiter in front.
     """
 
     def __init__(
@@ -109,35 +104,4 @@ class SlidingWindowRateLimiter:
             return True, 0
 
     def allow(self, key: str) -> tuple[bool, int]:
-        client = get_redis_client()
-        if client is None:
-            return self._allow_in_memory(key)
-
-        now_ms = int(time.time() * 1000)
-        window_ms = int(self.window_seconds * 1000)
-        cutoff_ms = now_ms - window_ms
-        member = f"{now_ms}:{uuid.uuid4().hex[:8]}"
-        rkey = build_key("rl", self.scope, key)
-
-        try:
-            pipe = client.pipeline(transaction=True)
-            pipe.zremrangebyscore(rkey, "-inf", cutoff_ms)
-            pipe.zadd(rkey, {member: now_ms})
-            pipe.zcard(rkey)
-            pipe.zrange(rkey, 0, 0, withscores=True)
-            pipe.expire(rkey, self.window_seconds)
-            _, _, count_after_add, oldest_entries, _ = pipe.execute()
-
-            if int(count_after_add) > self.max_requests:
-                client.zrem(rkey, member)
-                retry_ms = window_ms
-                if oldest_entries:
-                    _, oldest_score = oldest_entries[0]
-                    retry_ms = max(1000, int(oldest_score + window_ms - now_ms))
-                retry_after = max(1, int(math.ceil(retry_ms / 1000.0)))
-                return False, retry_after
-
-            return True, 0
-        except (RedisError, OSError) as exc:
-            mark_redis_unavailable(exc)
-            return self._allow_in_memory(key)
+        return self._allow_in_memory(key)
